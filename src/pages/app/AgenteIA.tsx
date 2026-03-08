@@ -21,7 +21,7 @@ const quickActions = [
 ];
 
 const AgenteIA = () => {
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
 
   const sendMessage = (text: string) => {
