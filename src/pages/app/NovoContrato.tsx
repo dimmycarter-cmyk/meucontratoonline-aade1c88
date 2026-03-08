@@ -156,6 +156,31 @@ const NovoContrato = () => {
 
   const handleBack = () => setCurrentStep((s) => Math.max(s - 1, 1));
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !profile?.tenant_id) return;
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const filePath = `${profile.tenant_id}/${Date.now()}-${file.name}`;
+        const { error } = await supabase.storage.from("contract-documents").upload(filePath, file);
+        if (error) {
+          toast({ title: "Erro ao enviar arquivo", description: error.message, variant: "destructive" });
+          continue;
+        }
+        setUploadedFiles((prev) => [...prev, { name: file.name, path: filePath, size: file.size, mime_type: file.type }]);
+      }
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveFile = async (filePath: string) => {
+    await supabase.storage.from("contract-documents").remove([filePath]);
+    setUploadedFiles((prev) => prev.filter((f) => f.path !== filePath));
+  };
+
   const canProceed = () => {
     switch (currentStep) {
       case 1: return !!selectedTemplateId;
