@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2, ClipboardList, Database, BookOpen, Edit3, Check, Printer } from "lucide-react";
+import { FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2, ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,19 @@ import { useContacts, Contact } from "@/hooks/useContacts";
 import { useCompanies, Company } from "@/hooks/useCompanies";
 import { useClauses, Clause } from "@/hooks/useClauses";
 import { useContracts } from "@/hooks/useContracts";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import { useToast } from "@/hooks/use-toast";
+
+type UploadedFile = {
+  name: string;
+  path: string;
+  size: number;
+  mime_type: string;
+};
 
 const steps = [
   { id: 1, label: "Modelo", icon: FileText },
