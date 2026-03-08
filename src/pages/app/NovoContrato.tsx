@@ -442,13 +442,50 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* Step 3: Documents Checklist */}
+      {/* Step 3: Documents */}
       {currentStep === 3 && (
-        <div className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-foreground">Documentos Necessários</h2>
-          <p className="text-sm text-muted-foreground">Confirme que todos os documentos foram verificados antes de prosseguir.</p>
+        <div className="space-y-6">
+          <h2 className="font-display text-lg font-semibold text-foreground">Documentos</h2>
+          <p className="text-sm text-muted-foreground">Envie os documentos necessários e confirme o checklist.</p>
+
+          {/* Upload Area */}
           <Card className="shadow-card">
-            <CardContent className="pt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4" /> Upload de Documentos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-muted/50">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Clique para enviar arquivos</span>
+                <span className="text-xs text-muted-foreground">PDF, JPG, PNG (máx 20MB)</span>
+                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+              </label>
+              {isUploading && <p className="mt-2 text-xs text-muted-foreground">Enviando...</p>}
+              {uploadedFiles.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {uploadedFiles.map((file) => (
+                    <div key={file.path} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <File className="h-4 w-4 text-primary" />
+                        <span className="text-sm text-foreground">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveFile(file.path)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Checklist */}
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Checklist de Documentos</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-3">
                 {documentChecklist.map((doc) => (
                   <label key={doc} className="flex items-center gap-3 cursor-pointer">
