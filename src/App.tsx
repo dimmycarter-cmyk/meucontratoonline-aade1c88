@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import Contatos from "./pages/app/Contatos";
 import Empresas from "./pages/app/Empresas";
 import Contratos from "./pages/app/Contratos";
+import ContratoDetalhe from "./pages/app/ContratoDetalhe";
 import NovoContrato from "./pages/app/NovoContrato";
 import Modelos from "./pages/app/Modelos";
 import Clausulas from "./pages/app/Clausulas";
