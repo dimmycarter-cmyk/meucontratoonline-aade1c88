@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import Contatos from "./pages/app/Contatos";
 import Empresas from "./pages/app/Empresas";
 import Contratos from "./pages/app/Contratos";
+import ContratoDetalhe from "./pages/app/ContratoDetalhe";
 import NovoContrato from "./pages/app/NovoContrato";
 import Modelos from "./pages/app/Modelos";
 import Clausulas from "./pages/app/Clausulas";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="contatos" element={<Contatos />} />
               <Route path="empresas" element={<Empresas />} />
               <Route path="contratos" element={<Contratos />} />
+              <Route path="contratos/:id" element={<ContratoDetalhe />} />
               <Route path="novo-contrato" element={<NovoContrato />} />
               <Route path="modelos" element={<Modelos />} />
               <Route path="clausulas" element={<Clausulas />} />

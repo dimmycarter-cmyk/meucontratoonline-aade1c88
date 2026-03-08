@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2, ClipboardList, Database, BookOpen, Edit3, Check, Printer } from "lucide-react";
+import { FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2, ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,19 @@ import { useContacts, Contact } from "@/hooks/useContacts";
 import { useCompanies, Company } from "@/hooks/useCompanies";
 import { useClauses, Clause } from "@/hooks/useClauses";
 import { useContracts } from "@/hooks/useContracts";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import { useToast } from "@/hooks/use-toast";
+
+type UploadedFile = {
+  name: string;
+  path: string;
+  size: number;
+  mime_type: string;
+};
 
 const steps = [
   { id: 1, label: "Modelo", icon: FileText },
@@ -46,6 +55,7 @@ const NovoContrato = () => {
   const { companies, isLoading: loadingCompanies } = useCompanies();
   const { clauses, isLoading: loadingClauses } = useClauses();
   const { createContract, isCreating } = useContracts();
+  const { profile } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -60,6 +70,8 @@ const NovoContrato = () => {
   const [searchContacts, setSearchContacts] = useState("");
   const [searchCompanies, setSearchCompanies] = useState("");
   const [checkedDocs, setCheckedDocs] = useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
   const comprador = contacts.find((c) => c.id === compradorId);
@@ -144,6 +156,31 @@ const NovoContrato = () => {
 
   const handleBack = () => setCurrentStep((s) => Math.max(s - 1, 1));
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !profile?.tenant_id) return;
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const filePath = `${profile.tenant_id}/${Date.now()}-${file.name}`;
+        const { error } = await supabase.storage.from("contract-documents").upload(filePath, file);
+        if (error) {
+          toast({ title: "Erro ao enviar arquivo", description: error.message, variant: "destructive" });
+          continue;
+        }
+        setUploadedFiles((prev) => [...prev, { name: file.name, path: filePath, size: file.size, mime_type: file.type }]);
+      }
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveFile = async (filePath: string) => {
+    await supabase.storage.from("contract-documents").remove([filePath]);
+    setUploadedFiles((prev) => prev.filter((f) => f.path !== filePath));
+  };
+
   const canProceed = () => {
     switch (currentStep) {
       case 1: return !!selectedTemplateId;
@@ -158,7 +195,6 @@ const NovoContrato = () => {
 
   const handleSave = async () => {
     try {
-      // Build clause content for final doc
       let fullContent = conteudoFinal;
       if (selectedClauses.length > 0) {
         fullContent += "\n\n<h2>CLÁUSULAS</h2>\n";
@@ -167,7 +203,7 @@ const NovoContrato = () => {
         });
       }
 
-      await createContract({
+      const contract = await createContract({
         nome: nomeContrato || `Contrato - ${comprador?.nome || ""}`,
         template_id: selectedTemplateId,
         comprador_id: compradorId,
@@ -181,6 +217,21 @@ const NovoContrato = () => {
         valor_sinal: dados.valor_sinal ? parseFloat(dados.valor_sinal.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
         valor_financiamento: dados.valor_financiamento ? parseFloat(dados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
       });
+
+      // Save document references
+      if (uploadedFiles.length > 0 && contract?.id && profile?.tenant_id) {
+        for (const file of uploadedFiles) {
+          await supabase.from("contract_documents").insert({
+            contract_id: contract.id,
+            tenant_id: profile.tenant_id,
+            file_name: file.name,
+            file_path: file.path,
+            file_size: file.size,
+            mime_type: file.mime_type,
+          } as any);
+        }
+      }
+
       navigate("/app/contratos");
     } catch (e) {
       // error handled by hook
@@ -391,13 +442,50 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* Step 3: Documents Checklist */}
+      {/* Step 3: Documents */}
       {currentStep === 3 && (
-        <div className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-foreground">Documentos Necessários</h2>
-          <p className="text-sm text-muted-foreground">Confirme que todos os documentos foram verificados antes de prosseguir.</p>
+        <div className="space-y-6">
+          <h2 className="font-display text-lg font-semibold text-foreground">Documentos</h2>
+          <p className="text-sm text-muted-foreground">Envie os documentos necessários e confirme o checklist.</p>
+
+          {/* Upload Area */}
           <Card className="shadow-card">
-            <CardContent className="pt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4" /> Upload de Documentos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-muted/50">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Clique para enviar arquivos</span>
+                <span className="text-xs text-muted-foreground">PDF, JPG, PNG (máx 20MB)</span>
+                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+              </label>
+              {isUploading && <p className="mt-2 text-xs text-muted-foreground">Enviando...</p>}
+              {uploadedFiles.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {uploadedFiles.map((file) => (
+                    <div key={file.path} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <File className="h-4 w-4 text-primary" />
+                        <span className="text-sm text-foreground">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveFile(file.path)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Checklist */}
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Checklist de Documentos</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-3">
                 {documentChecklist.map((doc) => (
                   <label key={doc} className="flex items-center gap-3 cursor-pointer">
