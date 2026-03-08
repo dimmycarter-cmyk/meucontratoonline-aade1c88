@@ -14,16 +14,293 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      companies: {
+        Row: {
+          agencia: string | null
+          bairro: string | null
+          banco: string | null
+          cep: string | null
+          cidade: string | null
+          cnpj: string | null
+          complemento: string | null
+          conta: string | null
+          created_at: string
+          email: string | null
+          estado: string | null
+          id: string
+          logo_url: string | null
+          nome_fantasia: string
+          numero: string | null
+          pix: string | null
+          razao_social: string | null
+          rua: string | null
+          tenant_id: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          agencia?: string | null
+          bairro?: string | null
+          banco?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          complemento?: string | null
+          conta?: string | null
+          created_at?: string
+          email?: string | null
+          estado?: string | null
+          id?: string
+          logo_url?: string | null
+          nome_fantasia: string
+          numero?: string | null
+          pix?: string | null
+          razao_social?: string | null
+          rua?: string | null
+          tenant_id: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          agencia?: string | null
+          bairro?: string | null
+          banco?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          complemento?: string | null
+          conta?: string | null
+          created_at?: string
+          email?: string | null
+          estado?: string | null
+          id?: string
+          logo_url?: string | null
+          nome_fantasia?: string
+          numero?: string | null
+          pix?: string | null
+          razao_social?: string | null
+          rua?: string | null
+          tenant_id?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts: {
+        Row: {
+          agencia: string | null
+          bairro: string | null
+          banco: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          conta: string | null
+          cpf: string | null
+          created_at: string
+          data_nascimento: string | null
+          email: string | null
+          estado: string | null
+          estado_civil: string | null
+          genero: string | null
+          id: string
+          nacionalidade: string | null
+          nome: string
+          numero: string | null
+          orgao_expedidor: string | null
+          pix: string | null
+          profissao: string | null
+          rg: string | null
+          rua: string | null
+          tenant_id: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          agencia?: string | null
+          bairro?: string | null
+          banco?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          conta?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string | null
+          estado?: string | null
+          estado_civil?: string | null
+          genero?: string | null
+          id?: string
+          nacionalidade?: string | null
+          nome: string
+          numero?: string | null
+          orgao_expedidor?: string | null
+          pix?: string | null
+          profissao?: string | null
+          rg?: string | null
+          rua?: string | null
+          tenant_id: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          agencia?: string | null
+          bairro?: string | null
+          banco?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          conta?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string | null
+          estado?: string | null
+          estado_civil?: string | null
+          genero?: string | null
+          id?: string
+          nacionalidade?: string | null
+          nome?: string
+          numero?: string | null
+          orgao_expedidor?: string | null
+          pix?: string | null
+          profissao?: string | null
+          rg?: string | null
+          rua?: string | null
+          tenant_id?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          id: string
+          nome: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id: string
+          nome?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          nome?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          slug: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          slug: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          slug?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "super_admin"
+        | "admin_empresa"
+        | "corretor"
+        | "assistente"
+        | "operacional"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +427,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "super_admin",
+        "admin_empresa",
+        "corretor",
+        "assistente",
+        "operacional",
+      ],
+    },
   },
 } as const
