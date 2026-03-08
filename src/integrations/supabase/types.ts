@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      clauses: {
+        Row: {
+          ativa: boolean
+          categoria: string
+          conteudo: string
+          created_at: string
+          id: string
+          ordem: number
+          tenant_id: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          ativa?: boolean
+          categoria?: string
+          conteudo?: string
+          created_at?: string
+          id?: string
+          ordem?: number
+          tenant_id: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          ativa?: boolean
+          categoria?: string
+          conteudo?: string
+          created_at?: string
+          id?: string
+          ordem?: number
+          tenant_id?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clauses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           agencia: string | null
@@ -189,6 +233,53 @@ export type Database = {
           },
         ]
       }
+      contract_templates: {
+        Row: {
+          conteudo: string
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          status: string
+          tenant_id: string
+          tipo: string
+          updated_at: string
+          variaveis: Json
+        }
+        Insert: {
+          conteudo?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          status?: string
+          tenant_id: string
+          tipo?: string
+          updated_at?: string
+          variaveis?: Json
+        }
+        Update: {
+          conteudo?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          status?: string
+          tenant_id?: string
+          tipo?: string
+          updated_at?: string
+          variaveis?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -223,6 +314,42 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_clauses: {
+        Row: {
+          clause_id: string
+          id: string
+          ordem: number
+          template_id: string
+        }
+        Insert: {
+          clause_id: string
+          id?: string
+          ordem?: number
+          template_id: string
+        }
+        Update: {
+          clause_id?: string
+          id?: string
+          ordem?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_clauses_clause_id_fkey"
+            columns: ["clause_id"]
+            isOneToOne: false
+            referencedRelation: "clauses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_clauses_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
             referencedColumns: ["id"]
           },
         ]
