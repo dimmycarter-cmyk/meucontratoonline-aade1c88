@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { FileText, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,11 +14,35 @@ const ResetPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Check for recovery token in URL hash
+    const hash = window.location.hash;
+    if (hash && hash.includes("type=recovery")) {
+      // Supabase will auto-set the session from the hash
+    }
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      toast({ title: "Senhas não conferem", variant: "destructive" });
+      return;
+    }
+    if (password.length < 8) {
+      toast({ title: "A senha deve ter pelo menos 8 caracteres", variant: "destructive" });
+      return;
+    }
     setLoading(true);
-    setTimeout(() => { setLoading(false); setDone(true); }, 1000);
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (error) {
+      toast({ title: "Erro ao redefinir senha", description: error.message, variant: "destructive" });
+    } else {
+      setDone(true);
+    }
   };
 
   return (

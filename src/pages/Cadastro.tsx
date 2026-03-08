@@ -5,19 +5,66 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Cadastro = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
   const [form, setForm] = useState({ nome: "", email: "", password: "", confirmPassword: "" });
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      toast({ title: "Senhas não conferem", variant: "destructive" });
+      return;
+    }
+    if (form.password.length < 8) {
+      toast({ title: "A senha deve ter pelo menos 8 caracteres", variant: "destructive" });
+      return;
+    }
     setLoading(true);
-    setTimeout(() => setLoading(false), 1000);
+    const { error } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+      options: {
+        data: { nome: form.nome },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
+    } else {
+      setSent(true);
+    }
   };
 
   const updateField = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  if (sent) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-secondary/30 px-4">
+        <div className="w-full max-w-md">
+          <Card className="shadow-elevated">
+            <CardHeader className="text-center">
+              <CardTitle className="font-display text-2xl">Verifique seu e-mail</CardTitle>
+              <CardDescription>
+                Enviamos um link de confirmação para <strong>{form.email}</strong>. Clique no link para ativar sua conta.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Link to="/login">
+                <Button variant="outline" className="w-full">Voltar para login</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary/30 px-4">
