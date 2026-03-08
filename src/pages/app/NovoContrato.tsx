@@ -195,7 +195,6 @@ const NovoContrato = () => {
 
   const handleSave = async () => {
     try {
-      // Build clause content for final doc
       let fullContent = conteudoFinal;
       if (selectedClauses.length > 0) {
         fullContent += "\n\n<h2>CLÁUSULAS</h2>\n";
@@ -204,7 +203,7 @@ const NovoContrato = () => {
         });
       }
 
-      await createContract({
+      const contract = await createContract({
         nome: nomeContrato || `Contrato - ${comprador?.nome || ""}`,
         template_id: selectedTemplateId,
         comprador_id: compradorId,
@@ -218,6 +217,21 @@ const NovoContrato = () => {
         valor_sinal: dados.valor_sinal ? parseFloat(dados.valor_sinal.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
         valor_financiamento: dados.valor_financiamento ? parseFloat(dados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
       });
+
+      // Save document references
+      if (uploadedFiles.length > 0 && contract?.id && profile?.tenant_id) {
+        for (const file of uploadedFiles) {
+          await supabase.from("contract_documents").insert({
+            contract_id: contract.id,
+            tenant_id: profile.tenant_id,
+            file_name: file.name,
+            file_path: file.path,
+            file_size: file.size,
+            mime_type: file.mime_type,
+          } as any);
+        }
+      }
+
       navigate("/app/contratos");
     } catch (e) {
       // error handled by hook
