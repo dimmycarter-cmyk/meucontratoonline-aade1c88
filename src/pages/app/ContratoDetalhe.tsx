@@ -214,7 +214,7 @@ const ContratoDetalhe = () => {
 
       {/* Print view */}
       <div className="hidden print:block">
-        <ContractPrintView ref={printRef} content={contract.conteudo_final} contractName={contract.nome} />
+        <ContractPrintView ref={printRef} conteudo={contract.conteudo_final} nome={contract.nome} clausulas={[]} />
       </div>
     </div>
   );
