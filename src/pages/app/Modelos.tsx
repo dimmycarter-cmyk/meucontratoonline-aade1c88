@@ -1,58 +1,213 @@
-import { FileText, Plus, Eye, Copy, MoreHorizontal } from "lucide-react";
+import { useState } from "react";
+import { FileText, Plus, Trash2, Pencil, MoreHorizontal, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTemplates } from "@/hooks/useTemplates";
+import RichTextEditor from "@/components/RichTextEditor";
+import { useNavigate } from "react-router-dom";
 
-const mockModelos = [
-  { id: 1, nome: "Promessa de Compra e Venda (Financiado)", tipo: "Compra e Venda", campos: 32, clausulas: 18, status: "ativo" },
-  { id: 2, nome: "Promessa de Compra e Venda (À Vista)", tipo: "Compra e Venda", campos: 28, clausulas: 15, status: "ativo" },
-  { id: 3, nome: "Contrato de Locação Residencial", tipo: "Locação", campos: 24, clausulas: 20, status: "em breve" },
-  { id: 4, nome: "Contrato de Locação Comercial", tipo: "Locação", campos: 26, clausulas: 22, status: "em breve" },
-  { id: 5, nome: "Proposta de Compra", tipo: "Proposta", campos: 16, clausulas: 8, status: "em breve" },
-  { id: 6, nome: "Contrato de Intermediação Imobiliária", tipo: "Intermediação", campos: 20, clausulas: 12, status: "em breve" },
-];
+const TIPOS = ["Compra e Venda", "Locação", "Proposta", "Intermediação", "Outro"];
 
 const Modelos = () => {
+  const { templates, isLoading, createTemplate, updateTemplate, deleteTemplate, isCreating, isSaving } = useTemplates();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ nome: "", descricao: "", tipo: "Compra e Venda" });
+  const [editorContent, setEditorContent] = useState("");
+  const [editorTemplate, setEditorTemplate] = useState<any>(null);
+
+  const handleNew = () => {
+    setForm({ nome: "", descricao: "", tipo: "Compra e Venda" });
+    setEditingId(null);
+    setDialogOpen(true);
+  };
+
+  const handleCreateOrUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingId) {
+      await updateTemplate({ id: editingId, ...form });
+    } else {
+      await createTemplate(form);
+    }
+    setDialogOpen(false);
+  };
+
+  const handleOpenEditor = (template: any) => {
+    setEditorTemplate(template);
+    setEditorContent(template.conteudo || "");
+    setEditorOpen(true);
+  };
+
+  const handleSaveContent = async () => {
+    if (!editorTemplate) return;
+    // Extract variables from content
+    const varMatches = editorContent.match(/\{\{(\w+)\}\}/g) || [];
+    const variaveis = [...new Set(varMatches.map((m: string) => m.replace(/\{\{|\}\}/g, "")))];
+    await updateTemplate({ id: editorTemplate.id, conteudo: editorContent, variaveis });
+    setEditorOpen(false);
+  };
+
+  const handleEdit = (template: any) => {
+    setForm({ nome: template.nome, descricao: template.descricao || "", tipo: template.tipo });
+    setEditingId(template.id);
+    setDialogOpen(true);
+  };
+
+  const handleDuplicate = async (template: any) => {
+    await createTemplate({
+      nome: `${template.nome} (Cópia)`,
+      descricao: template.descricao,
+      tipo: template.tipo,
+      conteudo: template.conteudo,
+      variaveis: template.variaveis,
+    });
+  };
+
+  const handlePublish = async (template: any) => {
+    await updateTemplate({ id: template.id, status: template.status === "ativo" ? "rascunho" : "ativo" });
+  };
+
+  if (editorOpen && editorTemplate) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div>
+            <h1 className="font-display text-lg font-bold text-foreground">{editorTemplate.nome}</h1>
+            <p className="text-xs text-muted-foreground">Editor de modelo — use o botão "Inserir Variável" para adicionar campos dinâmicos</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setEditorOpen(false)}>Voltar</Button>
+            <Button onClick={handleSaveContent} disabled={isSaving}>
+              {isSaving ? "Salvando..." : "Salvar Modelo"}
+            </Button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          <RichTextEditor content={editorContent} onChange={setEditorContent} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Modelos de Contrato</h1>
-          <p className="text-sm text-muted-foreground">Modelos disponíveis para geração de contratos</p>
+          <p className="text-sm text-muted-foreground">{templates.length} modelos cadastrados</p>
         </div>
-        <Button><Plus className="mr-2 h-4 w-4" /> Novo Modelo</Button>
+        <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Modelo</Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {mockModelos.map((modelo) => (
-          <Card key={modelo.id} className="shadow-card transition-all hover:shadow-elevated">
-            <CardContent className="p-5">
-              <div className="mb-3 flex items-start justify-between">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <Badge variant={modelo.status === "ativo" ? "default" : "secondary"} className="text-xs">
-                  {modelo.status === "ativo" ? "Ativo" : "Em breve"}
-                </Badge>
-              </div>
-              <h3 className="mb-1 font-display text-sm font-semibold text-foreground">{modelo.nome}</h3>
-              <p className="mb-3 text-xs text-muted-foreground">{modelo.tipo}</p>
-              <div className="mb-4 flex gap-2">
-                <Badge variant="secondary" className="text-xs">{modelo.campos} campos</Badge>
-                <Badge variant="secondary" className="text-xs">{modelo.clausulas} cláusulas</Badge>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" disabled={modelo.status !== "ativo"}>
-                  <Eye className="mr-1 h-3 w-3" /> Ver
-                </Button>
-                <Button variant="outline" size="sm" disabled={modelo.status !== "ativo"}>
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-48 w-full rounded-lg" />)}
+        </div>
+      ) : templates.length === 0 ? (
+        <Card className="shadow-card">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <FileText className="h-8 w-8" />
+            </div>
+            <h3 className="mb-2 font-display text-lg font-semibold text-foreground">Nenhum modelo ainda</h3>
+            <p className="mb-6 text-sm text-muted-foreground">Crie seu primeiro modelo de contrato com variáveis dinâmicas</p>
+            <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Criar Modelo</Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {templates.map((template) => {
+            const varCount = Array.isArray(template.variaveis) ? template.variaveis.length : 0;
+            return (
+              <Card key={template.id} className="shadow-card transition-all hover:shadow-elevated">
+                <CardContent className="p-5">
+                  <div className="mb-3 flex items-start justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={template.status === "ativo" ? "default" : "secondary"} className="text-xs">
+                        {template.status === "ativo" ? "Ativo" : "Rascunho"}
+                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(template)}>
+                            <Pencil className="mr-2 h-4 w-4" /> Editar Info
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicate(template)}>
+                            <Copy className="mr-2 h-4 w-4" /> Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePublish(template)}>
+                            <FileText className="mr-2 h-4 w-4" /> {template.status === "ativo" ? "Despublicar" : "Publicar"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => deleteTemplate(template.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  <h3 className="mb-1 font-display text-sm font-semibold text-foreground">{template.nome}</h3>
+                  <p className="mb-3 text-xs text-muted-foreground">{template.tipo}</p>
+                  {template.descricao && (
+                    <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">{template.descricao}</p>
+                  )}
+                  <div className="mb-4 flex gap-2">
+                    <Badge variant="secondary" className="text-xs">{varCount} variáveis</Badge>
+                  </div>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => handleOpenEditor(template)}>
+                    <Pencil className="mr-1 h-3 w-3" /> Editar Conteúdo
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Editar Modelo" : "Novo Modelo"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateOrUpdate} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Modelo *</Label>
+              <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required placeholder="Ex: Promessa de Compra e Venda" />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIPOS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Textarea value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} placeholder="Breve descrição do modelo..." rows={3} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={isCreating}>{editingId ? "Salvar" : "Criar Modelo"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
