@@ -1,30 +1,166 @@
 import { useState } from "react";
-import { Plus, Search, Filter, Download, MoreHorizontal, Mail, Phone } from "lucide-react";
+import { Plus, Search, Filter, Download, MoreHorizontal, Mail, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useContacts } from "@/hooks/useContacts";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const mockContatos = [
-  { id: 1, nome: "Maria Silva Santos", cpf: "123.456.789-00", email: "maria@email.com", whatsapp: "(11) 99999-1234", cidade: "São Paulo", estado: "SP", tipo: "Compradora" },
-  { id: 2, nome: "João Carlos Oliveira", cpf: "987.654.321-00", email: "joao@email.com", whatsapp: "(21) 98888-5678", cidade: "Rio de Janeiro", estado: "RJ", tipo: "Vendedor" },
-  { id: 3, nome: "Ana Paula Ferreira", cpf: "456.789.123-00", email: "ana@email.com", whatsapp: "(31) 97777-9012", cidade: "Belo Horizonte", estado: "MG", tipo: "Procuradora" },
-  { id: 4, nome: "Roberto Mendes Lima", cpf: "321.654.987-00", email: "roberto@email.com", whatsapp: "(41) 96666-3456", cidade: "Curitiba", estado: "PR", tipo: "Comprador" },
-  { id: 5, nome: "Carla Beatriz Costa", cpf: "789.123.456-00", email: "carla@email.com", whatsapp: "(51) 95555-7890", cidade: "Porto Alegre", estado: "RS", tipo: "Testemunha" },
-];
+const emptyContact = {
+  nome: "", cpf: "", rg: "", orgao_expedidor: "", profissao: "",
+  whatsapp: "", email: "", genero: "", nacionalidade: "Brasileiro(a)",
+  estado_civil: "", cep: "", estado: "", cidade: "", bairro: "",
+  rua: "", numero: "", complemento: "",
+};
 
 const Contatos = () => {
   const [search, setSearch] = useState("");
-  const filtered = mockContatos.filter((c) => c.nome.toLowerCase().includes(search.toLowerCase()));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState(emptyContact);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { contacts, isLoading, createContact, updateContact, deleteContact, isCreating } = useContacts();
+
+  const filtered = contacts.filter((c) =>
+    c.nome.toLowerCase().includes(search.toLowerCase()) ||
+    (c.cpf && c.cpf.includes(search)) ||
+    (c.email && c.email.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const updateField = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingId) {
+      await updateContact({ id: editingId, ...form });
+    } else {
+      await createContact(form);
+    }
+    setDialogOpen(false);
+    setForm(emptyContact);
+    setEditingId(null);
+  };
+
+  const handleEdit = (contact: any) => {
+    setForm({
+      nome: contact.nome || "", cpf: contact.cpf || "", rg: contact.rg || "",
+      orgao_expedidor: contact.orgao_expedidor || "", profissao: contact.profissao || "",
+      whatsapp: contact.whatsapp || "", email: contact.email || "",
+      genero: contact.genero || "", nacionalidade: contact.nacionalidade || "",
+      estado_civil: contact.estado_civil || "", cep: contact.cep || "",
+      estado: contact.estado || "", cidade: contact.cidade || "",
+      bairro: contact.bairro || "", rua: contact.rua || "",
+      numero: contact.numero || "", complemento: contact.complemento || "",
+    });
+    setEditingId(contact.id);
+    setDialogOpen(true);
+  };
+
+  const handleNew = () => {
+    setForm(emptyContact);
+    setEditingId(null);
+    setDialogOpen(true);
+  };
 
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Contatos</h1>
-          <p className="text-sm text-muted-foreground">{mockContatos.length} contatos cadastrados</p>
+          <p className="text-sm text-muted-foreground">{contacts.length} contatos cadastrados</p>
         </div>
-        <Button><Plus className="mr-2 h-4 w-4" /> Novo Contato</Button>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Contato</Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{editingId ? "Editar Contato" : "Novo Contato"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Nome completo *</Label>
+                  <Input value={form.nome} onChange={(e) => updateField("nome", e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>CPF</Label>
+                  <Input value={form.cpf} onChange={(e) => updateField("cpf", e.target.value)} placeholder="000.000.000-00" />
+                </div>
+                <div className="space-y-2">
+                  <Label>RG</Label>
+                  <Input value={form.rg} onChange={(e) => updateField("rg", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Órgão Expedidor</Label>
+                  <Input value={form.orgao_expedidor} onChange={(e) => updateField("orgao_expedidor", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Profissão</Label>
+                  <Input value={form.profissao} onChange={(e) => updateField("profissao", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>WhatsApp</Label>
+                  <Input value={form.whatsapp} onChange={(e) => updateField("whatsapp", e.target.value)} placeholder="(00) 00000-0000" />
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail</Label>
+                  <Input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Gênero</Label>
+                  <Input value={form.genero} onChange={(e) => updateField("genero", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nacionalidade</Label>
+                  <Input value={form.nacionalidade} onChange={(e) => updateField("nacionalidade", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado Civil</Label>
+                  <Input value={form.estado_civil} onChange={(e) => updateField("estado_civil", e.target.value)} />
+                </div>
+              </div>
+              <h3 className="pt-2 text-sm font-semibold text-foreground">Endereço</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>CEP</Label>
+                  <Input value={form.cep} onChange={(e) => updateField("cep", e.target.value)} placeholder="00000-000" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Input value={form.estado} onChange={(e) => updateField("estado", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cidade</Label>
+                  <Input value={form.cidade} onChange={(e) => updateField("cidade", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bairro</Label>
+                  <Input value={form.bairro} onChange={(e) => updateField("bairro", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rua</Label>
+                  <Input value={form.rua} onChange={(e) => updateField("rua", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Número</Label>
+                  <Input value={form.numero} onChange={(e) => updateField("numero", e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Complemento</Label>
+                  <Input value={form.complemento} onChange={(e) => updateField("complemento", e.target.value)} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+                <Button type="submit" disabled={isCreating}>{editingId ? "Salvar" : "Criar Contato"}</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="shadow-card">
@@ -34,50 +170,62 @@ const Contatos = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Buscar por nome, CPF ou e-mail..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm"><Filter className="mr-1 h-4 w-4" /> Filtros</Button>
-              <Button variant="outline" size="sm"><Download className="mr-1 h-4 w-4" /> Exportar</Button>
-            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome</th>
-                  <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CPF</th>
-                  <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">Contato</th>
-                  <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">Cidade</th>
-                  <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo</th>
-                  <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered.map((contato) => (
-                  <tr key={contato.id} className="transition-colors hover:bg-muted/50">
-                    <td className="py-3">
-                      <p className="text-sm font-medium text-foreground">{contato.nome}</p>
-                    </td>
-                    <td className="py-3 text-sm text-muted-foreground">{contato.cpf}</td>
-                    <td className="hidden py-3 md:table-cell">
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{contato.email}</span>
-                      </div>
-                    </td>
-                    <td className="hidden py-3 text-sm text-muted-foreground lg:table-cell">{contato.cidade}/{contato.estado}</td>
-                    <td className="py-3">
-                      <Badge variant="secondary" className="text-xs">{contato.tipo}</Badge>
-                    </td>
-                    <td className="py-3 text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
-                    </td>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome</th>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CPF</th>
+                    <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">Contato</th>
+                    <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">Cidade</th>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {filtered.length === 0 && (
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.map((contato) => (
+                    <tr key={contato.id} className="transition-colors hover:bg-muted/50">
+                      <td className="py-3">
+                        <p className="text-sm font-medium text-foreground">{contato.nome}</p>
+                      </td>
+                      <td className="py-3 text-sm text-muted-foreground">{contato.cpf || "—"}</td>
+                      <td className="hidden py-3 md:table-cell">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          {contato.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{contato.email}</span>}
+                        </div>
+                      </td>
+                      <td className="hidden py-3 text-sm text-muted-foreground lg:table-cell">
+                        {contato.cidade && contato.estado ? `${contato.cidade}/${contato.estado}` : "—"}
+                      </td>
+                      <td className="py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(contato)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => deleteContact(contato.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {!isLoading && filtered.length === 0 && (
             <div className="py-12 text-center text-sm text-muted-foreground">Nenhum contato encontrado.</div>
           )}
         </CardContent>

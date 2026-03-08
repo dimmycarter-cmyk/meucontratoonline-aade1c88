@@ -1,11 +1,12 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, FilePlus, Users, Building2, FileStack,
   ScrollText, History, Brain, Settings, LogOut, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const menuItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/app" },
@@ -24,11 +25,20 @@ const bottomItems = [
 
 const AppSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const { signOut, profile } = useAuth();
+  const { toast } = useToast();
 
   const isActive = (path: string) => {
     if (path === "/app") return location.pathname === "/app";
     return location.pathname.startsWith(path);
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    toast({ title: "Você saiu da sua conta" });
+    navigate("/login");
   };
 
   return (
@@ -51,6 +61,14 @@ const AppSidebar = () => {
       >
         {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
       </button>
+
+      {/* User info */}
+      {!collapsed && profile && (
+        <div className="border-b border-sidebar-border px-4 py-3">
+          <p className="truncate text-xs font-medium text-sidebar-primary-foreground">{profile.nome}</p>
+          <p className="truncate text-xs text-sidebar-foreground">{profile.email}</p>
+        </div>
+      )}
 
       {/* Menu */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
@@ -91,6 +109,7 @@ const AppSidebar = () => {
           </Link>
         ))}
         <button
+          onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           title={collapsed ? "Sair" : undefined}
         >
