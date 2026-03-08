@@ -56,7 +56,7 @@ export const useContacts = () => {
     mutationFn: async (contact: Partial<ContactInsert>) => {
       const { data, error } = await supabase
         .from("contacts")
-        .insert({ ...contact, tenant_id: profile!.tenant_id })
+        .insert({ ...contact, tenant_id: profile!.tenant_id } as any)
         .select()
         .single();
       if (error) throw error;
