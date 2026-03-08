@@ -55,6 +55,7 @@ const NovoContrato = () => {
   const { companies, isLoading: loadingCompanies } = useCompanies();
   const { clauses, isLoading: loadingClauses } = useClauses();
   const { createContract, isCreating } = useContracts();
+  const { profile } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -69,6 +70,8 @@ const NovoContrato = () => {
   const [searchContacts, setSearchContacts] = useState("");
   const [searchCompanies, setSearchCompanies] = useState("");
   const [checkedDocs, setCheckedDocs] = useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
   const comprador = contacts.find((c) => c.id === compradorId);
