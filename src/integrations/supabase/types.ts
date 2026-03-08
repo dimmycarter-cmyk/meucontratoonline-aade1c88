@@ -280,6 +280,99 @@ export type Database = {
           },
         ]
       }
+      contracts: {
+        Row: {
+          clausulas_ids: Json
+          comprador_id: string | null
+          conteudo_final: string
+          created_at: string
+          dados: Json
+          empresa_id: string | null
+          id: string
+          nome: string
+          status: string
+          template_id: string | null
+          tenant_id: string
+          updated_at: string
+          valor_financiamento: number | null
+          valor_sinal: number | null
+          valor_total: number | null
+          vendedor_id: string | null
+        }
+        Insert: {
+          clausulas_ids?: Json
+          comprador_id?: string | null
+          conteudo_final?: string
+          created_at?: string
+          dados?: Json
+          empresa_id?: string | null
+          id?: string
+          nome?: string
+          status?: string
+          template_id?: string | null
+          tenant_id: string
+          updated_at?: string
+          valor_financiamento?: number | null
+          valor_sinal?: number | null
+          valor_total?: number | null
+          vendedor_id?: string | null
+        }
+        Update: {
+          clausulas_ids?: Json
+          comprador_id?: string | null
+          conteudo_final?: string
+          created_at?: string
+          dados?: Json
+          empresa_id?: string | null
+          id?: string
+          nome?: string
+          status?: string
+          template_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          valor_financiamento?: number | null
+          valor_sinal?: number | null
+          valor_total?: number | null
+          vendedor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_comprador_id_fkey"
+            columns: ["comprador_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
