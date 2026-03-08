@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const initialMessages = [
+type Message = { role: "user" | "assistant"; content: string };
+
+const initialMessages: Message[] = [
   {
-    role: "assistant" as const,
+    role: "assistant",
     content: "Olá! Sou o agente de IA jurídico imobiliário do Meu Contrato Online. Posso ajudar você a:\n\n• Escolher o melhor modelo de contrato\n• Orientar sobre documentos necessários\n• Explicar cláusulas em linguagem simples\n• Revisar contratos antes da finalização\n• Apontar inconsistências\n\nComo posso ajudar?",
   },
 ];
