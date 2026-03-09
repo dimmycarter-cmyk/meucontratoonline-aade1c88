@@ -156,10 +156,9 @@ const Admin = () => {
     });
   }, [tenants, tenantSearch, tenantStatusFilter]);
 
-  // Reset tenant page when filters change
-  const { useEffect: _ue1 } = { useEffect: undefined };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useState(() => { void _ue1; }); // placeholder removed below
+  // Reset pages when filters change
+  useEffect(() => { setTenantPage(1); }, [tenantSearch, tenantStatusFilter]);
+  useEffect(() => { setUserPage(1); }, [userSearch, userStatusFilter, userRoleFilter, userTenantFilter]);
 
   // Filtered users
   const filteredUsers = useMemo(() => {
