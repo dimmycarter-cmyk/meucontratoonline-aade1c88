@@ -74,8 +74,8 @@ const Admin = () => {
       </div>
 
       <Card className="shadow-card">
-        <CardHeader className="pb-4">
-          <Tabs defaultValue="tenants">
+        <Tabs defaultValue="tenants">
+          <CardHeader className="pb-4">
             <TabsList>
               <TabsTrigger value="tenants">Tenants</TabsTrigger>
               <TabsTrigger value="users">Usuários</TabsTrigger>
@@ -108,11 +108,9 @@ const Admin = () => {
                 </div>
               </div>
             </TabsContent>
-          </Tabs>
-        </CardHeader>
+          </CardHeader>
 
-        <CardContent>
-          <Tabs defaultValue="tenants">
+          <CardContent>
             <TabsContent value="tenants">
               {tenantsLoading ? (
                 <div className="space-y-3">
@@ -275,8 +273,8 @@ const Admin = () => {
                 <div className="py-12 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</div>
               )}
             </TabsContent>
-          </Tabs>
-        </CardContent>
+          </CardContent>
+        </Tabs>
       </Card>
     </div>
   );
