@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SuperAdminRoute from "@/components/SuperAdminRoute";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
@@ -21,6 +22,7 @@ import Modelos from "./pages/app/Modelos";
 import Clausulas from "./pages/app/Clausulas";
 import AgenteIA from "./pages/app/AgenteIA";
 import Configuracoes from "./pages/app/Configuracoes";
+import Admin from "./pages/app/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,7 +40,14 @@ const App = () => (
             <Route path="/cadastro" element={<Cadastro />} />
             <Route path="/esqueci-senha" element={<EsqueciSenha />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            <Route
+              path="/app"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<Dashboard />} />
               <Route path="contatos" element={<Contatos />} />
               <Route path="empresas" element={<Empresas />} />
@@ -49,6 +58,14 @@ const App = () => (
               <Route path="clausulas" element={<Clausulas />} />
               <Route path="agente-ia" element={<AgenteIA />} />
               <Route path="configuracoes" element={<Configuracoes />} />
+              <Route
+                path="admin"
+                element={
+                  <SuperAdminRoute>
+                    <Admin />
+                  </SuperAdminRoute>
+                }
+              />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
