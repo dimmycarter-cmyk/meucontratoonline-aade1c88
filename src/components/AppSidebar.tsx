@@ -29,7 +29,7 @@ const menuItems = [
   { label: "Contratos", icon: History, path: "/app/contratos" },
   { label: "Modelos", icon: FileStack, path: "/app/modelos" },
   { label: "Cláusulas", icon: ScrollText, path: "/app/clausulas" },
-  { label: "Contatos", icon: Users, path: "/app/contatos" },
+  { label: "Usuários", icon: Users, path: "/app/usuarios" },
   { label: "Empresas", icon: Building2, path: "/app/empresas" },
   { label: "Agente IA", icon: Brain, path: "/app/agente-ia" },
 ];

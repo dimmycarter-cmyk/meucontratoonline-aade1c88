@@ -69,8 +69,8 @@ const Contatos = () => {
     <div className="p-6 lg:p-8">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Contatos</h1>
-          <p className="text-sm text-muted-foreground">{contacts.length} contatos cadastrados</p>
+          <h1 className="font-display text-2xl font-bold text-foreground">Usuários</h1>
+          <p className="text-sm text-muted-foreground">{contacts.length} usuários cadastrados</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
