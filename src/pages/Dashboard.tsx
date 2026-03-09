@@ -2,11 +2,13 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   FileText, Users, Clock, CheckCircle2, TrendingUp, TrendingDown,
-  Plus, ArrowUpRight
+  Plus, ArrowUpRight, AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -14,9 +16,9 @@ import {
 } from "recharts";
 import { useContracts } from "@/hooks/useContracts";
 import { useContacts } from "@/hooks/useContacts";
+import { useTenantLimits } from "@/hooks/useTenantLimits";
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
 const STATUS_COLORS: Record<string, string> = {
   rascunho: "hsl(215, 16%, 47%)",
   "em preenchimento": "hsl(217, 91%, 60%)",
