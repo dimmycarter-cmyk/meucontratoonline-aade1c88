@@ -671,18 +671,35 @@ export type Database = {
     }
     Functions: {
       check_tenant_limits: { Args: { p_tenant_id: string }; Returns: Json }
-      complete_onboarding: {
-        Args: {
-          p_cep: string
-          p_cidade: string
-          p_cnpj: string
-          p_email: string
-          p_estado: string
-          p_nome: string
-          p_whatsapp: string
-        }
-        Returns: undefined
-      }
+      complete_onboarding:
+        | {
+            Args: {
+              p_cep: string
+              p_cidade: string
+              p_cnpj: string
+              p_email: string
+              p_estado: string
+              p_nome: string
+              p_whatsapp: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_bairro?: string
+              p_cep: string
+              p_cidade: string
+              p_cnpj: string
+              p_complemento?: string
+              p_email: string
+              p_estado: string
+              p_nome: string
+              p_numero?: string
+              p_rua?: string
+              p_whatsapp: string
+            }
+            Returns: undefined
+          }
       get_admin_metrics: { Args: never; Returns: Json }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
