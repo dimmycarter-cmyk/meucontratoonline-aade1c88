@@ -14,11 +14,14 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  X,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/app" },
@@ -37,7 +40,7 @@ const AppSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  const { signOut, profile, isSuperAdmin } = useAuth();
+  const { signOut, profile, isSuperAdmin, impersonatedTenantId, impersonatedTenantName, setImpersonatedTenant } = useAuth();
   const { toast } = useToast();
 
   const items = useMemo(() => {
@@ -56,6 +59,11 @@ const AppSidebar = () => {
     navigate("/login");
   };
 
+  const handleExitImpersonation = () => {
+    setImpersonatedTenant(null);
+    toast({ title: "Voltando para sua conta de administrador" });
+  };
+
   return (
     <aside
       className={cn(
@@ -63,6 +71,34 @@ const AppSidebar = () => {
         collapsed ? "w-16" : "w-64",
       )}
     >
+      {/* Impersonation Banner */}
+      {impersonatedTenantId && (
+        <div className="bg-warning/20 border-b border-warning/30 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-warning flex-shrink-0" />
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-warning truncate">
+                  Visualizando como:
+                </p>
+                <p className="text-xs text-warning/80 truncate">
+                  {impersonatedTenantName || "Empresa"}
+                </p>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-warning hover:bg-warning/20 flex-shrink-0"
+              onClick={handleExitImpersonation}
+              title="Sair da visualização"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-4">
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
