@@ -110,5 +110,7 @@ export const useContracts = () => {
     deleteContract: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isSaving: updateMutation.isPending,
+    canCreateContract,
+    limits,
   };
 };

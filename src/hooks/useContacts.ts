@@ -35,12 +35,12 @@ export interface Contact {
 export type ContactInsert = Omit<Contact, "id" | "created_at" | "updated_at">;
 
 export const useContacts = () => {
-  const { profile } = useAuth();
+  const { profile, effectiveTenantId } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const query = useQuery({
-    queryKey: ["contacts", profile?.tenant_id],
+    queryKey: ["contacts", effectiveTenantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
@@ -49,7 +49,7 @@ export const useContacts = () => {
       if (error) throw error;
       return data as Contact[];
     },
-    enabled: !!profile?.tenant_id,
+    enabled: !!effectiveTenantId,
   });
 
   const createMutation = useMutation({

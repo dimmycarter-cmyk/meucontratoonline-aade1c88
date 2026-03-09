@@ -11,6 +11,7 @@ interface AdminMetrics {
   total_tenants: number;
   active_tenants: number;
   suspended_tenants: number;
+  trial_tenants: number;
   total_users: number;
   total_contracts: number;
   contracts_this_month: number;
