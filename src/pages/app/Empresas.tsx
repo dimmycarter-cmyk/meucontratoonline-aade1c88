@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Plus, Search, MoreHorizontal, Building2, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useCompanies } from "@/hooks/useCompanies";
 import { Skeleton } from "@/components/ui/skeleton";
+import { maskCNPJ, maskPhone, maskCEP } from "@/lib/masks";
+import { useCepLookup } from "@/hooks/useCepLookup";
 
 const emptyCompany = {
   nome_fantasia: "", razao_social: "", cnpj: "", whatsapp: "", email: "",
-  cep: "", estado: "", cidade: "", bairro: "", rua: "", numero: "", complemento: "",
+  cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
 };
 
 const Empresas = () => {
@@ -27,6 +29,14 @@ const Empresas = () => {
   );
 
   const updateField = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const onCepResult = useCallback(
+    (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
+      setForm((prev) => ({ ...prev, rua: data.rua, bairro: data.bairro, cidade: data.cidade, estado: data.estado }));
+    },
+    []
+  );
+  const { lookup: lookupCep } = useCepLookup(onCepResult);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,9 +54,9 @@ const Empresas = () => {
     setForm({
       nome_fantasia: company.nome_fantasia || "", razao_social: company.razao_social || "",
       cnpj: company.cnpj || "", whatsapp: company.whatsapp || "", email: company.email || "",
-      cep: company.cep || "", estado: company.estado || "", cidade: company.cidade || "",
-      bairro: company.bairro || "", rua: company.rua || "",
-      numero: company.numero || "", complemento: company.complemento || "",
+      cep: company.cep || "", rua: company.rua || "", numero: company.numero || "",
+      complemento: company.complemento || "", bairro: company.bairro || "",
+      cidade: company.cidade || "", estado: company.estado || "",
     });
     setEditingId(company.id);
     setDialogOpen(true);
@@ -85,11 +95,11 @@ const Empresas = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>CNPJ</Label>
-                  <Input value={form.cnpj} onChange={(e) => updateField("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
+                  <Input value={form.cnpj} onChange={(e) => updateField("cnpj", maskCNPJ(e.target.value))} placeholder="00.000.000/0001-00" />
                 </div>
                 <div className="space-y-2">
                   <Label>WhatsApp</Label>
-                  <Input value={form.whatsapp} onChange={(e) => updateField("whatsapp", e.target.value)} placeholder="(00) 00000-0000" />
+                  <Input value={form.whatsapp} onChange={(e) => updateField("whatsapp", maskPhone(e.target.value))} placeholder="(31) 99999-5858" />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label>E-mail</Label>
@@ -100,31 +110,40 @@ const Empresas = () => {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>CEP</Label>
-                  <Input value={form.cep} onChange={(e) => updateField("cep", e.target.value)} placeholder="00000-000" />
+                  <Input
+                    value={form.cep}
+                    onChange={(e) => {
+                      const masked = maskCEP(e.target.value);
+                      updateField("cep", masked);
+                      lookupCep(masked);
+                    }}
+                    placeholder="00000-000"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label>Estado</Label>
-                  <Input value={form.estado} onChange={(e) => updateField("estado", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cidade</Label>
-                  <Input value={form.cidade} onChange={(e) => updateField("cidade", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bairro</Label>
-                  <Input value={form.bairro} onChange={(e) => updateField("bairro", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Rua</Label>
+                <div />
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Rua / Avenida</Label>
                   <Input value={form.rua} onChange={(e) => updateField("rua", e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Número</Label>
                   <Input value={form.numero} onChange={(e) => updateField("numero", e.target.value)} />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-2">
                   <Label>Complemento</Label>
                   <Input value={form.complemento} onChange={(e) => updateField("complemento", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bairro</Label>
+                  <Input value={form.bairro} onChange={(e) => updateField("bairro", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cidade</Label>
+                  <Input value={form.cidade} onChange={(e) => updateField("cidade", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>UF</Label>
+                  <Input value={form.estado} onChange={(e) => updateField("estado", e.target.value)} maxLength={2} />
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
