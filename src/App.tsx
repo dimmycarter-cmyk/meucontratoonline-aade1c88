@@ -60,13 +60,13 @@ const App = () => (
             >
               <Route index element={<Dashboard />} />
               <Route path="usuarios" element={<Contatos />} />
-              <Route path="empresas" element={<Empresas />} />
+              <Route path="empresas" element={<RoleRoute allowedRoles={["super_admin"]}><Empresas /></RoleRoute>} />
               <Route path="contratos" element={<Contratos />} />
               <Route path="contratos/:id" element={<ContratoDetalhe />} />
               <Route path="novo-contrato" element={<NovoContrato />} />
-              <Route path="modelos" element={<Modelos />} />
-              <Route path="clausulas" element={<Clausulas />} />
-              <Route path="agente-ia" element={<AgenteIA />} />
+              <Route path="modelos" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><Modelos /></RoleRoute>} />
+              <Route path="clausulas" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><Clausulas /></RoleRoute>} />
+              <Route path="agente-ia" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><AgenteIA /></RoleRoute>} />
               <Route path="configuracoes" element={<Configuracoes />} />
               <Route
                 path="admin"
