@@ -43,11 +43,10 @@ const fadeUp = {
 };
 
 const Dashboard = () => {
-  const { contracts, isLoading: contractsLoading } = useContracts();
+  const { contracts, isLoading: contractsLoading, canCreateContract, limits } = useContracts();
   const { contacts, isLoading: contactsLoading } = useContacts();
 
   const isLoading = contractsLoading || contactsLoading;
-
   // Calculate stats
   const stats = useMemo(() => {
     const now = new Date();
