@@ -26,7 +26,7 @@ export const useAdminDashboard = () => {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_metrics");
       if (error) throw error;
-      return data as AdminMetrics;
+      return data as unknown as AdminMetrics;
     },
     enabled: isSuperAdmin,
     refetchInterval: 60000, // Refresh every minute
