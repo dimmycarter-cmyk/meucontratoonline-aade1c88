@@ -22,31 +22,44 @@ import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import type { Database } from "@/integrations/supabase/types";
 
-const menuItems = [
+type AppRole = Database["public"]["Enums"]["app_role"];
+
+interface MenuItem {
+  label: string;
+  icon: React.ElementType;
+  path: string;
+  allowedRoles?: AppRole[];
+}
+
+const menuItems: MenuItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/app" },
   { label: "Novo Contrato", icon: FilePlus, path: "/app/novo-contrato" },
   { label: "Contratos", icon: History, path: "/app/contratos" },
-  { label: "Modelos", icon: FileStack, path: "/app/modelos" },
-  { label: "Cláusulas", icon: ScrollText, path: "/app/clausulas" },
+  { label: "Modelos", icon: FileStack, path: "/app/modelos", allowedRoles: ["admin_empresa", "super_admin"] },
+  { label: "Cláusulas", icon: ScrollText, path: "/app/clausulas", allowedRoles: ["admin_empresa", "super_admin"] },
   { label: "Usuários", icon: Users, path: "/app/usuarios" },
-  { label: "Empresas", icon: Building2, path: "/app/empresas" },
-  { label: "Agente IA", icon: Brain, path: "/app/agente-ia" },
+  { label: "Empresas", icon: Building2, path: "/app/empresas", allowedRoles: ["super_admin"] },
+  { label: "Agente IA", icon: Brain, path: "/app/agente-ia", allowedRoles: ["admin_empresa", "super_admin"] },
+  { label: "Administração", icon: Shield, path: "/app/admin", allowedRoles: ["super_admin"] },
 ];
 
-const bottomItems = [{ label: "Configurações", icon: Settings, path: "/app/configuracoes" }];
+const bottomItems: MenuItem[] = [{ label: "Configurações", icon: Settings, path: "/app/configuracoes" }];
 
 const AppSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  const { signOut, profile, isSuperAdmin, impersonatedTenantId, impersonatedTenantName, setImpersonatedTenant } = useAuth();
+  const { signOut, profile, roles, isSuperAdmin, impersonatedTenantId, impersonatedTenantName, setImpersonatedTenant } = useAuth();
   const { toast } = useToast();
 
   const items = useMemo(() => {
-    if (!isSuperAdmin) return menuItems;
-    return [...menuItems, { label: "Administração", icon: Shield, path: "/app/admin" }];
-  }, [isSuperAdmin]);
+    return menuItems.filter((item) => {
+      if (!item.allowedRoles) return true;
+      return item.allowedRoles.some((r) => roles.includes(r));
+    });
+  }, [roles]);
 
   const isActive = (path: string) => {
     if (path === "/app") return location.pathname === "/app";
