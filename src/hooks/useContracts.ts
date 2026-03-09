@@ -24,9 +24,10 @@ export interface Contract {
 }
 
 export const useContracts = () => {
-  const { profile } = useAuth();
+  const { profile, effectiveTenantId } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { canCreateContract, limits } = useTenantLimits();
 
   const query = useQuery({
     queryKey: ["contracts", profile?.tenant_id],
