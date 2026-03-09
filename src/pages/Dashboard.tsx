@@ -2,11 +2,13 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   FileText, Users, Clock, CheckCircle2, TrendingUp, TrendingDown,
-  Plus, ArrowUpRight
+  Plus, ArrowUpRight, AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -14,9 +16,9 @@ import {
 } from "recharts";
 import { useContracts } from "@/hooks/useContracts";
 import { useContacts } from "@/hooks/useContacts";
+import { useTenantLimits } from "@/hooks/useTenantLimits";
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
 const STATUS_COLORS: Record<string, string> = {
   rascunho: "hsl(215, 16%, 47%)",
   "em preenchimento": "hsl(217, 91%, 60%)",
@@ -41,11 +43,10 @@ const fadeUp = {
 };
 
 const Dashboard = () => {
-  const { contracts, isLoading: contractsLoading } = useContracts();
+  const { contracts, isLoading: contractsLoading, canCreateContract, limits } = useContracts();
   const { contacts, isLoading: contactsLoading } = useContacts();
 
   const isLoading = contractsLoading || contactsLoading;
-
   // Calculate stats
   const stats = useMemo(() => {
     const now = new Date();
@@ -178,19 +179,63 @@ const Dashboard = () => {
     );
   }
 
+  const contractsUsagePercent = limits && limits.max_contracts_per_month < 999999
+    ? Math.round((limits.current_contracts_this_month / limits.max_contracts_per_month) * 100)
+    : 0;
+
   return (
     <div className="p-6 lg:p-8">
+      {/* Limits Warning Banner */}
+      {limits && !canCreateContract && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+          <Card className="border-warning/50 bg-warning/10">
+            <CardContent className="p-4 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Limite de contratos atingido</p>
+                <p className="text-xs text-muted-foreground">
+                  Você usou {limits.current_contracts_this_month}/{limits.max_contracts_per_month} contratos este mês. 
+                  Faça upgrade do plano para continuar criando contratos.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-warning border-warning">
+                {limits.plan_name}
+              </Badge>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Plan Usage Card */}
+      {limits && limits.max_contracts_per_month < 999999 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
+          <Card className="shadow-card glass-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Uso do plano: {limits.plan_name}</span>
+                <span className="text-sm font-medium">{limits.current_contracts_this_month}/{limits.max_contracts_per_month} contratos</span>
+              </div>
+              <Progress value={contractsUsagePercent} className="h-2" />
+              {limits.subscription_status === "trial" && limits.trial_end && (
+                <p className="mt-2 text-xs text-warning">
+                  Trial expira em: {format(parseISO(limits.trial_end), "dd/MM/yyyy")}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Visão geral da sua operação</p>
         </div>
-        <Button asChild>
+        <Button asChild disabled={!canCreateContract}>
           <Link to="/app/novo-contrato"><Plus className="mr-2 h-4 w-4" /> Novo Contrato</Link>
         </Button>
       </div>
-
       {/* Stats */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantLimits } from "@/hooks/useTenantLimits";
 
 export interface Contract {
   id: string;
@@ -23,12 +24,13 @@ export interface Contract {
 }
 
 export const useContracts = () => {
-  const { profile } = useAuth();
+  const { profile, effectiveTenantId } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { canCreateContract, limits } = useTenantLimits();
 
   const query = useQuery({
-    queryKey: ["contracts", profile?.tenant_id],
+    queryKey: ["contracts", effectiveTenantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contracts")
@@ -37,11 +39,17 @@ export const useContracts = () => {
       if (error) throw error;
       return data as Contract[];
     },
-    enabled: !!profile?.tenant_id,
+    enabled: !!effectiveTenantId,
   });
 
   const createMutation = useMutation({
     mutationFn: async (contract: Partial<Contract>) => {
+      // Check limits before creating
+      if (!canCreateContract) {
+        throw new Error(
+          `Limite de contratos atingido (${limits?.current_contracts_this_month ?? 0}/${limits?.max_contracts_per_month ?? 0}). Faça upgrade do seu plano.`
+        );
+      }
       const { data, error } = await supabase
         .from("contracts")
         .insert({ ...contract, tenant_id: profile!.tenant_id } as any)
@@ -52,6 +60,7 @@ export const useContracts = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["tenant-limits"] });
       toast({ title: "Contrato salvo com sucesso" });
     },
     onError: (error: Error) => {
@@ -101,5 +110,7 @@ export const useContracts = () => {
     deleteContract: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isSaving: updateMutation.isPending,
+    canCreateContract,
+    limits,
   };
 };

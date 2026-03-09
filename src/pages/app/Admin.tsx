@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Shield, Building2, Users, FileText, TrendingUp, Eye } from "lucide-react";
+import { Search, Shield, Building2, Users, FileText, TrendingUp, Eye, CreditCard, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,8 @@ import { useAdminTenants } from "@/hooks/useAdminTenants";
 import { ADMIN_ROLE_OPTIONS, useAdminUsers } from "@/hooks/useAdminUsers";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
+import { usePlans } from "@/hooks/usePlans";
+import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
@@ -63,10 +65,15 @@ const formatDateTime = (iso: string) => {
   }
 };
 
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+};
+
 const statusVariant = (status: string) => {
   const s = (status ?? "").toLowerCase();
-  if (s === "ativo") return "default";
-  if (s === "inativo" || s === "suspenso") return "secondary";
+  if (s === "ativo" || s === "active") return "default";
+  if (s === "trial") return "secondary";
+  if (s === "inativo" || s === "suspenso" || s === "suspended" || s === "expired") return "destructive";
   return "outline";
 };
 
@@ -121,6 +128,8 @@ const Admin = () => {
   const { users, isLoading: usersLoading, updateUserStatus, addRole, removeRole, isSaving: savingUsers } = useAdminUsers();
   const { logs, isLoading: logsLoading, logAction } = useAuditLog();
   const { metrics, isLoading: metricsLoading } = useAdminDashboard();
+  const { plans, isLoading: plansLoading } = usePlans();
+  const { subscriptions, isLoading: subscriptionsLoading, updateSubscription, isSaving: savingSubscriptions } = useSubscriptions();
 
   // Filters
   const [tenantSearch, setTenantSearch] = useState("");
@@ -129,11 +138,13 @@ const Admin = () => {
   const [userStatusFilter, setUserStatusFilter] = useState("all");
   const [userRoleFilter, setUserRoleFilter] = useState("all");
   const [userTenantFilter, setUserTenantFilter] = useState("all");
+  const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState("all");
 
   // Pagination
   const [tenantPage, setTenantPage] = useState(1);
   const [userPage, setUserPage] = useState(1);
   const [logPage, setLogPage] = useState(1);
+  const [subscriptionPage, setSubscriptionPage] = useState(1);
 
   // AlertDialog state
   const [confirmAction, setConfirmAction] = useState<{
@@ -166,6 +177,7 @@ const Admin = () => {
   // Reset pages when filters change
   useEffect(() => { setTenantPage(1); }, [tenantSearch, tenantStatusFilter]);
   useEffect(() => { setUserPage(1); }, [userSearch, userStatusFilter, userRoleFilter, userTenantFilter]);
+  useEffect(() => { setSubscriptionPage(1); }, [subscriptionStatusFilter]);
 
   // Filtered users
   const filteredUsers = useMemo(() => {
@@ -178,6 +190,12 @@ const Admin = () => {
       return true;
     });
   }, [users, userSearch, userStatusFilter, userRoleFilter, userTenantFilter]);
+
+  // Filtered subscriptions
+  const filteredSubscriptions = useMemo(() => {
+    if (subscriptionStatusFilter === "all") return subscriptions;
+    return subscriptions.filter((s) => s.status === subscriptionStatusFilter);
+  }, [subscriptions, subscriptionStatusFilter]);
 
   const handleToggleTenantStatus = (id: string, nome: string, nextStatus: string) => {
     if (nextStatus === "inativo" || nextStatus === "suspenso") {
@@ -240,12 +258,17 @@ const Admin = () => {
     toast({ title: `Visualizando como: ${tenantName}` });
   };
 
+  const handleUpdateSubscriptionStatus = async (id: string, status: string) => {
+    await updateSubscription({ id, status });
+    await logAction({ user_id: user!.id, action: "update_subscription", target_type: "subscription", target_id: id, details: { status } });
+  };
+
   // Dashboard metrics cards
   const metricsCards = [
     { label: "Total de Empresas", value: metrics?.total_tenants ?? 0, icon: Building2, color: "text-primary" },
     { label: "Empresas Ativas", value: metrics?.active_tenants ?? 0, icon: TrendingUp, color: "text-success" },
+    { label: "Em Trial", value: metrics?.trial_tenants ?? 0, icon: Clock, color: "text-warning" },
     { label: "Total de Usuários", value: metrics?.total_users ?? 0, icon: Users, color: "text-info" },
-    { label: "Contratos no Mês", value: metrics?.contracts_this_month ?? 0, icon: FileText, color: "text-warning" },
   ];
 
   return (
@@ -286,10 +309,12 @@ const Admin = () => {
       <Card className="shadow-card">
         <Tabs defaultValue="dashboard">
           <CardHeader className="pb-4">
-            <TabsList>
+            <TabsList className="flex flex-wrap">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="tenants">Empresas</TabsTrigger>
               <TabsTrigger value="users">Usuários</TabsTrigger>
+              <TabsTrigger value="plans">Planos</TabsTrigger>
+              <TabsTrigger value="subscriptions">Assinaturas</TabsTrigger>
               <TabsTrigger value="logs">Auditoria</TabsTrigger>
             </TabsList>
 
@@ -343,6 +368,22 @@ const Admin = () => {
                     {tenantOptions.map(([id, nome]) => (
                       <SelectItem key={id} value={id}>{nome}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
+
+            {/* Subscription filters */}
+            <TabsContent value="subscriptions">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Select value={subscriptionStatusFilter} onValueChange={setSubscriptionStatusFilter}>
+                  <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="trial">Trial</SelectItem>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="expired">Expirado</SelectItem>
+                    <SelectItem value="suspended">Suspenso</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -430,7 +471,7 @@ const Admin = () => {
                   </div>
 
                   {/* Quick Stats */}
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-4">
                     <Card className="shadow-sm">
                       <CardContent className="p-5">
                         <p className="text-sm text-muted-foreground">Empresas Suspensas</p>
@@ -445,7 +486,13 @@ const Admin = () => {
                     </Card>
                     <Card className="shadow-sm">
                       <CardContent className="p-5">
-                        <p className="text-sm text-muted-foreground">Média de Usuários/Empresa</p>
+                        <p className="text-sm text-muted-foreground">Contratos no Mês</p>
+                        <p className="mt-1 font-display text-2xl font-bold text-foreground">{metrics?.contracts_this_month ?? 0}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="shadow-sm">
+                      <CardContent className="p-5">
+                        <p className="text-sm text-muted-foreground">Média Usuários/Empresa</p>
                         <p className="mt-1 font-display text-2xl font-bold text-foreground">
                           {metrics?.total_tenants ? Math.round((metrics.total_users / metrics.total_tenants) * 10) / 10 : 0}
                         </p>
@@ -589,6 +636,100 @@ const Admin = () => {
                     <div className="py-12 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</div>
                   )}
                   <PaginationControls total={filteredUsers.length} page={userPage} setPage={setUserPage} />
+                </>
+              )}
+            </TabsContent>
+
+            {/* PLANS TAB */}
+            <TabsContent value="plans">
+              {plansLoading ? (
+                <div className="space-y-3">{[1,2,3].map((i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {plans.map((plan) => (
+                    <Card key={plan.id} className="shadow-sm">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="font-display text-lg">{plan.name}</CardTitle>
+                          <CreditCard className="h-5 w-5 text-primary" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-2xl font-bold text-foreground">{formatCurrency(plan.price)}<span className="text-sm font-normal text-muted-foreground">/mês</span></p>
+                        <div className="mt-4 space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Máx. usuários</span>
+                            <span className="font-medium">{plan.max_users >= 999999 ? "Ilimitado" : plan.max_users}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Contratos/mês</span>
+                            <span className="font-medium">{plan.max_contracts_per_month >= 999999 ? "Ilimitado" : plan.max_contracts_per_month}</span>
+                          </div>
+                        </div>
+                        {plan.features && plan.features.length > 0 && (
+                          <ul className="mt-4 space-y-1">
+                            {plan.features.map((f, i) => (
+                              <li key={i} className="text-xs text-muted-foreground">• {f}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* SUBSCRIPTIONS TAB */}
+            <TabsContent value="subscriptions">
+              {subscriptionsLoading ? (
+                <div className="space-y-3">{[1,2,3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Empresa</TableHead>
+                          <TableHead>Plano</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Fim do Trial</TableHead>
+                          <TableHead>Criado em</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginate(filteredSubscriptions, subscriptionPage).map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell className="font-medium text-foreground">{s.tenant_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{s.plan_name}</TableCell>
+                            <TableCell><Badge variant={statusVariant(s.status) as any}>{s.status}</Badge></TableCell>
+                            <TableCell className="text-muted-foreground">{s.trial_end ? formatDate(s.trial_end) : "—"}</TableCell>
+                            <TableCell className="text-muted-foreground">{formatDate(s.created_at)}</TableCell>
+                            <TableCell className="text-right">
+                              <Select 
+                                value={s.status} 
+                                onValueChange={(v) => handleUpdateSubscriptionStatus(s.id, v)}
+                                disabled={savingSubscriptions}
+                              >
+                                <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="trial">Trial</SelectItem>
+                                  <SelectItem value="active">Ativo</SelectItem>
+                                  <SelectItem value="expired">Expirado</SelectItem>
+                                  <SelectItem value="suspended">Suspenso</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {filteredSubscriptions.length === 0 && (
+                    <div className="py-12 text-center text-sm text-muted-foreground">Nenhuma assinatura encontrada.</div>
+                  )}
+                  <PaginationControls total={filteredSubscriptions.length} page={subscriptionPage} setPage={setSubscriptionPage} />
                 </>
               )}
             </TabsContent>
