@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Shield } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Search, Shield, Building2, Users, FileText, TrendingUp, Eye } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,10 +32,15 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from "recharts";
 import { useAdminTenants } from "@/hooks/useAdminTenants";
 import { ADMIN_ROLE_OPTIONS, useAdminUsers } from "@/hooks/useAdminUsers";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { useAdminDashboard } from "@/hooks/useAdminDashboard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -61,7 +66,7 @@ const formatDateTime = (iso: string) => {
 const statusVariant = (status: string) => {
   const s = (status ?? "").toLowerCase();
   if (s === "ativo") return "default";
-  if (s === "inativo") return "secondary";
+  if (s === "inativo" || s === "suspenso") return "secondary";
   return "outline";
 };
 
@@ -110,10 +115,12 @@ function PaginationControls({ total, page, setPage }: { total: number; page: num
 }
 
 const Admin = () => {
-  const { user } = useAuth();
+  const { user, setImpersonatedTenant } = useAuth();
+  const { toast } = useToast();
   const { tenants, isLoading: tenantsLoading, updateTenantStatus, isSaving: savingTenants } = useAdminTenants();
   const { users, isLoading: usersLoading, updateUserStatus, addRole, removeRole, isSaving: savingUsers } = useAdminUsers();
   const { logs, isLoading: logsLoading, logAction } = useAuditLog();
+  const { metrics, isLoading: metricsLoading } = useAdminDashboard();
 
   // Filters
   const [tenantSearch, setTenantSearch] = useState("");
@@ -173,9 +180,9 @@ const Admin = () => {
   }, [users, userSearch, userStatusFilter, userRoleFilter, userTenantFilter]);
 
   const handleToggleTenantStatus = (id: string, nome: string, nextStatus: string) => {
-    if (nextStatus === "inativo") {
+    if (nextStatus === "inativo" || nextStatus === "suspenso") {
       setConfirmAction({
-        title: `Inativar tenant "${nome}"?`,
+        title: `${nextStatus === "suspenso" ? "Suspender" : "Inativar"} tenant "${nome}"?`,
         description: "Todos os usuários desse tenant perderão acesso ao sistema. Deseja continuar?",
         onConfirm: async () => {
           await updateTenantStatus({ id, status: nextStatus });
@@ -228,6 +235,19 @@ const Admin = () => {
     await logAction({ user_id: user!.id, action: "add_role", target_type: "user_role", target_id: userId, details: { role } });
   };
 
+  const handleImpersonate = (tenantId: string, tenantName: string) => {
+    setImpersonatedTenant(tenantId, tenantName);
+    toast({ title: `Visualizando como: ${tenantName}` });
+  };
+
+  // Dashboard metrics cards
+  const metricsCards = [
+    { label: "Total de Empresas", value: metrics?.total_tenants ?? 0, icon: Building2, color: "text-primary" },
+    { label: "Empresas Ativas", value: metrics?.active_tenants ?? 0, icon: TrendingUp, color: "text-success" },
+    { label: "Total de Usuários", value: metrics?.total_users ?? 0, icon: Users, color: "text-info" },
+    { label: "Contratos no Mês", value: metrics?.contracts_this_month ?? 0, icon: FileText, color: "text-warning" },
+  ];
+
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8">
@@ -264,10 +284,11 @@ const Admin = () => {
       </AlertDialog>
 
       <Card className="shadow-card">
-        <Tabs defaultValue="tenants">
+        <Tabs defaultValue="dashboard">
           <CardHeader className="pb-4">
             <TabsList>
-              <TabsTrigger value="tenants">Tenants</TabsTrigger>
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="tenants">Empresas</TabsTrigger>
               <TabsTrigger value="users">Usuários</TabsTrigger>
               <TabsTrigger value="logs">Auditoria</TabsTrigger>
             </TabsList>
@@ -277,13 +298,14 @@ const Admin = () => {
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Buscar tenant..." className="pl-10" value={tenantSearch} onChange={(e) => setTenantSearch(e.target.value)} />
+                  <Input placeholder="Buscar empresa..." className="pl-10" value={tenantSearch} onChange={(e) => setTenantSearch(e.target.value)} />
                 </div>
                 <Select value={tenantStatusFilter} onValueChange={setTenantStatusFilter}>
                   <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="ativo">Ativo</SelectItem>
+                    <SelectItem value="suspenso">Suspenso</SelectItem>
                     <SelectItem value="inativo">Inativo</SelectItem>
                   </SelectContent>
                 </Select>
@@ -315,9 +337,9 @@ const Admin = () => {
                   </SelectContent>
                 </Select>
                 <Select value={userTenantFilter} onValueChange={setUserTenantFilter}>
-                  <SelectTrigger className="w-48"><SelectValue placeholder="Tenant" /></SelectTrigger>
+                  <SelectTrigger className="w-48"><SelectValue placeholder="Empresa" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos tenants</SelectItem>
+                    <SelectItem value="all">Todas empresas</SelectItem>
                     {tenantOptions.map(([id, nome]) => (
                       <SelectItem key={id} value={id}>{nome}</SelectItem>
                     ))}
@@ -328,6 +350,112 @@ const Admin = () => {
           </CardHeader>
 
           <CardContent>
+            {/* DASHBOARD TAB */}
+            <TabsContent value="dashboard">
+              {metricsLoading ? (
+                <div className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
+                  </div>
+                  <Skeleton className="h-80" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Metric Cards */}
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {metricsCards.map((card, i) => (
+                      <Card key={i} className="shadow-sm">
+                        <CardContent className="p-5">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm text-muted-foreground">{card.label}</p>
+                              <p className="mt-1 font-display text-2xl font-bold text-foreground">{card.value}</p>
+                            </div>
+                            <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ${card.color}`}>
+                              <card.icon className="h-6 w-6" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Charts */}
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <Card className="shadow-sm">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="font-display text-base font-semibold">Crescimento de Empresas</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {metrics?.tenants_by_month && metrics.tenants_by_month.length > 0 ? (
+                          <ResponsiveContainer width="100%" height={280}>
+                            <BarChart data={metrics.tenants_by_month}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 90%)" />
+                              <XAxis dataKey="month" tick={{ fontSize: 12, fill: "hsl(215, 16%, 47%)" }} />
+                              <YAxis tick={{ fontSize: 12, fill: "hsl(215, 16%, 47%)" }} allowDecimals={false} />
+                              <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(215, 20%, 90%)", fontSize: "13px" }} />
+                              <Bar dataKey="total" fill="hsl(217, 91%, 50%)" radius={[4, 4, 0, 0]} name="Empresas" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
+                            Sem dados suficientes
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="shadow-sm">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="font-display text-base font-semibold">Contratos por Mês</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {metrics?.contracts_by_month && metrics.contracts_by_month.length > 0 ? (
+                          <ResponsiveContainer width="100%" height={280}>
+                            <BarChart data={metrics.contracts_by_month}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 90%)" />
+                              <XAxis dataKey="month" tick={{ fontSize: 12, fill: "hsl(215, 16%, 47%)" }} />
+                              <YAxis tick={{ fontSize: 12, fill: "hsl(215, 16%, 47%)" }} allowDecimals={false} />
+                              <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(215, 20%, 90%)", fontSize: "13px" }} />
+                              <Bar dataKey="total" fill="hsl(152, 69%, 40%)" radius={[4, 4, 0, 0]} name="Contratos" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
+                            Sem dados suficientes
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Quick Stats */}
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <Card className="shadow-sm">
+                      <CardContent className="p-5">
+                        <p className="text-sm text-muted-foreground">Empresas Suspensas</p>
+                        <p className="mt-1 font-display text-2xl font-bold text-destructive">{metrics?.suspended_tenants ?? 0}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="shadow-sm">
+                      <CardContent className="p-5">
+                        <p className="text-sm text-muted-foreground">Total de Contratos</p>
+                        <p className="mt-1 font-display text-2xl font-bold text-foreground">{metrics?.total_contracts ?? 0}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="shadow-sm">
+                      <CardContent className="p-5">
+                        <p className="text-sm text-muted-foreground">Média de Usuários/Empresa</p>
+                        <p className="mt-1 font-display text-2xl font-bold text-foreground">
+                          {metrics?.total_tenants ? Math.round((metrics.total_users / metrics.total_tenants) * 10) / 10 : 0}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
             {/* TENANTS TAB */}
             <TabsContent value="tenants">
               {tenantsLoading ? (
@@ -347,7 +475,7 @@ const Admin = () => {
                       </TableHeader>
                       <TableBody>
                         {paginate(filteredTenants, tenantPage).map((t) => {
-                          const nextStatus = (t.status ?? "ativo") === "ativo" ? "inativo" : "ativo";
+                          const nextStatus = (t.status ?? "ativo") === "ativo" ? "suspenso" : "ativo";
                           return (
                             <TableRow key={t.id}>
                               <TableCell className="font-medium text-foreground">{t.nome}</TableCell>
@@ -355,9 +483,19 @@ const Admin = () => {
                               <TableCell><Badge variant={statusVariant(t.status) as any}>{t.status}</Badge></TableCell>
                               <TableCell className="text-muted-foreground">{formatDate(t.created_at)}</TableCell>
                               <TableCell className="text-right">
-                                <Button variant="outline" size="sm" disabled={savingTenants} onClick={() => handleToggleTenantStatus(t.id, t.nome, nextStatus)}>
-                                  Marcar como {nextStatus}
-                                </Button>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleImpersonate(t.id, t.nome)}
+                                    title="Visualizar como esta empresa"
+                                  >
+                                    <Eye className="mr-1 h-3 w-3" /> Entrar
+                                  </Button>
+                                  <Button variant="outline" size="sm" disabled={savingTenants} onClick={() => handleToggleTenantStatus(t.id, t.nome, nextStatus)}>
+                                    {nextStatus === "suspenso" ? "Suspender" : "Ativar"}
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
@@ -366,7 +504,7 @@ const Admin = () => {
                     </Table>
                   </div>
                   {filteredTenants.length === 0 && (
-                    <div className="py-12 text-center text-sm text-muted-foreground">Nenhum tenant encontrado.</div>
+                    <div className="py-12 text-center text-sm text-muted-foreground">Nenhuma empresa encontrada.</div>
                   )}
                   <PaginationControls total={filteredTenants.length} page={tenantPage} setPage={setTenantPage} />
                 </>
@@ -384,7 +522,7 @@ const Admin = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Usuário</TableHead>
-                          <TableHead>Tenant</TableHead>
+                          <TableHead>Empresa</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Roles</TableHead>
                           <TableHead className="text-right">Ações</TableHead>

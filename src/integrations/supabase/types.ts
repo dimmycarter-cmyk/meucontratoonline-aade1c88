@@ -530,6 +530,7 @@ export type Database = {
           created_at: string
           id: string
           nome: string
+          onboarding_completed: boolean
           slug: string
           status: string
         }
@@ -537,6 +538,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome: string
+          onboarding_completed?: boolean
           slug: string
           status?: string
         }
@@ -544,6 +546,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome?: string
+          onboarding_completed?: boolean
           slug?: string
           status?: string
         }
@@ -583,6 +586,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_onboarding: {
+        Args: {
+          p_cep: string
+          p_cidade: string
+          p_cnpj: string
+          p_email: string
+          p_estado: string
+          p_nome: string
+          p_whatsapp: string
+        }
+        Returns: undefined
+      }
+      get_admin_metrics: { Args: never; Returns: Json }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

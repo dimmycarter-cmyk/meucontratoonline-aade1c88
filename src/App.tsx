@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import EsqueciSenha from "./pages/EsqueciSenha";
 import ResetPassword from "./pages/ResetPassword";
+import Onboarding from "./pages/Onboarding";
 import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Contatos from "./pages/app/Contatos";
@@ -40,6 +41,14 @@ const App = () => (
             <Route path="/cadastro" element={<Cadastro />} />
             <Route path="/esqueci-senha" element={<EsqueciSenha />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute skipOnboardingCheck>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/app"
               element={
