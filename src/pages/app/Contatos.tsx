@@ -1,20 +1,21 @@
-import { useState } from "react";
-import { Plus, Search, Filter, Download, MoreHorizontal, Mail, Trash2, Pencil } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Plus, Search, MoreHorizontal, Mail, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useContacts } from "@/hooks/useContacts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { maskCPF, maskPhone, maskCEP } from "@/lib/masks";
+import { useCepLookup } from "@/hooks/useCepLookup";
 
 const emptyContact = {
   nome: "", cpf: "", rg: "", orgao_expedidor: "", profissao: "",
   whatsapp: "", email: "", genero: "", nacionalidade: "Brasileiro(a)",
-  estado_civil: "", cep: "", estado: "", cidade: "", bairro: "",
-  rua: "", numero: "", complemento: "",
+  estado_civil: "", cep: "", rua: "", numero: "", complemento: "",
+  bairro: "", cidade: "", estado: "",
 };
 
 const Contatos = () => {
@@ -31,6 +32,14 @@ const Contatos = () => {
   );
 
   const updateField = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const onCepResult = useCallback(
+    (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
+      setForm((prev) => ({ ...prev, rua: data.rua, bairro: data.bairro, cidade: data.cidade, estado: data.estado }));
+    },
+    []
+  );
+  const { lookup: lookupCep } = useCepLookup(onCepResult);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,9 +60,9 @@ const Contatos = () => {
       whatsapp: contact.whatsapp || "", email: contact.email || "",
       genero: contact.genero || "", nacionalidade: contact.nacionalidade || "",
       estado_civil: contact.estado_civil || "", cep: contact.cep || "",
-      estado: contact.estado || "", cidade: contact.cidade || "",
-      bairro: contact.bairro || "", rua: contact.rua || "",
-      numero: contact.numero || "", complemento: contact.complemento || "",
+      rua: contact.rua || "", numero: contact.numero || "",
+      complemento: contact.complemento || "", bairro: contact.bairro || "",
+      cidade: contact.cidade || "", estado: contact.estado || "",
     });
     setEditingId(contact.id);
     setDialogOpen(true);
@@ -88,7 +97,7 @@ const Contatos = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>CPF</Label>
-                  <Input value={form.cpf} onChange={(e) => updateField("cpf", e.target.value)} placeholder="000.000.000-00" />
+                  <Input value={form.cpf} onChange={(e) => updateField("cpf", maskCPF(e.target.value))} placeholder="000.000.000-00" />
                 </div>
                 <div className="space-y-2">
                   <Label>RG</Label>
@@ -104,7 +113,7 @@ const Contatos = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>WhatsApp</Label>
-                  <Input value={form.whatsapp} onChange={(e) => updateField("whatsapp", e.target.value)} placeholder="(00) 00000-0000" />
+                  <Input value={form.whatsapp} onChange={(e) => updateField("whatsapp", maskPhone(e.target.value))} placeholder="(31) 99999-5858" />
                 </div>
                 <div className="space-y-2">
                   <Label>E-mail</Label>
@@ -127,31 +136,40 @@ const Contatos = () => {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>CEP</Label>
-                  <Input value={form.cep} onChange={(e) => updateField("cep", e.target.value)} placeholder="00000-000" />
+                  <Input
+                    value={form.cep}
+                    onChange={(e) => {
+                      const masked = maskCEP(e.target.value);
+                      updateField("cep", masked);
+                      lookupCep(masked);
+                    }}
+                    placeholder="00000-000"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label>Estado</Label>
-                  <Input value={form.estado} onChange={(e) => updateField("estado", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cidade</Label>
-                  <Input value={form.cidade} onChange={(e) => updateField("cidade", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bairro</Label>
-                  <Input value={form.bairro} onChange={(e) => updateField("bairro", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Rua</Label>
+                <div />
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Rua / Avenida</Label>
                   <Input value={form.rua} onChange={(e) => updateField("rua", e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Número</Label>
                   <Input value={form.numero} onChange={(e) => updateField("numero", e.target.value)} />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-2">
                   <Label>Complemento</Label>
                   <Input value={form.complemento} onChange={(e) => updateField("complemento", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bairro</Label>
+                  <Input value={form.bairro} onChange={(e) => updateField("bairro", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cidade</Label>
+                  <Input value={form.cidade} onChange={(e) => updateField("cidade", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>UF</Label>
+                  <Input value={form.estado} onChange={(e) => updateField("estado", e.target.value)} maxLength={2} />
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">

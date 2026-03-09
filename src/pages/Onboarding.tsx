@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,18 +12,24 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { maskPhone, maskCNPJ, maskCEP } from "@/lib/masks";
+import { useCepLookup } from "@/hooks/useCepLookup";
 
 const step1Schema = z.object({
   nome: z.string().min(2, "Nome da empresa é obrigatório"),
-  cnpj: z.string().optional(),
-  whatsapp: z.string().optional(),
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  cnpj: z.string().min(18, "CNPJ inválido"),
+  whatsapp: z.string().min(14, "WhatsApp inválido"),
+  email: z.string().email("Email inválido"),
 });
 
 const step2Schema = z.object({
-  cep: z.string().optional(),
-  estado: z.string().optional(),
-  cidade: z.string().optional(),
+  cep: z.string().min(9, "CEP inválido"),
+  rua: z.string().min(1, "Rua é obrigatória"),
+  numero: z.string().min(1, "Número é obrigatório"),
+  complemento: z.string().optional(),
+  bairro: z.string().min(1, "Bairro é obrigatório"),
+  cidade: z.string().min(1, "Cidade é obrigatória"),
+  estado: z.string().min(2, "Estado é obrigatório"),
 });
 
 type Step1Data = z.infer<typeof step1Schema>;
@@ -39,13 +45,30 @@ const Onboarding = () => {
 
   const form1 = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
-    defaultValues: { nome: "", cnpj: "", whatsapp: "", email: "" },
+    defaultValues: {
+      nome: "",
+      cnpj: "",
+      whatsapp: "",
+      email: profile?.email || "",
+    },
   });
 
   const form2 = useForm<Step2Data>({
     resolver: zodResolver(step2Schema),
-    defaultValues: { cep: "", estado: "", cidade: "" },
+    defaultValues: { cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "" },
   });
+
+  const onCepResult = useCallback(
+    (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
+      form2.setValue("rua", data.rua);
+      form2.setValue("bairro", data.bairro);
+      form2.setValue("cidade", data.cidade);
+      form2.setValue("estado", data.estado);
+    },
+    [form2]
+  );
+
+  const { lookup: lookupCep } = useCepLookup(onCepResult);
 
   const handleStep1Submit = (data: Step1Data) => {
     setStep1Data(data);
@@ -54,17 +77,21 @@ const Onboarding = () => {
 
   const handleStep2Submit = async (data: Step2Data) => {
     if (!step1Data) return;
-    
+
     setIsSubmitting(true);
     try {
       const { error } = await supabase.rpc("complete_onboarding", {
         p_nome: step1Data.nome,
-        p_cnpj: step1Data.cnpj || "",
-        p_whatsapp: step1Data.whatsapp || "",
-        p_email: step1Data.email || "",
-        p_cidade: data.cidade || "",
-        p_estado: data.estado || "",
-        p_cep: data.cep || "",
+        p_cnpj: step1Data.cnpj,
+        p_whatsapp: step1Data.whatsapp,
+        p_email: step1Data.email,
+        p_cidade: data.cidade,
+        p_estado: data.estado,
+        p_cep: data.cep,
+        p_rua: data.rua,
+        p_numero: data.numero,
+        p_complemento: data.complemento || "",
+        p_bairro: data.bairro,
       });
 
       if (error) throw error;
@@ -149,9 +176,13 @@ const Onboarding = () => {
                         name="cnpj"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>CNPJ</FormLabel>
+                            <FormLabel>CNPJ *</FormLabel>
                             <FormControl>
-                              <Input placeholder="00.000.000/0001-00" {...field} />
+                              <Input
+                                placeholder="00.000.000/0001-00"
+                                value={field.value}
+                                onChange={(e) => field.onChange(maskCNPJ(e.target.value))}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -163,9 +194,13 @@ const Onboarding = () => {
                           name="whatsapp"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>WhatsApp</FormLabel>
+                              <FormLabel>WhatsApp *</FormLabel>
                               <FormControl>
-                                <Input placeholder="(11) 99999-9999" {...field} />
+                                <Input
+                                  placeholder="(31) 99999-5858"
+                                  value={field.value}
+                                  onChange={(e) => field.onChange(maskPhone(e.target.value))}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -176,7 +211,7 @@ const Onboarding = () => {
                           name="email"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Email</FormLabel>
+                              <FormLabel>Email *</FormLabel>
                               <FormControl>
                                 <Input placeholder="contato@empresa.com" type="email" {...field} />
                               </FormControl>
@@ -208,34 +243,82 @@ const Onboarding = () => {
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
                     <MapPin className="h-7 w-7 text-primary" />
                   </div>
-                  <CardTitle className="font-display text-xl">Localização</CardTitle>
-                  <CardDescription>Onde sua empresa está localizada? (opcional)</CardDescription>
+                  <CardTitle className="font-display text-xl">Endereço da Empresa</CardTitle>
+                  <CardDescription>Preencha o CEP para buscar automaticamente.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Form {...form2}>
                     <form onSubmit={form2.handleSubmit(handleStep2Submit)} className="space-y-4">
-                      <FormField
-                        control={form2.control}
-                        name="cep"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CEP</FormLabel>
-                            <FormControl>
-                              <Input placeholder="00000-000" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                       <div className="grid gap-4 sm:grid-cols-2">
                         <FormField
                           control={form2.control}
-                          name="estado"
+                          name="cep"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Estado</FormLabel>
+                              <FormLabel>CEP *</FormLabel>
                               <FormControl>
-                                <Input placeholder="SP" {...field} />
+                                <Input
+                                  placeholder="00000-000"
+                                  value={field.value}
+                                  onChange={(e) => {
+                                    const masked = maskCEP(e.target.value);
+                                    field.onChange(masked);
+                                    lookupCep(masked);
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div />
+                        <FormField
+                          control={form2.control}
+                          name="rua"
+                          render={({ field }) => (
+                            <FormItem className="sm:col-span-2">
+                              <FormLabel>Rua / Avenida *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Rua das Flores" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form2.control}
+                          name="numero"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Número *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="123" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form2.control}
+                          name="complemento"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Complemento</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Sala 01" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form2.control}
+                          name="bairro"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bairro *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Centro" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -246,9 +329,22 @@ const Onboarding = () => {
                           name="cidade"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Cidade</FormLabel>
+                              <FormLabel>Cidade *</FormLabel>
                               <FormControl>
-                                <Input placeholder="São Paulo" {...field} />
+                                <Input placeholder="Belo Horizonte" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form2.control}
+                          name="estado"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>UF *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="MG" maxLength={2} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
