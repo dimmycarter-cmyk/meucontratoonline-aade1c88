@@ -125,4 +125,28 @@
   .shadow-elevated {
     box-shadow: var(--shadow-elevated);
   }
+  
+  /* Glassmorphism / Liquid Glass utilities */
+  .glass {
+    @apply bg-white/60 backdrop-blur-xl border border-white/20;
+  }
+  .glass-dark {
+    @apply bg-black/30 backdrop-blur-xl border border-white/10;
+  }
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-lg border border-white/30 shadow-lg;
+  }
+  .glass-sidebar {
+    @apply bg-sidebar/95 backdrop-blur-xl;
+  }
+  .liquid-glow {
+    @apply relative;
+  }
+  .liquid-glow::before {
+    content: '';
+    @apply absolute -inset-px rounded-[inherit] bg-gradient-to-r from-primary/20 to-primary/5 opacity-0 transition-opacity duration-300;
+  }
+  .liquid-glow:hover::before {
+    @apply opacity-100;
+  }
 }

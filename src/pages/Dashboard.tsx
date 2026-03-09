@@ -179,19 +179,63 @@ const Dashboard = () => {
     );
   }
 
+  const contractsUsagePercent = limits && limits.max_contracts_per_month < 999999
+    ? Math.round((limits.current_contracts_this_month / limits.max_contracts_per_month) * 100)
+    : 0;
+
   return (
     <div className="p-6 lg:p-8">
+      {/* Limits Warning Banner */}
+      {limits && !canCreateContract && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+          <Card className="border-warning/50 bg-warning/10">
+            <CardContent className="p-4 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Limite de contratos atingido</p>
+                <p className="text-xs text-muted-foreground">
+                  Você usou {limits.current_contracts_this_month}/{limits.max_contracts_per_month} contratos este mês. 
+                  Faça upgrade do plano para continuar criando contratos.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-warning border-warning">
+                {limits.plan_name}
+              </Badge>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Plan Usage Card */}
+      {limits && limits.max_contracts_per_month < 999999 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
+          <Card className="shadow-card glass-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Uso do plano: {limits.plan_name}</span>
+                <span className="text-sm font-medium">{limits.current_contracts_this_month}/{limits.max_contracts_per_month} contratos</span>
+              </div>
+              <Progress value={contractsUsagePercent} className="h-2" />
+              {limits.subscription_status === "trial" && limits.trial_end && (
+                <p className="mt-2 text-xs text-warning">
+                  Trial expira em: {format(parseISO(limits.trial_end), "dd/MM/yyyy")}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Visão geral da sua operação</p>
         </div>
-        <Button asChild>
+        <Button asChild disabled={!canCreateContract}>
           <Link to="/app/novo-contrato"><Plus className="mr-2 h-4 w-4" /> Novo Contrato</Link>
         </Button>
       </div>
-
       {/* Stats */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
