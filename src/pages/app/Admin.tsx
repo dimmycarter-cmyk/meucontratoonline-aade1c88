@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -148,7 +148,6 @@ const Admin = () => {
 
   // Filtered tenants
   const filteredTenants = useMemo(() => {
-    setTenantPage(1);
     const q = tenantSearch.trim().toLowerCase();
     return tenants.filter((t) => {
       if (q && !t.nome.toLowerCase().includes(q) && !t.slug.toLowerCase().includes(q)) return false;
@@ -157,9 +156,12 @@ const Admin = () => {
     });
   }, [tenants, tenantSearch, tenantStatusFilter]);
 
+  // Reset pages when filters change
+  useEffect(() => { setTenantPage(1); }, [tenantSearch, tenantStatusFilter]);
+  useEffect(() => { setUserPage(1); }, [userSearch, userStatusFilter, userRoleFilter, userTenantFilter]);
+
   // Filtered users
   const filteredUsers = useMemo(() => {
-    setUserPage(1);
     const q = userSearch.trim().toLowerCase();
     return users.filter((u) => {
       if (q && !u.nome.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q) && !(u.tenant_nome ?? "").toLowerCase().includes(q)) return false;
