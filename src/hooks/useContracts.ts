@@ -30,7 +30,7 @@ export const useContracts = () => {
   const { canCreateContract, limits } = useTenantLimits();
 
   const query = useQuery({
-    queryKey: ["contracts", profile?.tenant_id],
+    queryKey: ["contracts", effectiveTenantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contracts")
@@ -39,7 +39,7 @@ export const useContracts = () => {
       if (error) throw error;
       return data as Contract[];
     },
-    enabled: !!profile?.tenant_id,
+    enabled: !!effectiveTenantId,
   });
 
   const createMutation = useMutation({
