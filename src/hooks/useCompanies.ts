@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-
 export interface Company {
   id: string;
   tenant_id: string;
@@ -30,21 +29,32 @@ export interface Company {
 export type CompanyInsert = Omit<Company, "id" | "created_at" | "updated_at">;
 
 export const useCompanies = () => {
-  const { profile } = useAuth();
+  const { profile, isSuperAdmin, effectiveTenantId, impersonatedTenantId } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const query = useQuery({
-    queryKey: ["companies", profile?.tenant_id],
+    queryKey: ["companies", isSuperAdmin, effectiveTenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let queryBuilder = supabase
         .from("companies")
         .select("*")
         .order("nome_fantasia");
+
+      // If super_admin is impersonating a tenant, filter by that tenant
+      // If super_admin without impersonation, show all (no filter)
+      // Regular users: RLS handles filtering
+      if (isSuperAdmin && impersonatedTenantId) {
+        queryBuilder = queryBuilder.eq("tenant_id", impersonatedTenantId);
+      } else if (!isSuperAdmin && effectiveTenantId) {
+        // Regular user - RLS already filters, but we keep the query consistent
+      }
+
+      const { data, error } = await queryBuilder;
       if (error) throw error;
       return data as Company[];
     },
-    enabled: !!profile?.tenant_id,
+    enabled: isSuperAdmin || !!profile?.tenant_id,
   });
 
   const createMutation = useMutation({
