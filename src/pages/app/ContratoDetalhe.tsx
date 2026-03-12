@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Printer, Edit3, Save, FileText, File, Download } from "lucide-react";
+import { ArrowLeft, Printer, Edit3, Save, FileText, File, Download, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,6 +32,8 @@ const ContratoDetalhe = () => {
   const printRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState("");
 
   // Fetch single contract
   const { data: contract, isLoading, refetch } = useQuery({
@@ -74,8 +77,21 @@ const ContratoDetalhe = () => {
   });
 
   useEffect(() => {
-    if (contract) setEditContent(contract.conteudo_final);
+    if (contract) {
+      setEditContent(contract.conteudo_final);
+      setTitleValue(contract.nome);
+    }
   }, [contract]);
+
+  const handleSaveTitle = async () => {
+    if (!id || titleValue.trim() === contract?.nome) {
+      setEditingTitle(false);
+      return;
+    }
+    await updateContract({ id, nome: titleValue.trim() } as any);
+    setEditingTitle(false);
+    refetch();
+  };
 
   const handleSave = async () => {
     if (!id) return;
@@ -117,7 +133,27 @@ const ContratoDetalhe = () => {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="font-display text-2xl font-bold text-foreground">{contract.nome || "Sem nome"}</h1>
+          {editingTitle ? (
+            <Input
+              value={titleValue}
+              onChange={(e) => setTitleValue(e.target.value)}
+              onBlur={handleSaveTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveTitle();
+                if (e.key === "Escape") { setTitleValue(contract.nome); setEditingTitle(false); }
+              }}
+              autoFocus
+              className="font-display text-2xl font-bold h-auto py-0 px-1"
+            />
+          ) : (
+            <h1
+              className="font-display text-2xl font-bold text-foreground cursor-pointer group flex items-center gap-2"
+              onClick={() => setEditingTitle(true)}
+            >
+              {contract.nome || "Sem nome"}
+              <Pencil className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </h1>
+          )}
           <p className="text-sm text-muted-foreground">Criado em {format(new Date(contract.created_at), "dd/MM/yyyy HH:mm")}</p>
         </div>
         <div className="flex gap-2">
