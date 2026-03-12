@@ -77,8 +77,21 @@ const ContratoDetalhe = () => {
   });
 
   useEffect(() => {
-    if (contract) setEditContent(contract.conteudo_final);
+    if (contract) {
+      setEditContent(contract.conteudo_final);
+      setTitleValue(contract.nome);
+    }
   }, [contract]);
+
+  const handleSaveTitle = async () => {
+    if (!id || titleValue.trim() === contract?.nome) {
+      setEditingTitle(false);
+      return;
+    }
+    await updateContract({ id, nome: titleValue.trim() } as any);
+    setEditingTitle(false);
+    refetch();
+  };
 
   const handleSave = async () => {
     if (!id) return;
