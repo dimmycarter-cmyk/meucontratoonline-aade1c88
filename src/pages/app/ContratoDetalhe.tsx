@@ -32,6 +32,8 @@ const ContratoDetalhe = () => {
   const printRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState("");
 
   // Fetch single contract
   const { data: contract, isLoading, refetch } = useQuery({
