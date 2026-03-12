@@ -35,6 +35,7 @@ export const useContracts = () => {
       const { data, error } = await supabase
         .from("contracts")
         .select("*")
+        .eq("tenant_id", effectiveTenantId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Contract[];
