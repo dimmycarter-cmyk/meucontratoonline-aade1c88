@@ -193,6 +193,17 @@ const Empresas = () => {
                         <DropdownMenuItem onClick={() => handleEdit(empresa)}>
                           <Pencil className="mr-2 h-4 w-4" /> Editar
                         </DropdownMenuItem>
+                        {isSuperAdmin && (
+                          <>
+                            <DropdownMenuItem onClick={() => {
+                              setImpersonatedTenant(empresa.tenant_id, empresa.nome_fantasia);
+                              navigate("/app");
+                            }}>
+                              <LogIn className="mr-2 h-4 w-4" /> Acessar como
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
                         <DropdownMenuItem className="text-destructive" onClick={() => deleteCompany(empresa.id)}>
                           <Trash2 className="mr-2 h-4 w-4" /> Excluir
                         </DropdownMenuItem>
