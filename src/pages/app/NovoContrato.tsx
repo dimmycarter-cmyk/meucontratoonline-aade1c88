@@ -514,13 +514,16 @@ const NovoContrato = () => {
                       {loadingTemplates ? (
                         <SelectItem value="__loading" disabled>Carregando...</SelectItem>
                       ) : activeTemplates.length === 0 ? (
-                        <SelectItem value="__empty" disabled>Nenhum modelo ativo</SelectItem>
+                        <SelectItem value="__empty" disabled>Nenhum modelo disponível</SelectItem>
                       ) : (
                         activeTemplates.map((t) => (
                           <SelectItem key={t.id} value={t.id}>
                             <div className="flex items-center gap-2">
                               <span>{t.nome}</span>
                               <span className="text-xs text-muted-foreground">({t.tipo})</span>
+                              {t.status === "rascunho" && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Rascunho</span>
+                              )}
                             </div>
                           </SelectItem>
                         ))
