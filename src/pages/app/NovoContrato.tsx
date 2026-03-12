@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
-  ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users,
+  ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useTemplates, ContractTemplate } from "@/hooks/useTemplates";
 import { useContacts, Contact } from "@/hooks/useContacts";
 import { useCompanies, Company } from "@/hooks/useCompanies";
@@ -38,29 +41,24 @@ type UploadedFile = {
 
 type FlowMode = "ai" | "manual" | null;
 
-// Manual flow steps
+// Simplified steps: 4 for each mode
 const manualSteps = [
-  { id: "template", label: "Modelo", icon: FileText },
-  { id: "mode", label: "Modo", icon: Sparkles },
-  { id: "parties", label: "Partes", icon: User },
-  { id: "docs", label: "Documentos", icon: ClipboardList },
-  { id: "data", label: "Dados", icon: Database },
-  { id: "clauses", label: "Cláusulas", icon: BookOpen },
-  { id: "editor", label: "Editor", icon: Edit3 },
-  { id: "finish", label: "Finalizar", icon: Check },
+  { id: "selection", label: "Seleção", icon: FileText },
+  { id: "parties-docs", label: "Partes & Docs", icon: User },
+  { id: "data-clauses", label: "Dados & Cláusulas", icon: Database },
+  { id: "editor-finish", label: "Editor & Finalizar", icon: Edit3 },
 ];
 
-// AI flow steps
 const aiSteps = [
-  { id: "template", label: "Modelo", icon: FileText },
-  { id: "mode", label: "Modo", icon: Sparkles },
+  { id: "selection", label: "Seleção", icon: FileText },
   { id: "participants", label: "Participantes", icon: Users },
-  { id: "extraction", label: "Extração IA", icon: Sparkles },
-  { id: "review", label: "Revisão", icon: Edit3 },
-  { id: "data", label: "Dados", icon: Database },
-  { id: "clauses", label: "Cláusulas", icon: BookOpen },
-  { id: "editor", label: "Editor", icon: Edit3 },
-  { id: "finish", label: "Finalizar", icon: Check },
+  { id: "review-data", label: "Revisão & Dados", icon: Sparkles },
+  { id: "editor-finish", label: "Editor & Finalizar", icon: Edit3 },
+];
+
+// Before mode is selected, show just step 1
+const initialSteps = [
+  { id: "selection", label: "Seleção", icon: FileText },
 ];
 
 const documentChecklist = [
@@ -77,7 +75,7 @@ const documentChecklist = [
 const NovoContrato = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { templates, isLoading: loadingTemplates } = useTemplates();
+  const { templates, isLoading: loadingTemplates, createTemplate, isCreating: isCreatingTemplate } = useTemplates();
   const { contacts, isLoading: loadingContacts } = useContacts();
   const { companies, isLoading: loadingCompanies } = useCompanies();
   const { clauses, isLoading: loadingClauses } = useClauses();
@@ -95,6 +93,12 @@ const NovoContrato = () => {
   const [selectedClauseIds, setSelectedClauseIds] = useState<string[]>([]);
   const [conteudoFinal, setConteudoFinal] = useState("");
   const [nomeContrato, setNomeContrato] = useState("");
+
+  // Inline template creation dialog
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateType, setNewTemplateType] = useState("Compra e Venda");
+  const [newTemplateDesc, setNewTemplateDesc] = useState("");
 
   // Manual flow state
   const [compradorId, setCompradorId] = useState<string | null>(null);
@@ -120,7 +124,10 @@ const NovoContrato = () => {
     mapToDados,
   } = useDocumentExtraction();
 
-  const steps = flowMode === "ai" ? aiSteps : manualSteps;
+  // AI sub-step inside "review-data": extraction → review → data
+  const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">("extraction");
+
+  const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
   const currentStep = steps[currentStepIndex];
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
@@ -128,7 +135,7 @@ const NovoContrato = () => {
   const vendedor = contacts.find((c) => c.id === vendedorId);
   const empresa = companies.find((c) => c.id === empresaId);
   const selectedClauses = clauses.filter((c) => selectedClauseIds.includes(c.id));
-  const activeTemplates = templates.filter((t) => t.status === "publicado");
+  const activeTemplates = templates.filter((t) => t.status === "ativo");
 
   const filteredContacts = contacts.filter((c) =>
     c.nome.toLowerCase().includes(searchContacts.toLowerCase())
@@ -249,44 +256,68 @@ const NovoContrato = () => {
     );
   };
 
-  // Handle step transitions
+  // Handle mode selection (step 1 → step 2)
   const handleModeSelect = (mode: "ai" | "manual") => {
     setFlowMode(mode);
-    setCurrentStepIndex(2); // Move to step after "mode"
+    setCurrentStepIndex(1); // Move to step 2 (index 1) of the mode-specific steps
   };
 
   const handleNext = () => {
     const stepId = currentStep?.id;
 
-    // Manual: auto-fill when leaving parties
-    if (flowMode === "manual" && stepId === "parties") {
+    // Manual: auto-fill when leaving parties-docs
+    if (flowMode === "manual" && stepId === "parties-docs") {
       autoFillDados();
     }
 
     // Before editor, build final content
-    if (stepId === "clauses") {
+    if (stepId === "data-clauses" || (flowMode === "ai" && stepId === "review-data")) {
       buildFinalContent();
     }
 
     // AI: trigger extraction when moving from participants
     if (flowMode === "ai" && stepId === "participants") {
       extractAll(participants);
+      setAiReviewSubStep("extraction");
     }
 
-    // AI: after review, map extracted data to dados
-    if (flowMode === "ai" && stepId === "review") {
-      const aiDados = mapToDados();
-      setDados((prev) => ({ ...prev, ...aiDados }));
+    // AI: handle sub-steps within review-data
+    if (flowMode === "ai" && stepId === "review-data") {
+      if (aiReviewSubStep === "extraction" && !isProcessing) {
+        setAiReviewSubStep("review");
+        return;
+      }
+      if (aiReviewSubStep === "review") {
+        const aiDados = mapToDados();
+        setDados((prev) => ({ ...prev, ...aiDados }));
+        setAiReviewSubStep("data");
+        return;
+      }
+      // If data sub-step, proceed to next wizard step
     }
 
     setCurrentStepIndex((s) => Math.min(s + 1, steps.length - 1));
   };
 
   const handleBack = () => {
-    if (currentStepIndex === 2 && flowMode) {
-      // Going back to mode selection
+    const stepId = currentStep?.id;
+
+    // AI: handle sub-steps going back
+    if (flowMode === "ai" && stepId === "review-data") {
+      if (aiReviewSubStep === "data") {
+        setAiReviewSubStep("review");
+        return;
+      }
+      if (aiReviewSubStep === "review") {
+        setAiReviewSubStep("extraction");
+        return;
+      }
+    }
+
+    if (currentStepIndex === 1 && flowMode) {
+      // Going back to selection step
       setFlowMode(null);
-      setCurrentStepIndex(1);
+      setCurrentStepIndex(0);
       return;
     }
     setCurrentStepIndex((s) => Math.max(s - 1, 0));
@@ -321,16 +352,18 @@ const NovoContrato = () => {
   const canProceed = () => {
     const stepId = currentStep?.id;
     switch (stepId) {
-      case "template": return !!selectedTemplateId;
-      case "mode": return false; // handled by card click
-      case "parties": return !!compradorId && !!vendedorId;
+      case "selection": return !!selectedTemplateId && !!flowMode;
+      case "parties-docs": return !!compradorId && !!vendedorId;
       case "participants": {
         const hasComprador = participants.some((p) => p.role === "comprador" && p.full_name.trim());
         const hasVendedor = participants.some((p) => p.role === "vendedor" && p.full_name.trim());
         const hasDocs = participants.some((p) => p.documents.length > 0);
         return hasComprador && hasVendedor && hasDocs;
       }
-      case "extraction": return !isProcessing;
+      case "review-data": {
+        if (aiReviewSubStep === "extraction") return !isProcessing;
+        return true;
+      }
       default: return true;
     }
   };
@@ -381,6 +414,29 @@ const NovoContrato = () => {
 
   const handlePrint = () => window.print();
 
+  const handleCreateTemplate = async () => {
+    if (!newTemplateName.trim()) return;
+    try {
+      const created = await createTemplate({
+        nome: newTemplateName,
+        tipo: newTemplateType,
+        descricao: newTemplateDesc || null,
+        status: "ativo",
+        conteudo: "",
+        variaveis: [],
+      });
+      if (created?.id) {
+        setSelectedTemplateId(created.id);
+      }
+      setShowCreateTemplate(false);
+      setNewTemplateName("");
+      setNewTemplateType("Compra e Venda");
+      setNewTemplateDesc("");
+    } catch (e) {
+      // handled by hook
+    }
+  };
+
   const templateVars = useMemo(() => {
     if (!selectedTemplate?.variaveis) return TEMPLATE_VARIABLES;
     const varKeys = selectedTemplate.variaveis as string[];
@@ -429,61 +485,85 @@ const NovoContrato = () => {
         ))}
       </div>
 
-      {/* ==================== STEP: TEMPLATE ==================== */}
-      {currentStep?.id === "template" && (
-        <div className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-foreground">Escolha o modelo de contrato</h2>
-          {loadingTemplates ? (
-            <p className="text-sm text-muted-foreground">Carregando modelos...</p>
-          ) : activeTemplates.length === 0 ? (
-            <Card className="shadow-card">
-              <CardContent className="py-12 text-center">
-                <p className="text-sm text-muted-foreground">Nenhum modelo publicado. Crie e publique um modelo primeiro.</p>
-                <Button variant="outline" className="mt-4" onClick={() => navigate("/app/modelos")}>
-                  Ir para Modelos
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {activeTemplates.map((t) => (
-                <Card
-                  key={t.id}
-                  className={`cursor-pointer shadow-card transition-all hover:shadow-elevated ${
-                    selectedTemplateId === t.id ? "ring-2 ring-primary" : ""
-                  }`}
-                  onClick={() => setSelectedTemplateId(t.id)}
-                >
-                  <CardHeader>
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base">{t.nome}</CardTitle>
-                        <CardDescription className="mt-1">{t.descricao || t.tipo}</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex gap-3">
-                    <Badge variant="secondary" className="text-xs">{t.tipo}</Badge>
+      {/* ==================== STEP 1: SELECTION (Template + Mode) ==================== */}
+      {currentStep?.id === "selection" && (
+        <div className="space-y-8">
+          {/* Template Selection */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-5 w-5 text-primary" />
+                Selecione ou crie um contrato
+              </CardTitle>
+              <CardDescription>
+                Escolha o modelo de contrato para iniciar
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="mb-1.5 block text-sm font-medium">Contrato *</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={selectedTemplateId || ""}
+                    onValueChange={(val) => setSelectedTemplateId(val)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecione um modelo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loadingTemplates ? (
+                        <SelectItem value="__loading" disabled>Carregando...</SelectItem>
+                      ) : activeTemplates.length === 0 ? (
+                        <SelectItem value="__empty" disabled>Nenhum modelo ativo</SelectItem>
+                      ) : (
+                        activeTemplates.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{t.nome}</span>
+                              <span className="text-xs text-muted-foreground">({t.tipo})</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowCreateTemplate(true)}
+                    title="Criar novo modelo"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {selectedTemplate && (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{selectedTemplate.nome}</p>
+                    <p className="text-xs text-muted-foreground">{selectedTemplate.descricao || selectedTemplate.tipo}</p>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Badge variant="secondary" className="text-xs">{selectedTemplate.tipo}</Badge>
                     <Badge variant="secondary" className="text-xs">
-                      {(t.variaveis as string[])?.length || 0} variáveis
+                      {(selectedTemplate.variaveis as string[])?.length || 0} variáveis
                     </Badge>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Mode Selection (only if template is selected) */}
+          {selectedTemplateId && (
+            <ContractModeSelector onSelect={handleModeSelect} />
           )}
         </div>
       )}
 
-      {/* ==================== STEP: MODE SELECTION ==================== */}
-      {currentStep?.id === "mode" && (
-        <ContractModeSelector onSelect={handleModeSelect} />
-      )}
-
-      {/* ==================== AI: PARTICIPANTS ==================== */}
+      {/* ==================== AI: PARTICIPANTS (Step 2) ==================== */}
       {currentStep?.id === "participants" && flowMode === "ai" && (
         <ParticipantManager
           participants={participants}
@@ -497,230 +577,79 @@ const NovoContrato = () => {
         />
       )}
 
-      {/* ==================== AI: EXTRACTION PROGRESS ==================== */}
-      {currentStep?.id === "extraction" && flowMode === "ai" && (
-        <ExtractionProgress
-          participants={participants}
-          isProcessing={isProcessing}
-          progress={progress}
-          currentMessage={currentMessage}
-        />
-      )}
-
-      {/* ==================== AI: REVIEW EXTRACTED DATA ==================== */}
-      {currentStep?.id === "review" && flowMode === "ai" && (
-        <ExtractedDataReview
-          participantsData={extractedData}
-          onUpdateField={updateField}
-        />
-      )}
-
-      {/* ==================== MANUAL: PARTIES ==================== */}
-      {currentStep?.id === "parties" && flowMode === "manual" && (
+      {/* ==================== AI: REVIEW & DATA (Step 3 with sub-steps) ==================== */}
+      {currentStep?.id === "review-data" && flowMode === "ai" && (
         <div className="space-y-6">
-          <h2 className="font-display text-lg font-semibold text-foreground">Selecione as partes</h2>
-          
-          {/* Comprador */}
-          <div>
-            <Label className="mb-2 block text-sm font-medium">Comprador *</Label>
-            <div className="relative mb-2">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar contato..." className="pl-10" value={searchContacts} onChange={(e) => setSearchContacts(e.target.value)} />
-            </div>
-            <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
-              {filteredContacts.map((c) => (
-                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setCompradorId(c.id)}>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{c.nome}</p>
-                      <p className="text-xs text-muted-foreground">{c.cpf || c.email || "—"}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-            {contacts.length === 0 && !loadingContacts && (
-              <p className="text-xs text-muted-foreground mt-2">Nenhum contato cadastrado. <Button variant="link" className="p-0 h-auto text-xs" onClick={() => navigate("/app/contatos")}>Criar contato</Button></p>
-            )}
-          </div>
-
-          {/* Vendedor */}
-          <div>
-            <Label className="mb-2 block text-sm font-medium">Vendedor *</Label>
-            <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
-              {contacts.filter((c) => c.id !== compradorId).map((c) => (
-                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setVendedorId(c.id)}>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{c.nome}</p>
-                      <p className="text-xs text-muted-foreground">{c.cpf || c.email || "—"}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          {/* Empresa */}
-          <div>
-            <Label className="mb-2 block text-sm font-medium">Empresa Intermediadora (opcional)</Label>
-            <div className="relative mb-2">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar empresa..." className="pl-10" value={searchCompanies} onChange={(e) => setSearchCompanies(e.target.value)} />
-            </div>
-            <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
-              {filteredCompanies.map((c) => (
-                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${empresaId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setEmpresaId(empresaId === c.id ? null : c.id)}>
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{c.nome_fantasia}</p>
-                      <p className="text-xs text-muted-foreground">{c.cnpj || "—"}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== MANUAL: DOCUMENTS ==================== */}
-      {currentStep?.id === "docs" && flowMode === "manual" && (
-        <div className="space-y-6">
-          <h2 className="font-display text-lg font-semibold text-foreground">Documentos</h2>
-          <p className="text-sm text-muted-foreground">Envie os documentos necessários e confirme o checklist.</p>
-
-          <Card className="shadow-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4" /> Upload de Documentos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-muted/50">
-                <Upload className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Clique para enviar arquivos</span>
-                <span className="text-xs text-muted-foreground">PDF, JPG, PNG (máx 20MB)</span>
-                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-              </label>
-              {isUploading && <p className="mt-2 text-xs text-muted-foreground">Enviando...</p>}
-              {uploadedFiles.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {uploadedFiles.map((file) => (
-                    <div key={file.path} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <File className="h-4 w-4 text-primary" />
-                        <span className="text-sm text-foreground">{file.name}</span>
-                        <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveFile(file.path)}>
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Checklist de Documentos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {documentChecklist.map((doc) => (
-                  <label key={doc} className="flex items-center gap-3 cursor-pointer">
-                    <Checkbox
-                      checked={checkedDocs.includes(doc)}
-                      onCheckedChange={(checked) => {
-                        setCheckedDocs((prev) => checked ? [...prev, doc] : prev.filter((d) => d !== doc));
-                      }}
-                    />
-                    <span className="text-sm text-foreground">{doc}</span>
-                  </label>
-                ))}
+          {/* Sub-step indicator */}
+          <div className="flex items-center gap-2 text-xs">
+            {[
+              { key: "extraction", label: "Extração IA" },
+              { key: "review", label: "Revisão" },
+              { key: "data", label: "Dados" },
+            ].map((sub, i) => (
+              <div key={sub.key} className="flex items-center">
+                <span
+                  className={`rounded-full px-2.5 py-1 font-medium ${
+                    aiReviewSubStep === sub.key
+                      ? "bg-primary/10 text-primary"
+                      : (["extraction", "review", "data"].indexOf(aiReviewSubStep) > i)
+                      ? "text-success"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {sub.label}
+                </span>
+                {i < 2 && <ChevronRight className="mx-1 h-3 w-3 text-muted-foreground" />}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* ==================== SHARED: DATA ==================== */}
-      {currentStep?.id === "data" && (
-        <div className="space-y-6">
-          <h2 className="font-display text-lg font-semibold text-foreground">Preencha os Dados</h2>
-          <p className="text-sm text-muted-foreground">
-            {flowMode === "ai"
-              ? "Dados pré-preenchidos pela IA. Ajuste conforme necessário."
-              : "Campos preenchidos automaticamente com dados das partes selecionadas. Ajuste conforme necessário."}
-          </p>
-
-          <div>
-            <Label className="mb-1 text-sm font-medium">Nome do Contrato</Label>
-            <Input value={nomeContrato} onChange={(e) => setNomeContrato(e.target.value)} placeholder="Ex: Compra e Venda - Apt 302" />
+            ))}
           </div>
 
-          {Object.entries(templateVarsGrouped).map(([category, vars]) => (
-            <Card key={category} className="shadow-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold text-foreground">{category}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {vars.map((v) => (
-                    <div key={v.key}>
-                      <Label className="mb-1 text-xs text-muted-foreground">{v.label}</Label>
-                      <Input
-                        value={dados[v.key] || ""}
-                        onChange={(e) => setDados((prev) => ({ ...prev, [v.key]: e.target.value }))}
-                        placeholder={v.label}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+          {aiReviewSubStep === "extraction" && (
+            <ExtractionProgress
+              participants={participants}
+              isProcessing={isProcessing}
+              progress={progress}
+              currentMessage={currentMessage}
+            />
+          )}
 
-      {/* ==================== SHARED: CLAUSES ==================== */}
-      {currentStep?.id === "clauses" && (
-        <div className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-foreground">Selecione as Cláusulas</h2>
-          <p className="text-sm text-muted-foreground">Escolha as cláusulas que farão parte deste contrato.</p>
-          {loadingClauses ? (
-            <p className="text-sm text-muted-foreground">Carregando cláusulas...</p>
-          ) : clauses.filter((c) => c.ativa).length === 0 ? (
-            <Card className="shadow-card">
-              <CardContent className="py-12 text-center">
-                <p className="text-sm text-muted-foreground">Nenhuma cláusula ativa. Crie cláusulas primeiro.</p>
-                <Button variant="outline" className="mt-4" onClick={() => navigate("/app/clausulas")}>Ir para Cláusulas</Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {clauses.filter((c) => c.ativa).map((clause) => (
-                <Card key={clause.id} className={`shadow-card transition-all ${selectedClauseIds.includes(clause.id) ? "ring-2 ring-primary" : ""}`}>
-                  <CardContent className="p-4">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <Checkbox
-                        className="mt-0.5"
-                        checked={selectedClauseIds.includes(clause.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedClauseIds((prev) => checked ? [...prev, clause.id] : prev.filter((id) => id !== clause.id));
-                        }}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-foreground">{clause.titulo}</p>
-                          <Badge variant="secondary" className="text-xs">{clause.categoria}</Badge>
+          {aiReviewSubStep === "review" && (
+            <ExtractedDataReview
+              participantsData={extractedData}
+              onUpdateField={updateField}
+            />
+          )}
+
+          {aiReviewSubStep === "data" && (
+            <div className="space-y-6">
+              <h2 className="font-display text-lg font-semibold text-foreground">Dados do Contrato</h2>
+              <p className="text-sm text-muted-foreground">
+                Dados pré-preenchidos pela IA. Ajuste conforme necessário.
+              </p>
+
+              <div>
+                <Label className="mb-1 text-sm font-medium">Nome do Contrato</Label>
+                <Input value={nomeContrato} onChange={(e) => setNomeContrato(e.target.value)} placeholder="Ex: Compra e Venda - Apt 302" />
+              </div>
+
+              {Object.entries(templateVarsGrouped).map(([category, vars]) => (
+                <Card key={category} className="shadow-card">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold text-foreground">{category}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {vars.map((v) => (
+                        <div key={v.key}>
+                          <Label className="mb-1 text-xs text-muted-foreground">{v.label}</Label>
+                          <Input
+                            value={dados[v.key] || ""}
+                            onChange={(e) => setDados((prev) => ({ ...prev, [v.key]: e.target.value }))}
+                            placeholder={v.label}
+                          />
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{clause.conteudo.replace(/<[^>]*>/g, "").slice(0, 150)}...</p>
-                      </div>
-                    </label>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -729,12 +658,227 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* ==================== SHARED: EDITOR ==================== */}
-      {currentStep?.id === "editor" && (
-        <div className="space-y-4">
+      {/* ==================== MANUAL: PARTIES & DOCS (Step 2) ==================== */}
+      {currentStep?.id === "parties-docs" && flowMode === "manual" && (
+        <div className="space-y-8">
+          {/* Parties section */}
+          <div className="space-y-6">
+            <h2 className="font-display text-lg font-semibold text-foreground">Selecione as partes</h2>
+            
+            {/* Comprador */}
+            <div>
+              <Label className="mb-2 block text-sm font-medium">Comprador *</Label>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Buscar contato..." className="pl-10" value={searchContacts} onChange={(e) => setSearchContacts(e.target.value)} />
+              </div>
+              <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
+                {filteredContacts.map((c) => (
+                  <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setCompradorId(c.id)}>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{c.nome}</p>
+                        <p className="text-xs text-muted-foreground">{c.cpf || c.email || "—"}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              {contacts.length === 0 && !loadingContacts && (
+                <p className="text-xs text-muted-foreground mt-2">Nenhum contato cadastrado. <Button variant="link" className="p-0 h-auto text-xs" onClick={() => navigate("/app/contatos")}>Criar contato</Button></p>
+              )}
+            </div>
+
+            {/* Vendedor */}
+            <div>
+              <Label className="mb-2 block text-sm font-medium">Vendedor *</Label>
+              <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
+                {contacts.filter((c) => c.id !== compradorId).map((c) => (
+                  <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setVendedorId(c.id)}>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{c.nome}</p>
+                        <p className="text-xs text-muted-foreground">{c.cpf || c.email || "—"}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Empresa */}
+            <div>
+              <Label className="mb-2 block text-sm font-medium">Empresa Intermediadora (opcional)</Label>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Buscar empresa..." className="pl-10" value={searchCompanies} onChange={(e) => setSearchCompanies(e.target.value)} />
+              </div>
+              <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
+                {filteredCompanies.map((c) => (
+                  <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${empresaId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setEmpresaId(empresaId === c.id ? null : c.id)}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{c.nome_fantasia}</p>
+                        <p className="text-xs text-muted-foreground">{c.cnpj || "—"}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Documents section */}
+          <div className="space-y-6">
+            <h2 className="font-display text-lg font-semibold text-foreground">Documentos</h2>
+            <p className="text-sm text-muted-foreground">Envie os documentos necessários e confirme o checklist.</p>
+
+            <Card className="shadow-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4" /> Upload de Documentos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-muted/50">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Clique para enviar arquivos</span>
+                  <span className="text-xs text-muted-foreground">PDF, JPG, PNG (máx 20MB)</span>
+                  <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                </label>
+                {isUploading && <p className="mt-2 text-xs text-muted-foreground">Enviando...</p>}
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {uploadedFiles.map((file) => (
+                      <div key={file.path} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <File className="h-4 w-4 text-primary" />
+                          <span className="text-sm text-foreground">{file.name}</span>
+                          <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveFile(file.path)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Checklist de Documentos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {documentChecklist.map((doc) => (
+                    <label key={doc} className="flex items-center gap-3 cursor-pointer">
+                      <Checkbox
+                        checked={checkedDocs.includes(doc)}
+                        onCheckedChange={(checked) => {
+                          setCheckedDocs((prev) => checked ? [...prev, doc] : prev.filter((d) => d !== doc));
+                        }}
+                      />
+                      <span className="text-sm text-foreground">{doc}</span>
+                    </label>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MANUAL: DATA & CLAUSES (Step 3) ==================== */}
+      {currentStep?.id === "data-clauses" && flowMode === "manual" && (
+        <div className="space-y-8">
+          {/* Data section */}
+          <div className="space-y-6">
+            <h2 className="font-display text-lg font-semibold text-foreground">Preencha os Dados</h2>
+            <p className="text-sm text-muted-foreground">
+              Campos preenchidos automaticamente com dados das partes selecionadas. Ajuste conforme necessário.
+            </p>
+
+            <div>
+              <Label className="mb-1 text-sm font-medium">Nome do Contrato</Label>
+              <Input value={nomeContrato} onChange={(e) => setNomeContrato(e.target.value)} placeholder="Ex: Compra e Venda - Apt 302" />
+            </div>
+
+            {Object.entries(templateVarsGrouped).map(([category, vars]) => (
+              <Card key={category} className="shadow-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-foreground">{category}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {vars.map((v) => (
+                      <div key={v.key}>
+                        <Label className="mb-1 text-xs text-muted-foreground">{v.label}</Label>
+                        <Input
+                          value={dados[v.key] || ""}
+                          onChange={(e) => setDados((prev) => ({ ...prev, [v.key]: e.target.value }))}
+                          placeholder={v.label}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Clauses section */}
+          <div className="space-y-4">
+            <h2 className="font-display text-lg font-semibold text-foreground">Selecione as Cláusulas</h2>
+            <p className="text-sm text-muted-foreground">Escolha as cláusulas que farão parte deste contrato.</p>
+            {loadingClauses ? (
+              <p className="text-sm text-muted-foreground">Carregando cláusulas...</p>
+            ) : clauses.filter((c) => c.ativa).length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="py-12 text-center">
+                  <p className="text-sm text-muted-foreground">Nenhuma cláusula ativa. Crie cláusulas primeiro.</p>
+                  <Button variant="outline" className="mt-4" onClick={() => navigate("/app/clausulas")}>Ir para Cláusulas</Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {clauses.filter((c) => c.ativa).map((clause) => (
+                  <Card key={clause.id} className={`shadow-card transition-all ${selectedClauseIds.includes(clause.id) ? "ring-2 ring-primary" : ""}`}>
+                    <CardContent className="p-4">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={selectedClauseIds.includes(clause.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedClauseIds((prev) => checked ? [...prev, clause.id] : prev.filter((id) => id !== clause.id));
+                          }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-foreground">{clause.titulo}</p>
+                            <Badge variant="secondary" className="text-xs">{clause.categoria}</Badge>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{clause.conteudo.replace(/<[^>]*>/g, "").slice(0, 150)}...</p>
+                        </div>
+                      </label>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== SHARED: EDITOR & FINALIZE (Step 4) ==================== */}
+      {currentStep?.id === "editor-finish" && (
+        <div className="space-y-6">
           <h2 className="font-display text-lg font-semibold text-foreground">Editor do Contrato</h2>
           <p className="text-sm text-muted-foreground">Revise e ajuste o conteúdo final do contrato.</p>
           <RichTextEditor content={conteudoFinal} onChange={setConteudoFinal} placeholder="Conteúdo do contrato..." />
+          
           {selectedClauses.length > 0 && (
             <Card className="shadow-card">
               <CardHeader className="pb-2">
@@ -752,13 +896,8 @@ const NovoContrato = () => {
               </CardContent>
             </Card>
           )}
-        </div>
-      )}
 
-      {/* ==================== SHARED: FINALIZE ==================== */}
-      {currentStep?.id === "finish" && (
-        <div className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-foreground">Finalizar Contrato</h2>
+          {/* Summary */}
           <div className="grid gap-4 sm:grid-cols-3">
             <Card className="shadow-card">
               <CardContent className="p-4">
@@ -793,6 +932,7 @@ const NovoContrato = () => {
             </Card>
           )}
 
+          {/* Preview */}
           <Card className="shadow-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Preview do Contrato</CardTitle>
@@ -827,20 +967,78 @@ const NovoContrato = () => {
       )}
 
       {/* Navigation */}
-      {currentStep?.id !== "finish" && currentStep?.id !== "mode" && (
+      {currentStep?.id !== "editor-finish" && currentStep?.id !== "selection" && (
         <div className="mt-6 flex justify-between">
-          {currentStepIndex > 0 ? (
-            <Button variant="outline" onClick={handleBack}>
-              <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
-            </Button>
-          ) : (
-            <div />
-          )}
+          <Button variant="outline" onClick={handleBack}>
+            <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
+          </Button>
           <Button disabled={!canProceed()} onClick={handleNext}>
-            Próximo <ChevronRight className="ml-1 h-4 w-4" />
+            {currentStep?.id === "review-data" && aiReviewSubStep !== "data" ? "Próximo" : "Próximo"}
+            <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         </div>
       )}
+
+      {/* Back button on editor-finish */}
+      {currentStep?.id === "editor-finish" && (
+        <div className="mt-6">
+          <Button variant="outline" onClick={handleBack}>
+            <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
+          </Button>
+        </div>
+      )}
+
+      {/* Inline Create Template Dialog */}
+      <Dialog open={showCreateTemplate} onOpenChange={setShowCreateTemplate}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar novo modelo</DialogTitle>
+            <DialogDescription>
+              Crie um modelo de contrato rapidamente. Você poderá editar o conteúdo depois.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="mb-1 text-sm">Nome do modelo *</Label>
+              <Input
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                placeholder="Ex: Compra e Venda com Financiamento"
+              />
+            </div>
+            <div>
+              <Label className="mb-1 text-sm">Tipo</Label>
+              <Select value={newTemplateType} onValueChange={setNewTemplateType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Compra e Venda">Compra e Venda</SelectItem>
+                  <SelectItem value="Locação">Locação</SelectItem>
+                  <SelectItem value="Permuta">Permuta</SelectItem>
+                  <SelectItem value="Cessão de Direitos">Cessão de Direitos</SelectItem>
+                  <SelectItem value="Outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="mb-1 text-sm">Descrição (opcional)</Label>
+              <Textarea
+                value={newTemplateDesc}
+                onChange={(e) => setNewTemplateDesc(e.target.value)}
+                placeholder="Breve descrição do modelo..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateTemplate(false)}>Cancelar</Button>
+            <Button onClick={handleCreateTemplate} disabled={!newTemplateName.trim() || isCreatingTemplate}>
+              {isCreatingTemplate ? "Criando..." : "Criar e selecionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Print View */}
       <ContractPrintView
