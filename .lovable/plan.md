@@ -1,18 +1,31 @@
 
 
-## As alteracoes estao funcionando corretamente
+## Resposta: Sim, o plano anterior contempla ambos os caminhos
 
-Voce esta na pagina inicial (Landing page `/`). As mudancas foram feitas na pagina de criacao de contrato.
+O plano aprovado anteriormente ja inclui as duas opcoes:
 
-Para ver as alteracoes:
+### Caminho 1 — Preencher com IA (OCR)
+- Step "Participantes": adicionar compradores, vendedores, etc. e fazer upload de documentos (CNH, RG, comprovante)
+- Step "Extracao IA": edge function `extract-document` processa os docs com Gemini Vision e extrai nome, CPF, RG, endereco, etc.
+- Step "Revisao": campos extraidos editaveis com indicador de confianca (verde/amarelo/vermelho)
+- Step "Editor": contrato ja preenchido automaticamente, editavel antes de salvar
 
-1. Faca login no sistema
-2. Navegue ate **Contratos** no menu lateral
-3. Clique em **Novo Contrato**
-4. Na etapa 1, selecione um modelo de contrato
-5. Na etapa 2 (nova), voce vera os 2 cards: **"Preencher com IA"** e **"Preencher Manualmente"**
+### Caminho 2 — Preencher Manualmente
+- Steps tradicionais: selecionar contatos existentes, preencher dados campo a campo, selecionar clausulas, editor final
 
-Nao ha erros no console e todos os componentes (ContractModeSelector, ParticipantManager, DocumentUploader, ExtractionProgress, ExtractedDataReview) foram criados corretamente.
+### O que falta corrigir (bug atual)
 
-Se apos navegar ate `/app/novo-contrato` ainda nao aparecer, me envie um print da tela para eu investigar.
+O problema que voce reportou nao e do plano em si, mas de um **bug no filtro de status**:
+
+- Linha 131 do `NovoContrato.tsx` filtra `status === "publicado"`, mas os modelos usam `status === "ativo"`
+- Resultado: nenhum modelo aparece, e o usuario fica preso
+
+### Plano de correcao imediata
+
+1. **Corrigir filtro**: `"publicado"` → `"ativo"` na linha 131
+2. **Substituir navegacao para Modelos** por um Dialog inline para criar modelo sem sair da tela
+3. **Simplificar o Step 1**: trocar o grid de cards por um Select/Combobox simples (como no seu print) com botao "Escolher contrato"
+4. **Reduzir steps**: juntar etapas relacionadas para ter no maximo 4-5 steps visiveis em vez de 8-9
+
+Todos os componentes de IA (ParticipantManager, DocumentUploader, ExtractionProgress, ExtractedDataReview) ja estao criados e funcionais. A correcao e apenas no fluxo de navegacao/UX do wizard.
 
