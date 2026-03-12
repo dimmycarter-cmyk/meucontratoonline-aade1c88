@@ -133,7 +133,27 @@ const ContratoDetalhe = () => {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="font-display text-2xl font-bold text-foreground">{contract.nome || "Sem nome"}</h1>
+          {editingTitle ? (
+            <Input
+              value={titleValue}
+              onChange={(e) => setTitleValue(e.target.value)}
+              onBlur={handleSaveTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveTitle();
+                if (e.key === "Escape") { setTitleValue(contract.nome); setEditingTitle(false); }
+              }}
+              autoFocus
+              className="font-display text-2xl font-bold h-auto py-0 px-1"
+            />
+          ) : (
+            <h1
+              className="font-display text-2xl font-bold text-foreground cursor-pointer group flex items-center gap-2"
+              onClick={() => setEditingTitle(true)}
+            >
+              {contract.nome || "Sem nome"}
+              <Pencil className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </h1>
+          )}
           <p className="text-sm text-muted-foreground">Criado em {format(new Date(contract.created_at), "dd/MM/yyyy HH:mm")}</p>
         </div>
         <div className="flex gap-2">
