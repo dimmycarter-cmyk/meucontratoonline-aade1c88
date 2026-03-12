@@ -311,6 +311,114 @@ export type Database = {
           },
         ]
       }
+      contract_participants: {
+        Row: {
+          address_city: string | null
+          address_complement: string | null
+          address_neighborhood: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zipcode: string | null
+          birth_date: string | null
+          cnpj: string | null
+          company_name: string | null
+          contract_id: string | null
+          cpf: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          gender: string | null
+          id: string
+          issuing_agency: string | null
+          legal_representative_name: string | null
+          marital_status: string | null
+          nationality: string | null
+          profession: string | null
+          rg: string | null
+          role: Database["public"]["Enums"]["participant_role"]
+          tenant_id: string
+          trade_name: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          address_city?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zipcode?: string | null
+          birth_date?: string | null
+          cnpj?: string | null
+          company_name?: string | null
+          contract_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          issuing_agency?: string | null
+          legal_representative_name?: string | null
+          marital_status?: string | null
+          nationality?: string | null
+          profession?: string | null
+          rg?: string | null
+          role?: Database["public"]["Enums"]["participant_role"]
+          tenant_id: string
+          trade_name?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          address_city?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zipcode?: string | null
+          birth_date?: string | null
+          cnpj?: string | null
+          company_name?: string | null
+          contract_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          issuing_agency?: string | null
+          legal_representative_name?: string | null
+          marital_status?: string | null
+          nationality?: string | null
+          profession?: string | null
+          rg?: string | null
+          role?: Database["public"]["Enums"]["participant_role"]
+          tenant_id?: string
+          trade_name?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_participants_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_participants_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_templates: {
         Row: {
           conteudo: string
@@ -450,6 +558,98 @@ export type Database = {
             columns: ["vendedor_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extracted_document_data: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          document_id: string
+          extracted_json: Json
+          id: string
+          reviewed: boolean
+          reviewed_at: string | null
+        }
+        Insert: {
+          confidence_score?: number
+          created_at?: string
+          document_id: string
+          extracted_json?: Json
+          id?: string
+          reviewed?: boolean
+          reviewed_at?: string | null
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          document_id?: string
+          extracted_json?: Json
+          id?: string
+          reviewed?: boolean
+          reviewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extracted_document_data_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "participant_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participant_documents: {
+        Row: {
+          created_at: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          mime_type: string
+          participant_id: string
+          processing_status: Database["public"]["Enums"]["processing_status"]
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["document_type"]
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          mime_type?: string
+          participant_id: string
+          processing_status?: Database["public"]["Enums"]["processing_status"]
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["document_type"]
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          mime_type?: string
+          participant_id?: string
+          processing_status?: Database["public"]["Enums"]["processing_status"]
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participant_documents_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "contract_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participant_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -720,6 +920,31 @@ export type Database = {
         | "corretor"
         | "assistente"
         | "operacional"
+      document_type:
+        | "cnh"
+        | "rg"
+        | "cpf"
+        | "comprovante_endereco"
+        | "certidao_casamento"
+        | "procuracao"
+        | "contrato_social"
+        | "cnpj"
+        | "outro"
+      participant_role:
+        | "comprador"
+        | "vendedor"
+        | "conjuge"
+        | "fiador"
+        | "testemunha"
+        | "procurador"
+        | "interveniente"
+        | "outro"
+      processing_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "low_confidence"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -853,6 +1078,34 @@ export const Constants = {
         "corretor",
         "assistente",
         "operacional",
+      ],
+      document_type: [
+        "cnh",
+        "rg",
+        "cpf",
+        "comprovante_endereco",
+        "certidao_casamento",
+        "procuracao",
+        "contrato_social",
+        "cnpj",
+        "outro",
+      ],
+      participant_role: [
+        "comprador",
+        "vendedor",
+        "conjuge",
+        "fiador",
+        "testemunha",
+        "procurador",
+        "interveniente",
+        "outro",
+      ],
+      processing_status: [
+        "pending",
+        "processing",
+        "completed",
+        "failed",
+        "low_confidence",
       ],
     },
   },
