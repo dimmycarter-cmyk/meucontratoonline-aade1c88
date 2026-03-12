@@ -1,15 +1,17 @@
 import { useState, useCallback } from "react";
-import { Plus, Search, MoreHorizontal, Building2, Trash2, Pencil } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Building2, Trash2, Pencil, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { maskCNPJ, maskPhone, maskCEP } from "@/lib/masks";
 import { useCepLookup } from "@/hooks/useCepLookup";
+import { useNavigate } from "react-router-dom";
 
 const emptyCompany = {
   nome_fantasia: "", razao_social: "", cnpj: "", whatsapp: "", email: "",
@@ -22,6 +24,8 @@ const Empresas = () => {
   const [form, setForm] = useState(emptyCompany);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { companies, isLoading, createCompany, updateCompany, deleteCompany, isCreating } = useCompanies();
+  const { isSuperAdmin, setImpersonatedTenant } = useAuth();
+  const navigate = useNavigate();
 
   const filtered = companies.filter((e) =>
     e.nome_fantasia.toLowerCase().includes(search.toLowerCase()) ||
@@ -189,6 +193,17 @@ const Empresas = () => {
                         <DropdownMenuItem onClick={() => handleEdit(empresa)}>
                           <Pencil className="mr-2 h-4 w-4" /> Editar
                         </DropdownMenuItem>
+                        {isSuperAdmin && (
+                          <>
+                            <DropdownMenuItem onClick={() => {
+                              setImpersonatedTenant(empresa.tenant_id, empresa.nome_fantasia);
+                              navigate("/app");
+                            }}>
+                              <LogIn className="mr-2 h-4 w-4" /> Acessar como
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
                         <DropdownMenuItem className="text-destructive" onClick={() => deleteCompany(empresa.id)}>
                           <Trash2 className="mr-2 h-4 w-4" /> Excluir
                         </DropdownMenuItem>

@@ -317,6 +317,7 @@ export type Database = {
           created_at: string
           descricao: string | null
           id: string
+          is_global: boolean
           nome: string
           status: string
           tenant_id: string
@@ -329,6 +330,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          is_global?: boolean
           nome: string
           status?: string
           tenant_id: string
@@ -341,6 +343,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          is_global?: boolean
           nome?: string
           status?: string
           tenant_id?: string

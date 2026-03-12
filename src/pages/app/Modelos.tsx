@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Plus, Trash2, Pencil, MoreHorizontal, Copy } from "lucide-react";
+import { FileText, Plus, Trash2, Pencil, MoreHorizontal, Copy, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplates } from "@/hooks/useTemplates";
+import { useAuth } from "@/contexts/AuthContext";
 import RichTextEditor from "@/components/RichTextEditor";
-import { useNavigate } from "react-router-dom";
 
 const TIPOS = ["Compra e Venda", "Locação", "Proposta", "Intermediação", "Outro"];
 
 const Modelos = () => {
   const { templates, isLoading, createTemplate, updateTemplate, deleteTemplate, isCreating, isSaving } = useTemplates();
+  const { isSuperAdmin } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -33,10 +34,11 @@ const Modelos = () => {
 
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nome = form.nome.startsWith("Modelo - ") ? form.nome : `Modelo - ${form.nome}`;
     if (editingId) {
-      await updateTemplate({ id: editingId, ...form });
+      await updateTemplate({ id: editingId, ...form, nome });
     } else {
-      await createTemplate(form);
+      await createTemplate({ ...form, nome });
     }
     setDialogOpen(false);
   };
@@ -49,7 +51,6 @@ const Modelos = () => {
 
   const handleSaveContent = async () => {
     if (!editorTemplate) return;
-    // Extract variables from content
     const varMatches = editorContent.match(/\{\{(\w+)\}\}/g) || [];
     const variaveis = [...new Set(varMatches.map((m: string) => m.replace(/\{\{|\}\}/g, "")))];
     await updateTemplate({ id: editorTemplate.id, conteudo: editorContent, variaveis });
@@ -76,6 +77,11 @@ const Modelos = () => {
     await updateTemplate({ id: template.id, status: template.status === "ativo" ? "rascunho" : "ativo" });
   };
 
+  const canEditTemplate = (template: any) => {
+    if (template.is_global && !isSuperAdmin) return false;
+    return true;
+  };
+
   if (editorOpen && editorTemplate) {
     return (
       <div className="flex h-full flex-col">
@@ -86,7 +92,7 @@ const Modelos = () => {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setEditorOpen(false)}>Voltar</Button>
-            <Button onClick={handleSaveContent} disabled={isSaving}>
+            <Button onClick={handleSaveContent} disabled={isSaving || !canEditTemplate(editorTemplate)}>
               {isSaving ? "Salvando..." : "Salvar Modelo"}
             </Button>
           </div>
@@ -127,6 +133,8 @@ const Modelos = () => {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {templates.map((template) => {
             const varCount = Array.isArray(template.variaveis) ? template.variaveis.length : 0;
+            const isGlobal = (template as any).is_global;
+            const editable = canEditTemplate(template);
             return (
               <Card key={template.id} className="shadow-card transition-all hover:shadow-elevated">
                 <CardContent className="p-5">
@@ -135,6 +143,11 @@ const Modelos = () => {
                       <FileText className="h-5 w-5" />
                     </div>
                     <div className="flex items-center gap-2">
+                      {isGlobal && (
+                        <Badge variant="outline" className="gap-1 text-xs">
+                          <Globe className="h-3 w-3" /> Global
+                        </Badge>
+                      )}
                       <Badge variant={template.status === "ativo" ? "default" : "secondary"} className="text-xs">
                         {template.status === "ativo" ? "Ativo" : "Rascunho"}
                       </Badge>
@@ -143,18 +156,24 @@ const Modelos = () => {
                           <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(template)}>
-                            <Pencil className="mr-2 h-4 w-4" /> Editar Info
-                          </DropdownMenuItem>
+                          {editable && (
+                            <DropdownMenuItem onClick={() => handleEdit(template)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Editar Info
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => handleDuplicate(template)}>
                             <Copy className="mr-2 h-4 w-4" /> Duplicar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handlePublish(template)}>
-                            <FileText className="mr-2 h-4 w-4" /> {template.status === "ativo" ? "Despublicar" : "Publicar"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => deleteTemplate(template.id)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Excluir
-                          </DropdownMenuItem>
+                          {editable && (
+                            <DropdownMenuItem onClick={() => handlePublish(template)}>
+                              <FileText className="mr-2 h-4 w-4" /> {template.status === "ativo" ? "Despublicar" : "Publicar"}
+                            </DropdownMenuItem>
+                          )}
+                          {editable && (
+                            <DropdownMenuItem className="text-destructive" onClick={() => deleteTemplate(template.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -167,8 +186,8 @@ const Modelos = () => {
                   <div className="mb-4 flex gap-2">
                     <Badge variant="secondary" className="text-xs">{varCount} variáveis</Badge>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => handleOpenEditor(template)}>
-                    <Pencil className="mr-1 h-3 w-3" /> Editar Conteúdo
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => handleOpenEditor(template)} disabled={!editable}>
+                    <Pencil className="mr-1 h-3 w-3" /> {editable ? "Editar Conteúdo" : "Visualizar"}
                   </Button>
                 </CardContent>
               </Card>
@@ -186,7 +205,8 @@ const Modelos = () => {
           <form onSubmit={handleCreateOrUpdate} className="space-y-4">
             <div className="space-y-2">
               <Label>Nome do Modelo *</Label>
-              <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required placeholder="Ex: Promessa de Compra e Venda" />
+              <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required placeholder="Ex: Contrato Compra e Venda" />
+              <p className="text-xs text-muted-foreground">O prefixo "Modelo - " será adicionado automaticamente</p>
             </div>
             <div className="space-y-2">
               <Label>Tipo</Label>
