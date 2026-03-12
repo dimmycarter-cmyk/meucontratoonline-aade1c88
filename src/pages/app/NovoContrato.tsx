@@ -1,6 +1,9 @@
 import { useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2, ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File } from "lucide-react";
+import {
+  FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
+  ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +21,13 @@ import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-varia
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import { useToast } from "@/hooks/use-toast";
+import ContractModeSelector from "@/components/contract/ContractModeSelector";
+import ParticipantManager from "@/components/contract/ParticipantManager";
+import type { Participant, ParticipantRole } from "@/components/contract/ParticipantCard";
+import type { DocType, UploadedDoc } from "@/components/contract/DocumentUploader";
+import ExtractionProgress from "@/components/contract/ExtractionProgress";
+import ExtractedDataReview from "@/components/contract/ExtractedDataReview";
+import { useDocumentExtraction } from "@/hooks/useDocumentExtraction";
 
 type UploadedFile = {
   name: string;
@@ -26,14 +36,31 @@ type UploadedFile = {
   mime_type: string;
 };
 
-const steps = [
-  { id: 1, label: "Modelo", icon: FileText },
-  { id: 2, label: "Partes", icon: User },
-  { id: 3, label: "Documentos", icon: ClipboardList },
-  { id: 4, label: "Dados", icon: Database },
-  { id: 5, label: "Cláusulas", icon: BookOpen },
-  { id: 6, label: "Editor", icon: Edit3 },
-  { id: 7, label: "Finalizar", icon: Check },
+type FlowMode = "ai" | "manual" | null;
+
+// Manual flow steps
+const manualSteps = [
+  { id: "template", label: "Modelo", icon: FileText },
+  { id: "mode", label: "Modo", icon: Sparkles },
+  { id: "parties", label: "Partes", icon: User },
+  { id: "docs", label: "Documentos", icon: ClipboardList },
+  { id: "data", label: "Dados", icon: Database },
+  { id: "clauses", label: "Cláusulas", icon: BookOpen },
+  { id: "editor", label: "Editor", icon: Edit3 },
+  { id: "finish", label: "Finalizar", icon: Check },
+];
+
+// AI flow steps
+const aiSteps = [
+  { id: "template", label: "Modelo", icon: FileText },
+  { id: "mode", label: "Modo", icon: Sparkles },
+  { id: "participants", label: "Participantes", icon: Users },
+  { id: "extraction", label: "Extração IA", icon: Sparkles },
+  { id: "review", label: "Revisão", icon: Edit3 },
+  { id: "data", label: "Dados", icon: Database },
+  { id: "clauses", label: "Cláusulas", icon: BookOpen },
+  { id: "editor", label: "Editor", icon: Edit3 },
+  { id: "finish", label: "Finalizar", icon: Check },
 ];
 
 const documentChecklist = [
@@ -58,27 +85,49 @@ const NovoContrato = () => {
   const { profile } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
-  const [currentStep, setCurrentStep] = useState(1);
+  // Flow state
+  const [flowMode, setFlowMode] = useState<FlowMode>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  // Common state
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [compradorId, setCompradorId] = useState<string | null>(null);
-  const [vendedorId, setVendedorId] = useState<string | null>(null);
-  const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [dados, setDados] = useState<Record<string, string>>({});
   const [selectedClauseIds, setSelectedClauseIds] = useState<string[]>([]);
   const [conteudoFinal, setConteudoFinal] = useState("");
   const [nomeContrato, setNomeContrato] = useState("");
+
+  // Manual flow state
+  const [compradorId, setCompradorId] = useState<string | null>(null);
+  const [vendedorId, setVendedorId] = useState<string | null>(null);
+  const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [searchContacts, setSearchContacts] = useState("");
   const [searchCompanies, setSearchCompanies] = useState("");
   const [checkedDocs, setCheckedDocs] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
+  // AI flow state
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [uploadingParticipantIndex, setUploadingParticipantIndex] = useState<number | null>(null);
+  const {
+    uploadDocument,
+    extractAll,
+    isProcessing,
+    progress,
+    currentMessage,
+    extractedData,
+    updateField,
+    mapToDados,
+  } = useDocumentExtraction();
+
+  const steps = flowMode === "ai" ? aiSteps : manualSteps;
+  const currentStep = steps[currentStepIndex];
+
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
   const comprador = contacts.find((c) => c.id === compradorId);
   const vendedor = contacts.find((c) => c.id === vendedorId);
   const empresa = companies.find((c) => c.id === empresaId);
   const selectedClauses = clauses.filter((c) => selectedClauseIds.includes(c.id));
-
   const activeTemplates = templates.filter((t) => t.status === "publicado");
 
   const filteredContacts = contacts.filter((c) =>
@@ -88,7 +137,7 @@ const NovoContrato = () => {
     c.nome_fantasia.toLowerCase().includes(searchCompanies.toLowerCase())
   );
 
-  // Auto-fill dados from selected contacts/company
+  // Auto-fill dados from selected contacts/company (manual mode)
   const autoFillDados = useCallback(() => {
     const filled: Record<string, string> = { ...dados };
     if (comprador) {
@@ -124,17 +173,15 @@ const NovoContrato = () => {
       if (endEmpresa) filled.empresa_endereco = endEmpresa;
     }
     setDados(filled);
-  }, [comprador, vendedor, empresa]);
+  }, [comprador, vendedor, empresa, dados]);
 
-  // Build final content from template + variables + clauses
+  // Build final content
   const buildFinalContent = useCallback(() => {
     let content = selectedTemplate?.conteudo || "";
-    // Replace variables
     Object.entries(dados).forEach(([key, value]) => {
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
       content = content.replace(regex, value || `{{${key}}}`);
     });
-    // Also replace any HTML-encoded variable spans
     TEMPLATE_VARIABLES.forEach((v) => {
       const regex = new RegExp(`\\{\\{${v.key}\\}\\}`, "g");
       if (!dados[v.key]) {
@@ -144,18 +191,108 @@ const NovoContrato = () => {
     setConteudoFinal(content);
   }, [selectedTemplate, dados]);
 
-  const handleNext = () => {
-    if (currentStep === 2) {
-      autoFillDados();
-    }
-    if (currentStep === 5) {
-      buildFinalContent();
-    }
-    setCurrentStep((s) => Math.min(s + 1, 7));
+  // AI flow: add participant
+  const handleAddParticipant = (role: ParticipantRole) => {
+    setParticipants((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role, full_name: "", documents: [] },
+    ]);
   };
 
-  const handleBack = () => setCurrentStep((s) => Math.max(s - 1, 1));
+  const handleRemoveParticipant = (index: number) => {
+    setParticipants((prev) => prev.filter((_, i) => i !== index));
+  };
 
+  const handleUpdateParticipantName = (index: number, name: string) => {
+    setParticipants((prev) => prev.map((p, i) => (i === index ? { ...p, full_name: name } : p)));
+  };
+
+  const handleUploadDocs = async (participantIndex: number, files: File[], docType: DocType) => {
+    setUploadingParticipantIndex(participantIndex);
+    const participant = participants[participantIndex];
+
+    for (const file of files) {
+      const uploaded = await uploadDocument(participant.id, file, docType);
+      if (uploaded) {
+        setParticipants((prev) =>
+          prev.map((p, i) =>
+            i === participantIndex ? { ...p, documents: [...p.documents, uploaded] } : p
+          )
+        );
+      }
+    }
+    setUploadingParticipantIndex(null);
+  };
+
+  const handleRemoveDoc = (participantIndex: number, docIndex: number) => {
+    setParticipants((prev) =>
+      prev.map((p, i) =>
+        i === participantIndex
+          ? { ...p, documents: p.documents.filter((_, di) => di !== docIndex) }
+          : p
+      )
+    );
+  };
+
+  const handleChangeDocType = (participantIndex: number, docIndex: number, type: DocType) => {
+    setParticipants((prev) =>
+      prev.map((p, i) =>
+        i === participantIndex
+          ? {
+              ...p,
+              documents: p.documents.map((d, di) =>
+                di === docIndex ? { ...d, document_type: type } : d
+              ),
+            }
+          : p
+      )
+    );
+  };
+
+  // Handle step transitions
+  const handleModeSelect = (mode: "ai" | "manual") => {
+    setFlowMode(mode);
+    setCurrentStepIndex(2); // Move to step after "mode"
+  };
+
+  const handleNext = () => {
+    const stepId = currentStep?.id;
+
+    // Manual: auto-fill when leaving parties
+    if (flowMode === "manual" && stepId === "parties") {
+      autoFillDados();
+    }
+
+    // Before editor, build final content
+    if (stepId === "clauses") {
+      buildFinalContent();
+    }
+
+    // AI: trigger extraction when moving from participants
+    if (flowMode === "ai" && stepId === "participants") {
+      extractAll(participants);
+    }
+
+    // AI: after review, map extracted data to dados
+    if (flowMode === "ai" && stepId === "review") {
+      const aiDados = mapToDados();
+      setDados((prev) => ({ ...prev, ...aiDados }));
+    }
+
+    setCurrentStepIndex((s) => Math.min(s + 1, steps.length - 1));
+  };
+
+  const handleBack = () => {
+    if (currentStepIndex === 2 && flowMode) {
+      // Going back to mode selection
+      setFlowMode(null);
+      setCurrentStepIndex(1);
+      return;
+    }
+    setCurrentStepIndex((s) => Math.max(s - 1, 0));
+  };
+
+  // Manual file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !profile?.tenant_id) return;
@@ -182,13 +319,18 @@ const NovoContrato = () => {
   };
 
   const canProceed = () => {
-    switch (currentStep) {
-      case 1: return !!selectedTemplateId;
-      case 2: return !!compradorId && !!vendedorId;
-      case 3: return true;
-      case 4: return true;
-      case 5: return true;
-      case 6: return true;
+    const stepId = currentStep?.id;
+    switch (stepId) {
+      case "template": return !!selectedTemplateId;
+      case "mode": return false; // handled by card click
+      case "parties": return !!compradorId && !!vendedorId;
+      case "participants": {
+        const hasComprador = participants.some((p) => p.role === "comprador" && p.full_name.trim());
+        const hasVendedor = participants.some((p) => p.role === "vendedor" && p.full_name.trim());
+        const hasDocs = participants.some((p) => p.documents.length > 0);
+        return hasComprador && hasVendedor && hasDocs;
+      }
+      case "extraction": return !isProcessing;
       default: return true;
     }
   };
@@ -204,7 +346,7 @@ const NovoContrato = () => {
       }
 
       const contract = await createContract({
-        nome: nomeContrato || `Contrato - ${comprador?.nome || ""}`,
+        nome: nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || ""}`,
         template_id: selectedTemplateId,
         comprador_id: compradorId,
         vendedor_id: vendedorId,
@@ -218,7 +360,6 @@ const NovoContrato = () => {
         valor_financiamento: dados.valor_financiamento ? parseFloat(dados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
       });
 
-      // Save document references
       if (uploadedFiles.length > 0 && contract?.id && profile?.tenant_id) {
         for (const file of uploadedFiles) {
           await supabase.from("contract_documents").insert({
@@ -238,13 +379,8 @@ const NovoContrato = () => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
-  const grouped = getVariablesByCategory();
-
-  // Template variables from selected template
   const templateVars = useMemo(() => {
     if (!selectedTemplate?.variaveis) return TEMPLATE_VARIABLES;
     const varKeys = selectedTemplate.variaveis as string[];
@@ -268,20 +404,20 @@ const NovoContrato = () => {
         <p className="text-sm text-muted-foreground">Siga as etapas para gerar seu contrato</p>
       </div>
 
-      {/* Steps */}
+      {/* Steps indicator */}
       <div className="mb-8 flex items-center gap-2 overflow-x-auto pb-2">
         {steps.map((step, i) => (
-          <div key={step.id} className="flex items-center">
+          <div key={step.id + i} className="flex items-center">
             <div
               className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                currentStep === step.id
+                currentStepIndex === i
                   ? "bg-primary text-primary-foreground"
-                  : currentStep > step.id
+                  : currentStepIndex > i
                   ? "bg-success/10 text-success"
                   : "bg-muted text-muted-foreground"
               }`}
             >
-              {currentStep > step.id ? (
+              {currentStepIndex > i ? (
                 <CheckCircle2 className="h-3.5 w-3.5" />
               ) : (
                 <step.icon className="h-3.5 w-3.5" />
@@ -293,8 +429,8 @@ const NovoContrato = () => {
         ))}
       </div>
 
-      {/* Step 1: Template Selection */}
-      {currentStep === 1 && (
+      {/* ==================== STEP: TEMPLATE ==================== */}
+      {currentStep?.id === "template" && (
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-foreground">Escolha o modelo de contrato</h2>
           {loadingTemplates ? (
@@ -342,8 +478,45 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* Step 2: Parties */}
-      {currentStep === 2 && (
+      {/* ==================== STEP: MODE SELECTION ==================== */}
+      {currentStep?.id === "mode" && (
+        <ContractModeSelector onSelect={handleModeSelect} />
+      )}
+
+      {/* ==================== AI: PARTICIPANTS ==================== */}
+      {currentStep?.id === "participants" && flowMode === "ai" && (
+        <ParticipantManager
+          participants={participants}
+          onAdd={handleAddParticipant}
+          onRemove={handleRemoveParticipant}
+          onUpdateName={handleUpdateParticipantName}
+          onUploadDocs={handleUploadDocs}
+          onRemoveDoc={handleRemoveDoc}
+          onChangeDocType={handleChangeDocType}
+          uploadingIndex={uploadingParticipantIndex}
+        />
+      )}
+
+      {/* ==================== AI: EXTRACTION PROGRESS ==================== */}
+      {currentStep?.id === "extraction" && flowMode === "ai" && (
+        <ExtractionProgress
+          participants={participants}
+          isProcessing={isProcessing}
+          progress={progress}
+          currentMessage={currentMessage}
+        />
+      )}
+
+      {/* ==================== AI: REVIEW EXTRACTED DATA ==================== */}
+      {currentStep?.id === "review" && flowMode === "ai" && (
+        <ExtractedDataReview
+          participantsData={extractedData}
+          onUpdateField={updateField}
+        />
+      )}
+
+      {/* ==================== MANUAL: PARTIES ==================== */}
+      {currentStep?.id === "parties" && flowMode === "manual" && (
         <div className="space-y-6">
           <h2 className="font-display text-lg font-semibold text-foreground">Selecione as partes</h2>
           
@@ -352,22 +525,11 @@ const NovoContrato = () => {
             <Label className="mb-2 block text-sm font-medium">Comprador *</Label>
             <div className="relative mb-2">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar contato..."
-                className="pl-10"
-                value={searchContacts}
-                onChange={(e) => setSearchContacts(e.target.value)}
-              />
+              <Input placeholder="Buscar contato..." className="pl-10" value={searchContacts} onChange={(e) => setSearchContacts(e.target.value)} />
             </div>
             <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
               {filteredContacts.map((c) => (
-                <Card
-                  key={c.id}
-                  className={`cursor-pointer p-3 transition-all hover:shadow-card ${
-                    compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""
-                  }`}
-                  onClick={() => setCompradorId(c.id)}
-                >
+                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setCompradorId(c.id)}>
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-primary" />
                     <div>
@@ -388,13 +550,7 @@ const NovoContrato = () => {
             <Label className="mb-2 block text-sm font-medium">Vendedor *</Label>
             <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
               {contacts.filter((c) => c.id !== compradorId).map((c) => (
-                <Card
-                  key={c.id}
-                  className={`cursor-pointer p-3 transition-all hover:shadow-card ${
-                    vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""
-                  }`}
-                  onClick={() => setVendedorId(c.id)}
-                >
+                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setVendedorId(c.id)}>
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
                     <div>
@@ -412,22 +568,11 @@ const NovoContrato = () => {
             <Label className="mb-2 block text-sm font-medium">Empresa Intermediadora (opcional)</Label>
             <div className="relative mb-2">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar empresa..."
-                className="pl-10"
-                value={searchCompanies}
-                onChange={(e) => setSearchCompanies(e.target.value)}
-              />
+              <Input placeholder="Buscar empresa..." className="pl-10" value={searchCompanies} onChange={(e) => setSearchCompanies(e.target.value)} />
             </div>
             <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
               {filteredCompanies.map((c) => (
-                <Card
-                  key={c.id}
-                  className={`cursor-pointer p-3 transition-all hover:shadow-card ${
-                    empresaId === c.id ? "ring-2 ring-primary bg-primary/5" : ""
-                  }`}
-                  onClick={() => setEmpresaId(empresaId === c.id ? null : c.id)}
-                >
+                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${empresaId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setEmpresaId(empresaId === c.id ? null : c.id)}>
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <div>
@@ -442,13 +587,12 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* Step 3: Documents */}
-      {currentStep === 3 && (
+      {/* ==================== MANUAL: DOCUMENTS ==================== */}
+      {currentStep?.id === "docs" && flowMode === "manual" && (
         <div className="space-y-6">
           <h2 className="font-display text-lg font-semibold text-foreground">Documentos</h2>
           <p className="text-sm text-muted-foreground">Envie os documentos necessários e confirme o checklist.</p>
 
-          {/* Upload Area */}
           <Card className="shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4" /> Upload de Documentos</CardTitle>
@@ -480,7 +624,6 @@ const NovoContrato = () => {
             </CardContent>
           </Card>
 
-          {/* Checklist */}
           <Card className="shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Checklist de Documentos</CardTitle>
@@ -492,9 +635,7 @@ const NovoContrato = () => {
                     <Checkbox
                       checked={checkedDocs.includes(doc)}
                       onCheckedChange={(checked) => {
-                        setCheckedDocs((prev) =>
-                          checked ? [...prev, doc] : prev.filter((d) => d !== doc)
-                        );
+                        setCheckedDocs((prev) => checked ? [...prev, doc] : prev.filter((d) => d !== doc));
                       }}
                     />
                     <span className="text-sm text-foreground">{doc}</span>
@@ -506,19 +647,19 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* Step 4: Dynamic Data */}
-      {currentStep === 4 && (
+      {/* ==================== SHARED: DATA ==================== */}
+      {currentStep?.id === "data" && (
         <div className="space-y-6">
           <h2 className="font-display text-lg font-semibold text-foreground">Preencha os Dados</h2>
-          <p className="text-sm text-muted-foreground">Campos preenchidos automaticamente com dados das partes selecionadas. Ajuste conforme necessário.</p>
-          
+          <p className="text-sm text-muted-foreground">
+            {flowMode === "ai"
+              ? "Dados pré-preenchidos pela IA. Ajuste conforme necessário."
+              : "Campos preenchidos automaticamente com dados das partes selecionadas. Ajuste conforme necessário."}
+          </p>
+
           <div>
             <Label className="mb-1 text-sm font-medium">Nome do Contrato</Label>
-            <Input
-              value={nomeContrato}
-              onChange={(e) => setNomeContrato(e.target.value)}
-              placeholder="Ex: Compra e Venda - Apt 302"
-            />
+            <Input value={nomeContrato} onChange={(e) => setNomeContrato(e.target.value)} placeholder="Ex: Compra e Venda - Apt 302" />
           </div>
 
           {Object.entries(templateVarsGrouped).map(([category, vars]) => (
@@ -545,8 +686,8 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* Step 5: Clauses */}
-      {currentStep === 5 && (
+      {/* ==================== SHARED: CLAUSES ==================== */}
+      {currentStep?.id === "clauses" && (
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-foreground">Selecione as Cláusulas</h2>
           <p className="text-sm text-muted-foreground">Escolha as cláusulas que farão parte deste contrato.</p>
@@ -556,9 +697,7 @@ const NovoContrato = () => {
             <Card className="shadow-card">
               <CardContent className="py-12 text-center">
                 <p className="text-sm text-muted-foreground">Nenhuma cláusula ativa. Crie cláusulas primeiro.</p>
-                <Button variant="outline" className="mt-4" onClick={() => navigate("/app/clausulas")}>
-                  Ir para Cláusulas
-                </Button>
+                <Button variant="outline" className="mt-4" onClick={() => navigate("/app/clausulas")}>Ir para Cláusulas</Button>
               </CardContent>
             </Card>
           ) : (
@@ -571,9 +710,7 @@ const NovoContrato = () => {
                         className="mt-0.5"
                         checked={selectedClauseIds.includes(clause.id)}
                         onCheckedChange={(checked) => {
-                          setSelectedClauseIds((prev) =>
-                            checked ? [...prev, clause.id] : prev.filter((id) => id !== clause.id)
-                          );
+                          setSelectedClauseIds((prev) => checked ? [...prev, clause.id] : prev.filter((id) => id !== clause.id));
                         }}
                       />
                       <div className="flex-1">
@@ -592,16 +729,12 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* Step 6: Editor */}
-      {currentStep === 6 && (
+      {/* ==================== SHARED: EDITOR ==================== */}
+      {currentStep?.id === "editor" && (
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-foreground">Editor do Contrato</h2>
           <p className="text-sm text-muted-foreground">Revise e ajuste o conteúdo final do contrato.</p>
-          <RichTextEditor
-            content={conteudoFinal}
-            onChange={setConteudoFinal}
-            placeholder="Conteúdo do contrato..."
-          />
+          <RichTextEditor content={conteudoFinal} onChange={setConteudoFinal} placeholder="Conteúdo do contrato..." />
           {selectedClauses.length > 0 && (
             <Card className="shadow-card">
               <CardHeader className="pb-2">
@@ -622,8 +755,8 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* Step 7: Finalize */}
-      {currentStep === 7 && (
+      {/* ==================== SHARED: FINALIZE ==================== */}
+      {currentStep?.id === "finish" && (
         <div className="space-y-4">
           <h2 className="font-display text-lg font-semibold text-foreground">Finalizar Contrato</h2>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -636,13 +769,17 @@ const NovoContrato = () => {
             <Card className="shadow-card">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Comprador</p>
-                <p className="text-sm font-medium text-foreground">{comprador?.nome || "—"}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || "—"}
+                </p>
               </CardContent>
             </Card>
             <Card className="shadow-card">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Vendedor</p>
-                <p className="text-sm font-medium text-foreground">{vendedor?.nome || "—"}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {vendedor?.nome || participants.find((p) => p.role === "vendedor")?.full_name || "—"}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -661,10 +798,7 @@ const NovoContrato = () => {
               <CardTitle className="text-sm">Preview do Contrato</CardTitle>
             </CardHeader>
             <CardContent>
-              <div
-                className="prose prose-sm max-w-none rounded-md border border-border p-4 text-foreground"
-                dangerouslySetInnerHTML={{ __html: conteudoFinal }}
-              />
+              <div className="prose prose-sm max-w-none rounded-md border border-border p-4 text-foreground" dangerouslySetInnerHTML={{ __html: conteudoFinal }} />
               {selectedClauses.length > 0 && (
                 <div className="mt-4 space-y-3">
                   <h3 className="text-sm font-semibold text-foreground">Cláusulas ({selectedClauses.length})</h3>
@@ -693,9 +827,9 @@ const NovoContrato = () => {
       )}
 
       {/* Navigation */}
-      {currentStep < 7 && (
+      {currentStep?.id !== "finish" && currentStep?.id !== "mode" && (
         <div className="mt-6 flex justify-between">
-          {currentStep > 1 ? (
+          {currentStepIndex > 0 ? (
             <Button variant="outline" onClick={handleBack}>
               <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
             </Button>
@@ -711,7 +845,7 @@ const NovoContrato = () => {
       {/* Print View */}
       <ContractPrintView
         ref={printRef}
-        nome={nomeContrato || `Contrato - ${comprador?.nome || ""}`}
+        nome={nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || ""}`}
         conteudo={conteudoFinal}
         clausulas={selectedClauses.map((c) => ({ titulo: c.titulo, conteudo: c.conteudo }))}
       />
