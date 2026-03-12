@@ -135,7 +135,7 @@ const NovoContrato = () => {
   const vendedor = contacts.find((c) => c.id === vendedorId);
   const empresa = companies.find((c) => c.id === empresaId);
   const selectedClauses = clauses.filter((c) => selectedClauseIds.includes(c.id));
-  const activeTemplates = templates.filter((t) => t.status === "ativo");
+  const activeTemplates = templates.filter((t) => t.status !== "arquivado");
 
   const filteredContacts = contacts.filter((c) =>
     c.nome.toLowerCase().includes(searchContacts.toLowerCase())
