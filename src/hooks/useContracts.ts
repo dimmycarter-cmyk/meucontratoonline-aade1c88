@@ -35,6 +35,7 @@ export const useContracts = () => {
       const { data, error } = await supabase
         .from("contracts")
         .select("*")
+        .eq("tenant_id", effectiveTenantId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Contract[];
@@ -52,7 +53,7 @@ export const useContracts = () => {
       }
       const { data, error } = await supabase
         .from("contracts")
-        .insert({ ...contract, tenant_id: profile!.tenant_id } as any)
+        .insert({ ...contract, tenant_id: effectiveTenantId } as any)
         .select()
         .single();
       if (error) throw error;
