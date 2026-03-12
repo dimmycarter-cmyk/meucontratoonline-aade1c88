@@ -12,33 +12,53 @@ export interface ContractTemplate {
   conteudo: string;
   variaveis: string[];
   status: string;
+  is_global: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export const useTemplates = () => {
-  const { profile } = useAuth();
+  const { profile, isSuperAdmin, impersonatedTenantId } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const tenantId = profile?.tenant_id;
+
   const query = useQuery({
-    queryKey: ["contract_templates", profile?.tenant_id],
+    queryKey: ["contract_templates", tenantId, isSuperAdmin, impersonatedTenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contract_templates")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let q = supabase.from("contract_templates").select("*");
+
+      if (isSuperAdmin && !impersonatedTenantId) {
+        // Super admin without impersonation: see all templates
+      } else if (isSuperAdmin && impersonatedTenantId) {
+        // Super admin impersonating: see that tenant's + global
+        q = q.or(`tenant_id.eq.${impersonatedTenantId},is_global.eq.true`);
+      } else if (tenantId) {
+        // Regular user: own tenant + global (RLS handles it, but filter for clarity)
+        q = q.or(`tenant_id.eq.${tenantId},is_global.eq.true`);
+      }
+
+      const { data, error } = await q.order("created_at", { ascending: false });
       if (error) throw error;
       return data as ContractTemplate[];
     },
-    enabled: !!profile?.tenant_id,
+    enabled: !!tenantId,
   });
 
   const createMutation = useMutation({
     mutationFn: async (template: Partial<ContractTemplate>) => {
+      const insertData: any = {
+        ...template,
+        tenant_id: isSuperAdmin ? (impersonatedTenantId || profile!.tenant_id) : profile!.tenant_id,
+      };
+      // If super_admin creating without impersonation, mark as global
+      if (isSuperAdmin && !impersonatedTenantId) {
+        insertData.is_global = true;
+      }
       const { data, error } = await supabase
         .from("contract_templates")
-        .insert({ ...template, tenant_id: profile!.tenant_id } as any)
+        .insert(insertData)
         .select()
         .single();
       if (error) throw error;
