@@ -24,6 +24,8 @@ const Empresas = () => {
   const [form, setForm] = useState(emptyCompany);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { companies, isLoading, createCompany, updateCompany, deleteCompany, isCreating } = useCompanies();
+  const { isSuperAdmin, setImpersonatedTenant } = useAuth();
+  const navigate = useNavigate();
 
   const filtered = companies.filter((e) =>
     e.nome_fantasia.toLowerCase().includes(search.toLowerCase()) ||
