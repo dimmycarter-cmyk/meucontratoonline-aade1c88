@@ -26,6 +26,7 @@ const DOC_TYPE_LABELS: Record<DocType, string> = {
   procuracao: "Procuração",
   contrato_social: "Contrato Social",
   cnpj: "Cartão CNPJ",
+  matricula_imovel: "Matrícula do Imóvel",
   outro: "Outro",
 };
 
