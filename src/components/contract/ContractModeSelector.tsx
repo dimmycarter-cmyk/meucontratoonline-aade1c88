@@ -34,7 +34,7 @@ const ContractModeSelector = ({ onSelect }: ContractModeSelectorProps) => {
               Anexe os documentos dos participantes e nossa IA extrai e preenche o contrato automaticamente
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-              {["CNH", "RG", "Comprovante"].map((tag) => (
+              {["CNH", "RG", "Comprovante", "Matrícula"].map((tag) => (
                 <span
                   key={tag}
                   className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"

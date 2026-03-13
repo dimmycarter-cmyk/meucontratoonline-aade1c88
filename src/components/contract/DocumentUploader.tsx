@@ -3,7 +3,7 @@ import { Upload, X, File, CheckCircle2, AlertCircle, Loader2 } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export type DocType = "cnh" | "rg" | "cpf" | "comprovante_endereco" | "certidao_casamento" | "procuracao" | "contrato_social" | "cnpj" | "outro";
+export type DocType = "cnh" | "rg" | "cpf" | "comprovante_endereco" | "certidao_casamento" | "procuracao" | "contrato_social" | "cnpj" | "matricula_imovel" | "outro";
 export type ProcessingStatus = "pending" | "processing" | "completed" | "failed" | "low_confidence";
 
 export interface UploadedDoc {
@@ -26,6 +26,7 @@ const DOC_TYPE_LABELS: Record<DocType, string> = {
   procuracao: "Procuração",
   contrato_social: "Contrato Social",
   cnpj: "Cartão CNPJ",
+  matricula_imovel: "Matrícula do Imóvel",
   outro: "Outro",
 };
 
