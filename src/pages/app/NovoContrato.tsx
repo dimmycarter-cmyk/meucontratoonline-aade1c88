@@ -128,11 +128,11 @@ const NovoContrato = () => {
   const { companies, isLoading: loadingCompanies } = useCompanies();
   const { clauses, isLoading: loadingClauses } = useClauses();
   const { createContract, isCreating } = useContracts();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Load draft on mount
-  const draft = useRef(loadDraft());
+  // Load draft on mount (scoped to tenant+user)
+  const draft = useRef(loadDraft(profile?.tenant_id, user?.id));
 
   // Flow state
   const [flowMode, setFlowMode] = useState<FlowMode>(draft.current?.flowMode ?? null);
