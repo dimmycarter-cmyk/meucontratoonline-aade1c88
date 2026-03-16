@@ -7,6 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -34,19 +36,22 @@ serve(async (req) => {
     }
 
     const { document_id, file_path, document_type } = await req.json();
+    const hasValidDocId = document_id && UUID_REGEX.test(document_id);
 
-    if (!document_id || !file_path) {
-      return new Response(JSON.stringify({ error: "document_id and file_path are required" }), {
+    if (!file_path) {
+      return new Response(JSON.stringify({ error: "file_path is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Update status to processing
-    await supabase
-      .from("participant_documents")
-      .update({ processing_status: "processing" })
-      .eq("id", document_id);
+    // Update status to processing (only if valid document_id)
+    if (hasValidDocId) {
+      await supabase
+        .from("participant_documents")
+        .update({ processing_status: "processing" })
+        .eq("id", document_id);
+    }
 
     // Download file from storage
     const { data: fileData, error: downloadError } = await supabase.storage
@@ -54,10 +59,12 @@ serve(async (req) => {
       .download(file_path);
 
     if (downloadError || !fileData) {
-      await supabase
-        .from("participant_documents")
-        .update({ processing_status: "failed" })
-        .eq("id", document_id);
+      if (hasValidDocId) {
+        await supabase
+          .from("participant_documents")
+          .update({ processing_status: "failed" })
+          .eq("id", document_id);
+      }
       return new Response(JSON.stringify({ error: "Failed to download file" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -77,10 +84,12 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      await supabase
-        .from("participant_documents")
-        .update({ processing_status: "failed" })
-        .eq("id", document_id);
+      if (hasValidDocId) {
+        await supabase
+          .from("participant_documents")
+          .update({ processing_status: "failed" })
+          .eq("id", document_id);
+      }
       return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -167,22 +176,23 @@ serve(async (req) => {
       const errText = await aiResponse.text();
       console.error("AI Gateway error:", aiResponse.status, errText);
       
-      if (aiResponse.status === 429) {
+      if (hasValidDocId) {
         await supabase.from("participant_documents").update({ processing_status: "failed" }).eq("id", document_id);
+      }
+
+      if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Tente novamente em alguns segundos." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
-        await supabase.from("participant_documents").update({ processing_status: "failed" }).eq("id", document_id);
         return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      await supabase.from("participant_documents").update({ processing_status: "failed" }).eq("id", document_id);
       return new Response(JSON.stringify({ error: "AI extraction failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -193,7 +203,9 @@ serve(async (req) => {
     const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
 
     if (!toolCall) {
-      await supabase.from("participant_documents").update({ processing_status: "failed" }).eq("id", document_id);
+      if (hasValidDocId) {
+        await supabase.from("participant_documents").update({ processing_status: "failed" }).eq("id", document_id);
+      }
       return new Response(JSON.stringify({ error: "AI did not return structured data" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -203,23 +215,25 @@ serve(async (req) => {
     const extractedData = JSON.parse(toolCall.function.arguments);
     const confidence = extractedData.confidence || 0;
 
-    // Save extracted data
-    const { error: insertError } = await supabase.from("extracted_document_data").insert({
-      document_id,
-      extracted_json: extractedData,
-      confidence_score: confidence,
-    });
+    // Save extracted data only if we have a valid document_id
+    if (hasValidDocId) {
+      const { error: insertError } = await supabase.from("extracted_document_data").insert({
+        document_id,
+        extracted_json: extractedData,
+        confidence_score: confidence,
+      });
 
-    if (insertError) {
-      console.error("Insert error:", insertError);
+      if (insertError) {
+        console.error("Insert error:", insertError);
+      }
+
+      // Update processing status
+      const status = confidence >= 70 ? "completed" : "low_confidence";
+      await supabase
+        .from("participant_documents")
+        .update({ processing_status: status })
+        .eq("id", document_id);
     }
-
-    // Update processing status
-    const status = confidence >= 70 ? "completed" : "low_confidence";
-    await supabase
-      .from("participant_documents")
-      .update({ processing_status: status })
-      .eq("id", document_id);
 
     return new Response(JSON.stringify({ success: true, data: extractedData, confidence }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
