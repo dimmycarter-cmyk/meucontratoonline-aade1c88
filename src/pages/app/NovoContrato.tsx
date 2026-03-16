@@ -72,27 +72,52 @@ const documentChecklist = [
   "Certidão Negativa de Protestos",
 ];
 
-const STORAGE_KEY = "novo-contrato-draft";
+const STORAGE_KEY_PREFIX = "novo-contrato-draft:v2";
+const OLD_STORAGE_KEY = "novo-contrato-draft";
 
-function loadDraft() {
+function getDraftKey(tenantId?: string, userId?: string) {
+  if (tenantId && userId) return `${STORAGE_KEY_PREFIX}:${tenantId}:${userId}`;
+  return STORAGE_KEY_PREFIX;
+}
+
+function loadDraft(tenantId?: string, userId?: string) {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
+    const key = getDraftKey(tenantId, userId);
+    // Try localStorage first
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw);
+
+    // Migrate from old sessionStorage key
+    const oldRaw = sessionStorage.getItem(OLD_STORAGE_KEY);
+    if (oldRaw) {
+      const parsed = JSON.parse(oldRaw);
+      localStorage.setItem(key, oldRaw);
+      sessionStorage.removeItem(OLD_STORAGE_KEY);
+      return parsed;
+    }
+
+    return null;
+  } catch (e) {
+    console.warn("[NovoContrato] Erro ao carregar rascunho:", e);
     return null;
   }
 }
 
-function saveDraft(data: Record<string, any>) {
+function saveDraft(data: Record<string, any>, tenantId?: string, userId?: string) {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // ignore quota errors
+    const key = getDraftKey(tenantId, userId);
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn("[NovoContrato] Erro ao salvar rascunho:", e);
+    return false;
   }
+  return true;
 }
 
-function clearDraft() {
-  sessionStorage.removeItem(STORAGE_KEY);
+function clearDraft(tenantId?: string, userId?: string) {
+  localStorage.removeItem(getDraftKey(tenantId, userId));
+  // Also clean up old key if present
+  sessionStorage.removeItem(OLD_STORAGE_KEY);
 }
 
 const NovoContrato = () => {
