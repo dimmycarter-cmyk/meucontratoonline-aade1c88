@@ -459,6 +459,7 @@ const NovoContrato = () => {
         }
       }
 
+      clearDraft();
       navigate("/app/contratos");
     } catch (e) {
       // error handled by hook
