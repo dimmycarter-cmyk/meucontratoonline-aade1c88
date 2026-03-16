@@ -1,5 +1,6 @@
-import { Clock, CheckCircle, XCircle } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useInvitations } from "@/hooks/useInvitations";
 import { Skeleton } from "@/components/ui/skeleton";
 
