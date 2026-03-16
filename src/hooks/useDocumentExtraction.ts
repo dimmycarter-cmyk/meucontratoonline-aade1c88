@@ -83,7 +83,7 @@ export const useDocumentExtraction = () => {
         try {
           const { data, error } = await supabase.functions.invoke("extract-document", {
             body: {
-              document_id: doc.id || `temp-${i}`,
+              document_id: doc.id || null,
               file_path: doc.path,
               document_type: doc.document_type,
             },
