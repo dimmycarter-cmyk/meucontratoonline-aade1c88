@@ -10,6 +10,9 @@ import { useContacts } from "@/hooks/useContacts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { maskCPF, maskPhone, maskCEP } from "@/lib/masks";
 import { useCepLookup } from "@/hooks/useCepLookup";
+import { InviteUserDialog } from "@/components/InviteUserDialog";
+import { PendingInvites } from "@/components/PendingInvites";
+import { useInvitations } from "@/hooks/useInvitations";
 
 const emptyContact = {
   nome: "", cpf: "", rg: "", orgao_expedidor: "", profissao: "",
@@ -24,6 +27,7 @@ const Contatos = () => {
   const [form, setForm] = useState(emptyContact);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { contacts, isLoading, createContact, updateContact, deleteContact, isCreating } = useContacts();
+  const { isAdmin } = useInvitations();
 
   const filtered = contacts.filter((c) =>
     c.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -81,10 +85,12 @@ const Contatos = () => {
           <h1 className="font-display text-2xl font-bold text-foreground">Usuários</h1>
           <p className="text-sm text-muted-foreground">{contacts.length} usuários cadastrados</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Contato</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {isAdmin && <InviteUserDialog />}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Contato</Button>
+            </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar Contato" : "Novo Contato"}</DialogTitle>
@@ -178,7 +184,8 @@ const Contatos = () => {
               </div>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <Card className="shadow-card">
@@ -248,6 +255,7 @@ const Contatos = () => {
           )}
         </CardContent>
       </Card>
+      {isAdmin && <PendingInvites />}
     </div>
   );
 };
