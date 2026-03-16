@@ -85,10 +85,12 @@ const Contatos = () => {
           <h1 className="font-display text-2xl font-bold text-foreground">Usuários</h1>
           <p className="text-sm text-muted-foreground">{contacts.length} usuários cadastrados</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Contato</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {isAdmin && <InviteUserDialog />}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Contato</Button>
+            </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar Contato" : "Novo Contato"}</DialogTitle>
