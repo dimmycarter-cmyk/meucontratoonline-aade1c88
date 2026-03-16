@@ -27,6 +27,7 @@ const Contatos = () => {
   const [form, setForm] = useState(emptyContact);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { contacts, isLoading, createContact, updateContact, deleteContact, isCreating } = useContacts();
+  const { isAdmin } = useInvitations();
 
   const filtered = contacts.filter((c) =>
     c.nome.toLowerCase().includes(search.toLowerCase()) ||
