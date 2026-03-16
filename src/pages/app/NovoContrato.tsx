@@ -72,6 +72,29 @@ const documentChecklist = [
   "Certidão Negativa de Protestos",
 ];
 
+const STORAGE_KEY = "novo-contrato-draft";
+
+function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(data: Record<string, any>) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function clearDraft() {
+  sessionStorage.removeItem(STORAGE_KEY);
+}
+
 const NovoContrato = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -83,16 +106,19 @@ const NovoContrato = () => {
   const { profile } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
+  // Load draft on mount
+  const draft = useRef(loadDraft());
+
   // Flow state
-  const [flowMode, setFlowMode] = useState<FlowMode>(null);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [flowMode, setFlowMode] = useState<FlowMode>(draft.current?.flowMode ?? null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(draft.current?.currentStepIndex ?? 0);
 
   // Common state
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [dados, setDados] = useState<Record<string, string>>({});
-  const [selectedClauseIds, setSelectedClauseIds] = useState<string[]>([]);
-  const [conteudoFinal, setConteudoFinal] = useState("");
-  const [nomeContrato, setNomeContrato] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(draft.current?.selectedTemplateId ?? null);
+  const [dados, setDados] = useState<Record<string, string>>(draft.current?.dados ?? {});
+  const [selectedClauseIds, setSelectedClauseIds] = useState<string[]>(draft.current?.selectedClauseIds ?? []);
+  const [conteudoFinal, setConteudoFinal] = useState(draft.current?.conteudoFinal ?? "");
+  const [nomeContrato, setNomeContrato] = useState(draft.current?.nomeContrato ?? "");
 
   // Inline template creation dialog
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
@@ -101,17 +127,17 @@ const NovoContrato = () => {
   const [newTemplateDesc, setNewTemplateDesc] = useState("");
 
   // Manual flow state
-  const [compradorId, setCompradorId] = useState<string | null>(null);
-  const [vendedorId, setVendedorId] = useState<string | null>(null);
-  const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [compradorId, setCompradorId] = useState<string | null>(draft.current?.compradorId ?? null);
+  const [vendedorId, setVendedorId] = useState<string | null>(draft.current?.vendedorId ?? null);
+  const [empresaId, setEmpresaId] = useState<string | null>(draft.current?.empresaId ?? null);
   const [searchContacts, setSearchContacts] = useState("");
   const [searchCompanies, setSearchCompanies] = useState("");
-  const [checkedDocs, setCheckedDocs] = useState<string[]>([]);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [checkedDocs, setCheckedDocs] = useState<string[]>(draft.current?.checkedDocs ?? []);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(draft.current?.uploadedFiles ?? []);
   const [isUploading, setIsUploading] = useState(false);
 
   // AI flow state
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>(draft.current?.participants ?? []);
   const [uploadingParticipantIndex, setUploadingParticipantIndex] = useState<number | null>(null);
   const {
     uploadDocument,
@@ -125,7 +151,34 @@ const NovoContrato = () => {
   } = useDocumentExtraction();
 
   // AI sub-step inside "review-data": extraction → review → data
-  const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">("extraction");
+  const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
+
+  // Persist state to sessionStorage
+  useEffect(() => {
+    saveDraft({
+      flowMode,
+      currentStepIndex,
+      selectedTemplateId,
+      dados,
+      selectedClauseIds,
+      conteudoFinal,
+      nomeContrato,
+      compradorId,
+      vendedorId,
+      empresaId,
+      checkedDocs,
+      uploadedFiles,
+      participants: participants.map(p => ({
+        ...p,
+        documents: p.documents.map(d => ({ ...d, file: null })),
+      })),
+      aiReviewSubStep,
+    });
+  }, [
+    flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
+    conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
+    checkedDocs, uploadedFiles, participants, aiReviewSubStep,
+  ]);
 
   const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
   const currentStep = steps[currentStepIndex];
