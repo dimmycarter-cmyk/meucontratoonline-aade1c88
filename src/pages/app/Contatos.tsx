@@ -255,6 +255,7 @@ const Contatos = () => {
           )}
         </CardContent>
       </Card>
+      {isAdmin && <PendingInvites />}
     </div>
   );
 };
