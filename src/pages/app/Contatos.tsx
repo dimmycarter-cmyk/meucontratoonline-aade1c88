@@ -10,6 +10,9 @@ import { useContacts } from "@/hooks/useContacts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { maskCPF, maskPhone, maskCEP } from "@/lib/masks";
 import { useCepLookup } from "@/hooks/useCepLookup";
+import { InviteUserDialog } from "@/components/InviteUserDialog";
+import { PendingInvites } from "@/components/PendingInvites";
+import { useInvitations } from "@/hooks/useInvitations";
 
 const emptyContact = {
   nome: "", cpf: "", rg: "", orgao_expedidor: "", profissao: "",
