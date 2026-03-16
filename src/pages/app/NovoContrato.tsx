@@ -516,7 +516,7 @@ const NovoContrato = () => {
         }
       }
 
-      clearDraft();
+      clearDraft(profile?.tenant_id, user?.id);
       navigate("/app/contratos");
     } catch (e) {
       // error handled by hook
