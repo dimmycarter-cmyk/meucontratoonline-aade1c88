@@ -178,32 +178,64 @@ const NovoContrato = () => {
   // AI sub-step inside "review-data": extraction → review → data
   const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
 
-  // Persist state to sessionStorage
-  useEffect(() => {
-    saveDraft({
-      flowMode,
-      currentStepIndex,
-      selectedTemplateId,
-      dados,
-      selectedClauseIds,
-      conteudoFinal,
-      nomeContrato,
-      compradorId,
-      vendedorId,
-      empresaId,
-      checkedDocs,
-      uploadedFiles,
-      participants: participants.map(p => ({
-        ...p,
-        documents: p.documents.map(d => ({ ...d, file: null })),
-      })),
-      aiReviewSubStep,
-    });
-  }, [
+  // Build draft payload
+  const buildDraftPayload = useCallback(() => ({
+    flowMode,
+    currentStepIndex,
+    selectedTemplateId,
+    dados,
+    selectedClauseIds,
+    conteudoFinal,
+    nomeContrato,
+    compradorId,
+    vendedorId,
+    empresaId,
+    checkedDocs,
+    uploadedFiles,
+    participants: participants.map(p => ({
+      ...p,
+      documents: p.documents.map(d => ({ ...d, file: null })),
+    })),
+    aiReviewSubStep,
+  }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
     checkedDocs, uploadedFiles, participants, aiReviewSubStep,
   ]);
+
+  // Persist state to localStorage with debounce
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftPayloadRef = useRef(buildDraftPayload());
+
+  useEffect(() => {
+    draftPayloadRef.current = buildDraftPayload();
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      const ok = saveDraft(draftPayloadRef.current, profile?.tenant_id, user?.id);
+      if (!ok) {
+        toast({ title: "Aviso", description: "Não foi possível salvar rascunho localmente.", variant: "destructive" });
+      }
+    }, 400);
+
+    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+  }, [buildDraftPayload, profile?.tenant_id, user?.id]);
+
+  // Flush draft on tab hide / page unload
+  useEffect(() => {
+    const flush = () => {
+      try {
+        saveDraft(draftPayloadRef.current, profile?.tenant_id, user?.id);
+      } catch { /* best-effort */ }
+    };
+    const onVisChange = () => { if (document.visibilityState === "hidden") flush(); };
+    document.addEventListener("visibilitychange", onVisChange);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisChange);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [profile?.tenant_id, user?.id]);
 
   const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
   const currentStep = steps[currentStepIndex];
