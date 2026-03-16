@@ -72,27 +72,52 @@ const documentChecklist = [
   "Certidão Negativa de Protestos",
 ];
 
-const STORAGE_KEY = "novo-contrato-draft";
+const STORAGE_KEY_PREFIX = "novo-contrato-draft:v2";
+const OLD_STORAGE_KEY = "novo-contrato-draft";
 
-function loadDraft() {
+function getDraftKey(tenantId?: string, userId?: string) {
+  if (tenantId && userId) return `${STORAGE_KEY_PREFIX}:${tenantId}:${userId}`;
+  return STORAGE_KEY_PREFIX;
+}
+
+function loadDraft(tenantId?: string, userId?: string) {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
+    const key = getDraftKey(tenantId, userId);
+    // Try localStorage first
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw);
+
+    // Migrate from old sessionStorage key
+    const oldRaw = sessionStorage.getItem(OLD_STORAGE_KEY);
+    if (oldRaw) {
+      const parsed = JSON.parse(oldRaw);
+      localStorage.setItem(key, oldRaw);
+      sessionStorage.removeItem(OLD_STORAGE_KEY);
+      return parsed;
+    }
+
+    return null;
+  } catch (e) {
+    console.warn("[NovoContrato] Erro ao carregar rascunho:", e);
     return null;
   }
 }
 
-function saveDraft(data: Record<string, any>) {
+function saveDraft(data: Record<string, any>, tenantId?: string, userId?: string) {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // ignore quota errors
+    const key = getDraftKey(tenantId, userId);
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn("[NovoContrato] Erro ao salvar rascunho:", e);
+    return false;
   }
+  return true;
 }
 
-function clearDraft() {
-  sessionStorage.removeItem(STORAGE_KEY);
+function clearDraft(tenantId?: string, userId?: string) {
+  localStorage.removeItem(getDraftKey(tenantId, userId));
+  // Also clean up old key if present
+  sessionStorage.removeItem(OLD_STORAGE_KEY);
 }
 
 const NovoContrato = () => {
@@ -103,11 +128,11 @@ const NovoContrato = () => {
   const { companies, isLoading: loadingCompanies } = useCompanies();
   const { clauses, isLoading: loadingClauses } = useClauses();
   const { createContract, isCreating } = useContracts();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Load draft on mount
-  const draft = useRef(loadDraft());
+  // Load draft on mount (scoped to tenant+user)
+  const draft = useRef(loadDraft(profile?.tenant_id, user?.id));
 
   // Flow state
   const [flowMode, setFlowMode] = useState<FlowMode>(draft.current?.flowMode ?? null);
@@ -153,32 +178,64 @@ const NovoContrato = () => {
   // AI sub-step inside "review-data": extraction → review → data
   const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
 
-  // Persist state to sessionStorage
-  useEffect(() => {
-    saveDraft({
-      flowMode,
-      currentStepIndex,
-      selectedTemplateId,
-      dados,
-      selectedClauseIds,
-      conteudoFinal,
-      nomeContrato,
-      compradorId,
-      vendedorId,
-      empresaId,
-      checkedDocs,
-      uploadedFiles,
-      participants: participants.map(p => ({
-        ...p,
-        documents: p.documents.map(d => ({ ...d, file: null })),
-      })),
-      aiReviewSubStep,
-    });
-  }, [
+  // Build draft payload
+  const buildDraftPayload = useCallback(() => ({
+    flowMode,
+    currentStepIndex,
+    selectedTemplateId,
+    dados,
+    selectedClauseIds,
+    conteudoFinal,
+    nomeContrato,
+    compradorId,
+    vendedorId,
+    empresaId,
+    checkedDocs,
+    uploadedFiles,
+    participants: participants.map(p => ({
+      ...p,
+      documents: p.documents.map(d => ({ ...d, file: null })),
+    })),
+    aiReviewSubStep,
+  }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
     checkedDocs, uploadedFiles, participants, aiReviewSubStep,
   ]);
+
+  // Persist state to localStorage with debounce
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftPayloadRef = useRef(buildDraftPayload());
+
+  useEffect(() => {
+    draftPayloadRef.current = buildDraftPayload();
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      const ok = saveDraft(draftPayloadRef.current, profile?.tenant_id, user?.id);
+      if (!ok) {
+        toast({ title: "Aviso", description: "Não foi possível salvar rascunho localmente.", variant: "destructive" });
+      }
+    }, 400);
+
+    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+  }, [buildDraftPayload, profile?.tenant_id, user?.id]);
+
+  // Flush draft on tab hide / page unload
+  useEffect(() => {
+    const flush = () => {
+      try {
+        saveDraft(draftPayloadRef.current, profile?.tenant_id, user?.id);
+      } catch { /* best-effort */ }
+    };
+    const onVisChange = () => { if (document.visibilityState === "hidden") flush(); };
+    document.addEventListener("visibilitychange", onVisChange);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisChange);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [profile?.tenant_id, user?.id]);
 
   const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
   const currentStep = steps[currentStepIndex];
@@ -459,7 +516,7 @@ const NovoContrato = () => {
         }
       }
 
-      clearDraft();
+      clearDraft(profile?.tenant_id, user?.id);
       navigate("/app/contratos");
     } catch (e) {
       // error handled by hook
