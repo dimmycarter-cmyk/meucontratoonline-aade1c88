@@ -1,5 +1,6 @@
-import { Clock, CheckCircle, XCircle } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useInvitations } from "@/hooks/useInvitations";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -10,7 +11,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 };
 
 export const PendingInvites = () => {
-  const { invitations, isLoading } = useInvitations();
+  const { invitations, isLoading, deleteInvite, isDeleting } = useInvitations();
 
   if (isLoading) {
     return <div className="space-y-2">{[1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>;
@@ -38,7 +39,18 @@ export const PendingInvites = () => {
                   <p className="text-xs text-muted-foreground capitalize">{inv.role.replace("_", " ")}</p>
                 </div>
               </div>
-              <Badge variant={displayStatus.variant}>{displayStatus.label}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={displayStatus.variant}>{displayStatus.label}</Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  disabled={isDeleting}
+                  onClick={() => deleteInvite(inv.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           );
         })}

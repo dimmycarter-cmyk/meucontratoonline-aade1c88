@@ -53,11 +53,27 @@ export const useInvitations = () => {
     },
   });
 
+  const deleteInvite = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("invitations").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invitations"] });
+      toast({ title: "Convite excluído com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao excluir convite", description: error.message, variant: "destructive" });
+    },
+  });
+
   return {
     invitations: query.data ?? [],
     isLoading: query.isLoading,
     sendInvite: sendInvite.mutateAsync,
     isSending: sendInvite.isPending,
+    deleteInvite: deleteInvite.mutateAsync,
+    isDeleting: deleteInvite.isPending,
     isAdmin,
   };
 };
