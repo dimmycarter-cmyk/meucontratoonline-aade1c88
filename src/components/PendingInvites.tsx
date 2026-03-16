@@ -39,7 +39,18 @@ export const PendingInvites = () => {
                   <p className="text-xs text-muted-foreground capitalize">{inv.role.replace("_", " ")}</p>
                 </div>
               </div>
-              <Badge variant={displayStatus.variant}>{displayStatus.label}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={displayStatus.variant}>{displayStatus.label}</Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  disabled={isDeleting}
+                  onClick={() => deleteInvite(inv.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           );
         })}
