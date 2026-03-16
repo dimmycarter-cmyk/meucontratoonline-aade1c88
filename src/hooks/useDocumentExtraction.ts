@@ -26,7 +26,10 @@ export const useDocumentExtraction = () => {
   const uploadDocument = useCallback(
     async (participantId: string, file: File, docType: DocType): Promise<UploadedDoc | null> => {
       if (!profile?.tenant_id) return null;
-      const filePath = `${profile.tenant_id}/participants/${participantId}/${Date.now()}-${file.name}`;
+      const safeName = file.name
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `${profile.tenant_id}/participants/${participantId}/${Date.now()}-${safeName}`;
 
       const { error } = await supabase.storage.from("contract-documents").upload(filePath, file);
       if (error) {
