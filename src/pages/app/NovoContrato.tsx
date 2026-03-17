@@ -400,7 +400,10 @@ const NovoContrato = () => {
       }
       if (aiReviewSubStep === "review") {
         const aiDados = mapToDados();
-        setDados((prev) => ({ ...prev, ...aiDados }));
+        // Only merge AI data if there's actual extracted data to avoid wiping existing dados
+        if (Object.keys(aiDados).length > 0) {
+          setDados((prev) => ({ ...prev, ...aiDados }));
+        }
         setAiReviewSubStep("data");
         return;
       }
