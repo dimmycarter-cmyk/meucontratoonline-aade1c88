@@ -185,26 +185,7 @@ const Dashboard = () => {
 
   return (
     <div className="p-6 lg:p-8">
-      {/* Limits Warning Banner */}
-      {limits && !canCreateContract && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          <Card className="border-warning/50 bg-warning/10">
-            <CardContent className="p-4 flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">Limite de contratos atingido</p>
-                <p className="text-xs text-muted-foreground">
-                  Você usou {limits.current_contracts_this_month}/{limits.max_contracts_per_month} contratos este mês. 
-                  Faça upgrade do plano para continuar criando contratos.
-                </p>
-              </div>
-              <Badge variant="outline" className="text-warning border-warning">
-                {limits.plan_name}
-              </Badge>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+      {/* TODO: Re-enable limits warning after launch */}
 
       {/* Plan Usage Card */}
       {limits && limits.max_contracts_per_month < 999999 && (
@@ -232,7 +213,7 @@ const Dashboard = () => {
           <h1 className="font-display text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Visão geral da sua operação</p>
         </div>
-        <Button asChild disabled={!canCreateContract}>
+        <Button asChild>
           <Link to="/app/novo-contrato"><Plus className="mr-2 h-4 w-4" /> Novo Contrato</Link>
         </Button>
       </div>
