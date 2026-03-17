@@ -197,10 +197,11 @@ const NovoContrato = () => {
       documents: p.documents.map(d => ({ ...d, file: null })),
     })),
     aiReviewSubStep,
+    extractedData,
   }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
-    checkedDocs, uploadedFiles, participants, aiReviewSubStep,
+    checkedDocs, uploadedFiles, participants, aiReviewSubStep, extractedData,
   ]);
 
   // Persist state to localStorage with debounce
