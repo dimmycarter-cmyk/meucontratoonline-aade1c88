@@ -45,12 +45,12 @@ export const useContracts = () => {
 
   const createMutation = useMutation({
     mutationFn: async (contract: Partial<Contract>) => {
-      // Check limits before creating
-      if (!canCreateContract) {
-        throw new Error(
-          `Limite de contratos atingido (${limits?.current_contracts_this_month ?? 0}/${limits?.max_contracts_per_month ?? 0}). Faça upgrade do seu plano.`
-        );
-      }
+      // TODO: Re-enable limit check after launch
+      // if (!canCreateContract) {
+      //   throw new Error(
+      //     `Limite de contratos atingido (${limits?.current_contracts_this_month ?? 0}/${limits?.max_contracts_per_month ?? 0}). Faça upgrade do seu plano.`
+      //   );
+      // }
       const { data, error } = await supabase
         .from("contracts")
         .insert({ ...contract, tenant_id: effectiveTenantId } as any)
