@@ -117,8 +117,9 @@ export const useDocumentExtraction = (initialExtractedData?: ParticipantExtracte
           const fieldConfidences = ext.field_confidences || {};
           const globalConf = ext.confidence || 50;
 
+          const ignoredFields = ["birth_date", "father_name", "mother_name"];
           Object.entries(ext).forEach(([key, value]) => {
-            if (key === "confidence" || key === "field_confidences" || !value || typeof value !== "string") return;
+            if (key === "confidence" || key === "field_confidences" || ignoredFields.includes(key) || !value || typeof value !== "string") return;
             const conf = fieldConfidences[key] ?? globalConf;
             // Keep highest confidence version
             if (!mergedFields[key] || conf > mergedFields[key].confidence) {
