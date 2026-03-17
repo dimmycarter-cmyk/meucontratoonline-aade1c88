@@ -15,13 +15,13 @@ const EXTRACTION_MESSAGES = [
   "Finalizando extração...",
 ];
 
-export const useDocumentExtraction = () => {
+export const useDocumentExtraction = (initialExtractedData?: ParticipantExtractedData[]) => {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentMessage, setCurrentMessage] = useState("");
-  const [extractedData, setExtractedData] = useState<ParticipantExtractedData[]>([]);
+  const [extractedData, setExtractedData] = useState<ParticipantExtractedData[]>(initialExtractedData ?? []);
 
   const uploadDocument = useCallback(
     async (participantId: string, file: File, docType: DocType): Promise<UploadedDoc | null> => {
