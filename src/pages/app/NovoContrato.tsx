@@ -173,7 +173,7 @@ const NovoContrato = () => {
     extractedData,
     updateField,
     mapToDados,
-  } = useDocumentExtraction();
+  } = useDocumentExtraction(draft.current?.extractedData ?? undefined);
 
   // AI sub-step inside "review-data": extraction → review → data
   const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
@@ -197,10 +197,11 @@ const NovoContrato = () => {
       documents: p.documents.map(d => ({ ...d, file: null })),
     })),
     aiReviewSubStep,
+    extractedData,
   }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
-    checkedDocs, uploadedFiles, participants, aiReviewSubStep,
+    checkedDocs, uploadedFiles, participants, aiReviewSubStep, extractedData,
   ]);
 
   // Persist state to localStorage with debounce
@@ -399,7 +400,10 @@ const NovoContrato = () => {
       }
       if (aiReviewSubStep === "review") {
         const aiDados = mapToDados();
-        setDados((prev) => ({ ...prev, ...aiDados }));
+        // Only merge AI data if there's actual extracted data to avoid wiping existing dados
+        if (Object.keys(aiDados).length > 0) {
+          setDados((prev) => ({ ...prev, ...aiDados }));
+        }
         setAiReviewSubStep("data");
         return;
       }
