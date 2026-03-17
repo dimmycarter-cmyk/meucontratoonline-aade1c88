@@ -213,7 +213,7 @@ const Dashboard = () => {
           <h1 className="font-display text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Visão geral da sua operação</p>
         </div>
-        <Button asChild disabled={!canCreateContract}>
+        <Button asChild>
           <Link to="/app/novo-contrato"><Plus className="mr-2 h-4 w-4" /> Novo Contrato</Link>
         </Button>
       </div>
