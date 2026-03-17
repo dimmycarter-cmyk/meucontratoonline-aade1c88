@@ -173,7 +173,7 @@ const NovoContrato = () => {
     extractedData,
     updateField,
     mapToDados,
-  } = useDocumentExtraction();
+  } = useDocumentExtraction(draft.current?.extractedData ?? undefined);
 
   // AI sub-step inside "review-data": extraction → review → data
   const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
