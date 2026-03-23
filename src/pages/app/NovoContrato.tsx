@@ -190,6 +190,8 @@ const NovoContrato = () => {
     conteudoFinal,
     nomeContrato,
     compradorId,
+    compradorNome,
+    vendedorNome,
     vendedorId,
     empresaId,
     checkedDocs,
