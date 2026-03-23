@@ -155,6 +155,8 @@ const NovoContrato = () => {
   const [compradorId, setCompradorId] = useState<string | null>(draft.current?.compradorId ?? null);
   const [vendedorId, setVendedorId] = useState<string | null>(draft.current?.vendedorId ?? null);
   const [empresaId, setEmpresaId] = useState<string | null>(draft.current?.empresaId ?? null);
+  const [compradorNome, setCompradorNome] = useState(draft.current?.compradorNome ?? "");
+  const [vendedorNome, setVendedorNome] = useState(draft.current?.vendedorNome ?? "");
   const [searchContacts, setSearchContacts] = useState("");
   const [searchCompanies, setSearchCompanies] = useState("");
   const [checkedDocs, setCheckedDocs] = useState<string[]>(draft.current?.checkedDocs ?? []);
