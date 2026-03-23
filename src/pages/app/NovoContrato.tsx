@@ -263,6 +263,13 @@ const NovoContrato = () => {
   // Auto-fill dados from selected contacts/company (manual mode)
   const autoFillDados = useCallback(() => {
     const filled: Record<string, string> = { ...dados };
+    // Manual typed names (fallback when no contact selected)
+    if (!comprador && compradorNome.trim()) {
+      filled.comprador_nome = compradorNome.trim();
+    }
+    if (!vendedor && vendedorNome.trim()) {
+      filled.vendedor_nome = vendedorNome.trim();
+    }
     if (comprador) {
       if (comprador.nome) filled.comprador_nome = comprador.nome;
       if (comprador.cpf) filled.comprador_cpf = comprador.cpf;
@@ -296,7 +303,7 @@ const NovoContrato = () => {
       if (endEmpresa) filled.empresa_endereco = endEmpresa;
     }
     setDados(filled);
-  }, [comprador, vendedor, empresa, dados]);
+  }, [comprador, vendedor, empresa, dados, compradorNome, vendedorNome]);
 
   // Build final content
   const buildFinalContent = useCallback(() => {
