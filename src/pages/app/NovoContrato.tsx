@@ -486,16 +486,45 @@ const NovoContrato = () => {
     try {
       // Ensure dados has the latest extracted data before saving
       const latestAiDados = mapToDados();
-      const mergedDados = { ...dados, ...latestAiDados };
+      // Merge: form edits (dados) take priority over AI extraction
+      const mergedDados = { ...latestAiDados, ...dados };
 
-      // If conteudoFinal is empty but we have a template, build it with substitution
-      let fullContent = conteudoFinal;
-      if (!fullContent && selectedTemplate?.conteudo) {
-        fullContent = selectedTemplate.conteudo;
-        Object.entries(mergedDados).forEach(([key, value]) => {
-          const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
-          fullContent = fullContent.replace(regex, value || `{{${key}}}`);
+      // Add fallback names from participants if not present in dados
+      if (flowMode === "ai" && participants.length > 0) {
+        for (const p of participants) {
+          const prefix = p.role; // e.g. "comprador", "vendedor"
+          const nameKey = `${prefix}_nome`;
+          if (!mergedDados[nameKey] && p.full_name) {
+            mergedDados[nameKey] = p.full_name;
+          }
+          // Also check extractedData for full_name
+          const pData = extractedData.find((ed) => ed.participantId === p.id);
+          if (pData?.full_name && !mergedDados[nameKey]) {
+            mergedDados[nameKey] = pData.full_name;
+          }
+        }
+      }
+
+      // Helper to replace template variables (handles {{key}} and {{ key }})
+      const replaceVars = (text: string, vars: Record<string, string>) => {
+        let result = text;
+        Object.entries(vars).forEach(([key, value]) => {
+          if (value) {
+            const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
+            result = result.replace(regex, value);
+          }
         });
+        return result;
+      };
+
+      // Always recalculate conteudo_final with latest data
+      let fullContent = conteudoFinal;
+      if (selectedTemplate?.conteudo) {
+        // If editor has content, apply substitution on it; otherwise use template base
+        const baseContent = fullContent || selectedTemplate.conteudo;
+        fullContent = replaceVars(baseContent, mergedDados);
+      } else if (fullContent) {
+        fullContent = replaceVars(fullContent, mergedDados);
       }
 
       if (selectedClauses.length > 0) {
@@ -520,14 +549,19 @@ const NovoContrato = () => {
         valor_financiamento: mergedDados.valor_financiamento ? parseFloat(mergedDados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
       });
 
+      if (!contract?.id) {
+        toast({ title: "Erro", description: "Não foi possível criar o contrato.", variant: "destructive" });
+        return;
+      }
+
       // Save participants from AI flow to contract_participants table
-      if (contract?.id && profile?.tenant_id && flowMode === "ai" && participants.length > 0) {
+      if (profile?.tenant_id && flowMode === "ai" && participants.length > 0) {
         for (const p of participants) {
           const pData = extractedData.find((ed) => ed.participantId === p.id);
           const fieldMap: Record<string, string> = {};
           pData?.fields.forEach((f) => { fieldMap[f.key] = f.value; });
 
-          await supabase.from("contract_participants").insert({
+          const { error: partError } = await supabase.from("contract_participants").insert({
             contract_id: contract.id,
             tenant_id: profile.tenant_id,
             role: p.role,
@@ -548,12 +582,17 @@ const NovoContrato = () => {
             address_state: fieldMap.address_state || null,
             address_zipcode: fieldMap.address_zipcode || null,
           } as any);
+
+          if (partError) {
+            console.error("[NovoContrato] Erro ao salvar participante:", partError);
+            toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
+          }
         }
       }
 
-      if (uploadedFiles.length > 0 && contract?.id && profile?.tenant_id) {
+      if (uploadedFiles.length > 0 && profile?.tenant_id) {
         for (const file of uploadedFiles) {
-          await supabase.from("contract_documents").insert({
+          const { error: docError } = await supabase.from("contract_documents").insert({
             contract_id: contract.id,
             tenant_id: profile.tenant_id,
             file_name: file.name,
@@ -561,13 +600,19 @@ const NovoContrato = () => {
             file_size: file.size,
             mime_type: file.mime_type,
           } as any);
+
+          if (docError) {
+            console.error("[NovoContrato] Erro ao salvar documento:", docError);
+            toast({ title: "Erro ao salvar documento", description: docError.message, variant: "destructive" });
+          }
         }
       }
 
       clearDraft(profile?.tenant_id, user?.id);
       navigate("/app/contratos");
-    } catch (e) {
-      // error handled by hook
+    } catch (e: any) {
+      console.error("[NovoContrato] Erro ao salvar contrato:", e);
+      toast({ title: "Erro ao salvar contrato", description: e?.message || "Erro desconhecido", variant: "destructive" });
     }
   };
 

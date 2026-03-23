@@ -76,6 +76,20 @@ const ContratoDetalhe = () => {
     enabled: !!contract?.vendedor_id,
   });
 
+  // Fetch participants (for AI flow contracts without comprador_id/vendedor_id)
+  const { data: contractParticipants = [] } = useQuery({
+    queryKey: ["contract-participants", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("contract_participants").select("*").eq("contract_id", id!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const participantComprador = contractParticipants.find((p: any) => p.role === "comprador");
+  const participantVendedor = contractParticipants.find((p: any) => p.role === "vendedor");
+
   useEffect(() => {
     if (contract) {
       setEditContent(contract.conteudo_final);
