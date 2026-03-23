@@ -589,8 +589,9 @@ const NovoContrato = () => {
         });
       }
 
+      const contractName = nomeContrato || `Contrato - ${comprador?.nome || compradorNome || participants.find((p) => p.role === "comprador")?.full_name || "Novo"}`;
       const contract = await createContract({
-        nome: nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || ""}`,
+        nome: contractName,
         template_id: selectedTemplateId,
         comprador_id: compradorId,
         vendedor_id: vendedorId,
