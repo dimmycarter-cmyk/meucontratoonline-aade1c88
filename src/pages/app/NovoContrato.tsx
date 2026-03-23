@@ -155,6 +155,8 @@ const NovoContrato = () => {
   const [compradorId, setCompradorId] = useState<string | null>(draft.current?.compradorId ?? null);
   const [vendedorId, setVendedorId] = useState<string | null>(draft.current?.vendedorId ?? null);
   const [empresaId, setEmpresaId] = useState<string | null>(draft.current?.empresaId ?? null);
+  const [compradorNome, setCompradorNome] = useState(draft.current?.compradorNome ?? "");
+  const [vendedorNome, setVendedorNome] = useState(draft.current?.vendedorNome ?? "");
   const [searchContacts, setSearchContacts] = useState("");
   const [searchCompanies, setSearchCompanies] = useState("");
   const [checkedDocs, setCheckedDocs] = useState<string[]>(draft.current?.checkedDocs ?? []);
@@ -188,6 +190,8 @@ const NovoContrato = () => {
     conteudoFinal,
     nomeContrato,
     compradorId,
+    compradorNome,
+    vendedorNome,
     vendedorId,
     empresaId,
     checkedDocs,
@@ -201,6 +205,7 @@ const NovoContrato = () => {
   }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
+    compradorNome, vendedorNome,
     checkedDocs, uploadedFiles, participants, aiReviewSubStep, extractedData,
   ]);
 
@@ -258,6 +263,13 @@ const NovoContrato = () => {
   // Auto-fill dados from selected contacts/company (manual mode)
   const autoFillDados = useCallback(() => {
     const filled: Record<string, string> = { ...dados };
+    // Manual typed names (fallback when no contact selected)
+    if (!comprador && compradorNome.trim()) {
+      filled.comprador_nome = compradorNome.trim();
+    }
+    if (!vendedor && vendedorNome.trim()) {
+      filled.vendedor_nome = vendedorNome.trim();
+    }
     if (comprador) {
       if (comprador.nome) filled.comprador_nome = comprador.nome;
       if (comprador.cpf) filled.comprador_cpf = comprador.cpf;
@@ -291,7 +303,7 @@ const NovoContrato = () => {
       if (endEmpresa) filled.empresa_endereco = endEmpresa;
     }
     setDados(filled);
-  }, [comprador, vendedor, empresa, dados]);
+  }, [comprador, vendedor, empresa, dados, compradorNome, vendedorNome]);
 
   // Build final content
   const buildFinalContent = useCallback(() => {
@@ -467,7 +479,7 @@ const NovoContrato = () => {
     const stepId = currentStep?.id;
     switch (stepId) {
       case "selection": return !!selectedTemplateId && !!flowMode;
-      case "parties-docs": return !!compradorId && !!vendedorId;
+      case "parties-docs": return (!!compradorId || !!compradorNome.trim()) && (!!vendedorId || !!vendedorNome.trim());
       case "participants": {
         const hasComprador = participants.some((p) => p.role === "comprador" && p.full_name.trim());
         const hasVendedor = participants.some((p) => p.role === "vendedor" && p.full_name.trim());
@@ -577,8 +589,9 @@ const NovoContrato = () => {
         });
       }
 
+      const contractName = nomeContrato || `Contrato - ${comprador?.nome || compradorNome || participants.find((p) => p.role === "comprador")?.full_name || "Novo"}`;
       const contract = await createContract({
-        nome: nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || ""}`,
+        nome: contractName,
         template_id: selectedTemplateId,
         comprador_id: compradorId,
         vendedor_id: vendedorId,
@@ -597,67 +610,108 @@ const NovoContrato = () => {
         return;
       }
 
-      // Save participants — merge extractedData fields + reverse-map from dados state
-      if (profile?.tenant_id && flowMode === "ai" && participants.length > 0) {
+      // Save participants for BOTH AI and manual flows
+      if (profile?.tenant_id) {
         // Reverse mapping: dados key → participant field
         const DADOS_TO_PARTICIPANT: Record<string, string> = {
           cpf: "cpf", rg: "rg", orgao_expedidor: "issuing_agency",
           profissao: "profession", nacionalidade: "nationality",
           estado_civil: "marital_status", email: "email", whatsapp: "whatsapp",
         };
+        const addrMap: Record<string, string> = {
+          endereco_rua: "address_street", endereco_numero: "address_number",
+          endereco_complemento: "address_complement", endereco_bairro: "address_neighborhood",
+          endereco_cidade: "address_city", endereco_estado: "address_state",
+          endereco_cep: "address_zipcode",
+        };
 
-        for (const p of participants) {
-          const pData = extractedData.find((ed) => ed.participantId === p.id);
-          const fieldMap: Record<string, string> = {};
-          pData?.fields.forEach((f) => { fieldMap[f.key] = f.value; });
+        if (flowMode === "ai" && participants.length > 0) {
+          // AI flow: save each participant with extracted + form data
+          for (const p of participants) {
+            const pData = extractedData.find((ed) => ed.participantId === p.id);
+            const fieldMap: Record<string, string> = {};
+            pData?.fields.forEach((f) => { fieldMap[f.key] = f.value; });
 
-          // Also pull from mergedDados using reverse mapping (e.g. comprador_cpf → cpf)
-          const prefix = p.role + "_";
-          Object.entries(DADOS_TO_PARTICIPANT).forEach(([dadosSuffix, participantField]) => {
-            const dadosKey = prefix + dadosSuffix;
-            if (mergedDados[dadosKey] && !fieldMap[participantField]) {
-              fieldMap[participantField] = mergedDados[dadosKey];
+            const prefix = p.role + "_";
+            Object.entries(DADOS_TO_PARTICIPANT).forEach(([dadosSuffix, participantField]) => {
+              const dadosKey = prefix + dadosSuffix;
+              if (mergedDados[dadosKey] && !fieldMap[participantField]) {
+                fieldMap[participantField] = mergedDados[dadosKey];
+              }
+            });
+            Object.entries(addrMap).forEach(([dadosSuffix, participantField]) => {
+              const dadosKey = prefix + dadosSuffix;
+              if (mergedDados[dadosKey] && !fieldMap[participantField]) {
+                fieldMap[participantField] = mergedDados[dadosKey];
+              }
+            });
+
+            const { error: partError } = await supabase.from("contract_participants").insert({
+              contract_id: contract.id,
+              tenant_id: profile.tenant_id,
+              role: p.role,
+              full_name: pData?.full_name || p.full_name || mergedDados[prefix + "nome"] || "",
+              cpf: fieldMap.cpf || null,
+              rg: fieldMap.rg || null,
+              issuing_agency: fieldMap.issuing_agency || null,
+              profession: fieldMap.profession || null,
+              nationality: fieldMap.nationality || null,
+              marital_status: fieldMap.marital_status || null,
+              email: fieldMap.email || null,
+              whatsapp: fieldMap.whatsapp || null,
+              address_street: fieldMap.address_street || null,
+              address_number: fieldMap.address_number || null,
+              address_complement: fieldMap.address_complement || null,
+              address_neighborhood: fieldMap.address_neighborhood || null,
+              address_city: fieldMap.address_city || null,
+              address_state: fieldMap.address_state || null,
+              address_zipcode: fieldMap.address_zipcode || null,
+            } as any);
+
+            if (partError) {
+              console.error("[NovoContrato] Erro ao salvar participante:", partError);
+              toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
             }
-          });
-          // Address fields from dados
-          const addrMap: Record<string, string> = {
-            endereco_rua: "address_street", endereco_numero: "address_number",
-            endereco_complemento: "address_complement", endereco_bairro: "address_neighborhood",
-            endereco_cidade: "address_city", endereco_estado: "address_state",
-            endereco_cep: "address_zipcode",
-          };
-          Object.entries(addrMap).forEach(([dadosSuffix, participantField]) => {
-            const dadosKey = prefix + dadosSuffix;
-            if (mergedDados[dadosKey] && !fieldMap[participantField]) {
-              fieldMap[participantField] = mergedDados[dadosKey];
+          }
+        } else if (flowMode === "manual") {
+          // Manual flow: create participants from selected contacts or typed names
+          const manualParticipants: { role: "comprador" | "vendedor"; contact: Contact | undefined; typedName: string }[] = [
+            { role: "comprador", contact: comprador, typedName: compradorNome },
+            { role: "vendedor", contact: vendedor, typedName: vendedorNome },
+          ];
+
+          for (const mp of manualParticipants) {
+            const prefix = mp.role + "_";
+            const fullName = mp.contact?.nome || mp.typedName || mergedDados[prefix + "nome"] || "";
+            if (!fullName.trim()) continue;
+
+            const participantData: Record<string, string | null> = {
+              contract_id: contract.id,
+              tenant_id: profile.tenant_id,
+              role: mp.role,
+              full_name: fullName,
+              cpf: mp.contact?.cpf || mergedDados[prefix + "cpf"] || null,
+              rg: mp.contact?.rg || mergedDados[prefix + "rg"] || null,
+              issuing_agency: mp.contact?.orgao_expedidor || mergedDados[prefix + "orgao_expedidor"] || null,
+              profession: mp.contact?.profissao || mergedDados[prefix + "profissao"] || null,
+              nationality: mp.contact?.nacionalidade || mergedDados[prefix + "nacionalidade"] || null,
+              marital_status: mp.contact?.estado_civil || mergedDados[prefix + "estado_civil"] || null,
+              email: mp.contact?.email || mergedDados[prefix + "email"] || null,
+              whatsapp: mp.contact?.whatsapp || mergedDados[prefix + "whatsapp"] || null,
+              address_street: mp.contact?.rua || null,
+              address_number: mp.contact?.numero || null,
+              address_complement: mp.contact?.complemento || null,
+              address_neighborhood: mp.contact?.bairro || null,
+              address_city: mp.contact?.cidade || null,
+              address_state: mp.contact?.estado || null,
+              address_zipcode: mp.contact?.cep || null,
+            };
+
+            const { error: partError } = await supabase.from("contract_participants").insert(participantData as any);
+            if (partError) {
+              console.error("[NovoContrato] Erro ao salvar participante manual:", partError);
+              toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
             }
-          });
-
-          const { error: partError } = await supabase.from("contract_participants").insert({
-            contract_id: contract.id,
-            tenant_id: profile.tenant_id,
-            role: p.role,
-            full_name: pData?.full_name || p.full_name || mergedDados[prefix + "nome"] || "",
-            cpf: fieldMap.cpf || null,
-            rg: fieldMap.rg || null,
-            issuing_agency: fieldMap.issuing_agency || null,
-            profession: fieldMap.profession || null,
-            nationality: fieldMap.nationality || null,
-            marital_status: fieldMap.marital_status || null,
-            email: fieldMap.email || null,
-            whatsapp: fieldMap.whatsapp || null,
-            address_street: fieldMap.address_street || null,
-            address_number: fieldMap.address_number || null,
-            address_complement: fieldMap.address_complement || null,
-            address_neighborhood: fieldMap.address_neighborhood || null,
-            address_city: fieldMap.address_city || null,
-            address_state: fieldMap.address_state || null,
-            address_zipcode: fieldMap.address_zipcode || null,
-          } as any);
-
-          if (partError) {
-            console.error("[NovoContrato] Erro ao salvar participante:", partError);
-            toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
           }
         }
       }
@@ -942,49 +996,95 @@ const NovoContrato = () => {
         <div className="space-y-8">
           {/* Parties section */}
           <div className="space-y-6">
-            <h2 className="font-display text-lg font-semibold text-foreground">Selecione as partes</h2>
+            <h2 className="font-display text-lg font-semibold text-foreground">Informe as partes</h2>
+            <p className="text-sm text-muted-foreground">Digite o nome ou selecione um contato já cadastrado.</p>
             
             {/* Comprador */}
             <div>
               <Label className="mb-2 block text-sm font-medium">Comprador *</Label>
-              <div className="relative mb-2">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Buscar contato..." className="pl-10" value={searchContacts} onChange={(e) => setSearchContacts(e.target.value)} />
-              </div>
-              <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
-                {filteredContacts.map((c) => (
-                  <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setCompradorId(c.id)}>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-primary" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{c.nome}</p>
-                        <p className="text-xs text-muted-foreground">{c.cpf || c.email || "—"}</p>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-              {contacts.length === 0 && !loadingContacts && (
-                <p className="text-xs text-muted-foreground mt-2">Nenhum contato cadastrado. <Button variant="link" className="p-0 h-auto text-xs" onClick={() => navigate("/app/contatos")}>Criar contato</Button></p>
+              <Input
+                placeholder="Nome do comprador..."
+                value={compradorId ? (comprador?.nome || "") : compradorNome}
+                onChange={(e) => {
+                  setCompradorNome(e.target.value);
+                  setCompradorId(null); // clear contact selection when typing
+                }}
+                className="mb-2"
+              />
+              {compradorId && comprador && (
+                <div className="flex items-center gap-2 mb-2 rounded-lg border border-primary bg-primary/5 px-3 py-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">{comprador.nome}</span>
+                  <span className="text-xs text-muted-foreground">{comprador.cpf || ""}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => { setCompradorId(null); setCompradorNome(""); }}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {contacts.length > 0 && !compradorId && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-xs text-primary hover:underline mb-1">Selecionar de contatos cadastrados</summary>
+                  <div className="relative mb-2 mt-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input placeholder="Buscar contato..." className="pl-10 h-8 text-xs" value={searchContacts} onChange={(e) => setSearchContacts(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 max-h-36 overflow-y-auto sm:grid-cols-2">
+                    {filteredContacts.map((c) => (
+                      <Card key={c.id} className={`cursor-pointer p-2 transition-all hover:shadow-card ${compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => { setCompradorId(c.id); setCompradorNome(c.nome); }}>
+                        <div className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-primary" />
+                          <div>
+                            <p className="text-xs font-medium text-foreground">{c.nome}</p>
+                            <p className="text-[10px] text-muted-foreground">{c.cpf || c.email || "—"}</p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </details>
               )}
             </div>
 
             {/* Vendedor */}
             <div>
               <Label className="mb-2 block text-sm font-medium">Vendedor *</Label>
-              <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
-                {contacts.filter((c) => c.id !== compradorId).map((c) => (
-                  <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setVendedorId(c.id)}>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{c.nome}</p>
-                        <p className="text-xs text-muted-foreground">{c.cpf || c.email || "—"}</p>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+              <Input
+                placeholder="Nome do vendedor..."
+                value={vendedorId ? (vendedor?.nome || "") : vendedorNome}
+                onChange={(e) => {
+                  setVendedorNome(e.target.value);
+                  setVendedorId(null);
+                }}
+                className="mb-2"
+              />
+              {vendedorId && vendedor && (
+                <div className="flex items-center gap-2 mb-2 rounded-lg border border-primary bg-primary/5 px-3 py-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">{vendedor.nome}</span>
+                  <span className="text-xs text-muted-foreground">{vendedor.cpf || ""}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => { setVendedorId(null); setVendedorNome(""); }}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {contacts.length > 0 && !vendedorId && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-xs text-primary hover:underline mb-1">Selecionar de contatos cadastrados</summary>
+                  <div className="grid gap-2 max-h-36 overflow-y-auto sm:grid-cols-2 mt-1">
+                    {contacts.filter((c) => c.id !== compradorId).map((c) => (
+                      <Card key={c.id} className={`cursor-pointer p-2 transition-all hover:shadow-card ${vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => { setVendedorId(c.id); setVendedorNome(c.nome); }}>
+                        <div className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs font-medium text-foreground">{c.nome}</p>
+                            <p className="text-[10px] text-muted-foreground">{c.cpf || c.email || "—"}</p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
 
             {/* Empresa */}
