@@ -223,6 +223,9 @@ const ContratoDetalhe = () => {
             </CardContent>
           </Card>
 
+          {/* Participant & contract data display */}
+          <ContractDataDisplay dados={contract.dados as Record<string, any>} participants={contractParticipants} />
+
           {/* Documents */}
           <Card className="shadow-card">
             <CardHeader className="pb-3">
