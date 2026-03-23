@@ -1048,19 +1048,43 @@ const NovoContrato = () => {
             {/* Vendedor */}
             <div>
               <Label className="mb-2 block text-sm font-medium">Vendedor *</Label>
-              <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
-                {contacts.filter((c) => c.id !== compradorId).map((c) => (
-                  <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setVendedorId(c.id)}>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{c.nome}</p>
-                        <p className="text-xs text-muted-foreground">{c.cpf || c.email || "—"}</p>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+              <Input
+                placeholder="Nome do vendedor..."
+                value={vendedorId ? (vendedor?.nome || "") : vendedorNome}
+                onChange={(e) => {
+                  setVendedorNome(e.target.value);
+                  setVendedorId(null);
+                }}
+                className="mb-2"
+              />
+              {vendedorId && vendedor && (
+                <div className="flex items-center gap-2 mb-2 rounded-lg border border-primary bg-primary/5 px-3 py-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">{vendedor.nome}</span>
+                  <span className="text-xs text-muted-foreground">{vendedor.cpf || ""}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => { setVendedorId(null); setVendedorNome(""); }}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {contacts.length > 0 && !vendedorId && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-xs text-primary hover:underline mb-1">Selecionar de contatos cadastrados</summary>
+                  <div className="grid gap-2 max-h-36 overflow-y-auto sm:grid-cols-2 mt-1">
+                    {contacts.filter((c) => c.id !== compradorId).map((c) => (
+                      <Card key={c.id} className={`cursor-pointer p-2 transition-all hover:shadow-card ${vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => { setVendedorId(c.id); setVendedorNome(c.nome); }}>
+                        <div className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs font-medium text-foreground">{c.nome}</p>
+                            <p className="text-[10px] text-muted-foreground">{c.cpf || c.email || "—"}</p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
 
             {/* Empresa */}
