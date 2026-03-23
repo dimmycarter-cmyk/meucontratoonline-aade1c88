@@ -205,6 +205,7 @@ const NovoContrato = () => {
   }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
+    compradorNome, vendedorNome,
     checkedDocs, uploadedFiles, participants, aiReviewSubStep, extractedData,
   ]);
 
