@@ -996,30 +996,52 @@ const NovoContrato = () => {
         <div className="space-y-8">
           {/* Parties section */}
           <div className="space-y-6">
-            <h2 className="font-display text-lg font-semibold text-foreground">Selecione as partes</h2>
+            <h2 className="font-display text-lg font-semibold text-foreground">Informe as partes</h2>
+            <p className="text-sm text-muted-foreground">Digite o nome ou selecione um contato já cadastrado.</p>
             
             {/* Comprador */}
             <div>
               <Label className="mb-2 block text-sm font-medium">Comprador *</Label>
-              <div className="relative mb-2">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Buscar contato..." className="pl-10" value={searchContacts} onChange={(e) => setSearchContacts(e.target.value)} />
-              </div>
-              <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
-                {filteredContacts.map((c) => (
-                  <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setCompradorId(c.id)}>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-primary" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{c.nome}</p>
-                        <p className="text-xs text-muted-foreground">{c.cpf || c.email || "—"}</p>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-              {contacts.length === 0 && !loadingContacts && (
-                <p className="text-xs text-muted-foreground mt-2">Nenhum contato cadastrado. <Button variant="link" className="p-0 h-auto text-xs" onClick={() => navigate("/app/contatos")}>Criar contato</Button></p>
+              <Input
+                placeholder="Nome do comprador..."
+                value={compradorId ? (comprador?.nome || "") : compradorNome}
+                onChange={(e) => {
+                  setCompradorNome(e.target.value);
+                  setCompradorId(null); // clear contact selection when typing
+                }}
+                className="mb-2"
+              />
+              {compradorId && comprador && (
+                <div className="flex items-center gap-2 mb-2 rounded-lg border border-primary bg-primary/5 px-3 py-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">{comprador.nome}</span>
+                  <span className="text-xs text-muted-foreground">{comprador.cpf || ""}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => { setCompradorId(null); setCompradorNome(""); }}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {contacts.length > 0 && !compradorId && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-xs text-primary hover:underline mb-1">Selecionar de contatos cadastrados</summary>
+                  <div className="relative mb-2 mt-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input placeholder="Buscar contato..." className="pl-10 h-8 text-xs" value={searchContacts} onChange={(e) => setSearchContacts(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 max-h-36 overflow-y-auto sm:grid-cols-2">
+                    {filteredContacts.map((c) => (
+                      <Card key={c.id} className={`cursor-pointer p-2 transition-all hover:shadow-card ${compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => { setCompradorId(c.id); setCompradorNome(c.nome); }}>
+                        <div className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-primary" />
+                          <div>
+                            <p className="text-xs font-medium text-foreground">{c.nome}</p>
+                            <p className="text-[10px] text-muted-foreground">{c.cpf || c.email || "—"}</p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </details>
               )}
             </div>
 
