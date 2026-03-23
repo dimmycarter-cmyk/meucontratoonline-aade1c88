@@ -209,11 +209,11 @@ const ContratoDetalhe = () => {
               </div>
               <div>
                 <span className="text-muted-foreground">Comprador</span>
-                <p className="font-medium text-foreground">{comprador?.nome || "—"}</p>
+                <p className="font-medium text-foreground">{comprador?.nome || participantComprador?.full_name || "—"}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Vendedor</span>
-                <p className="font-medium text-foreground">{vendedor?.nome || "—"}</p>
+                <p className="font-medium text-foreground">{vendedor?.nome || participantVendedor?.full_name || "—"}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Valor Total</span>
