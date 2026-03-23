@@ -479,7 +479,7 @@ const NovoContrato = () => {
     const stepId = currentStep?.id;
     switch (stepId) {
       case "selection": return !!selectedTemplateId && !!flowMode;
-      case "parties-docs": return !!compradorId && !!vendedorId;
+      case "parties-docs": return (!!compradorId || !!compradorNome.trim()) && (!!vendedorId || !!vendedorNome.trim());
       case "participants": {
         const hasComprador = participants.some((p) => p.role === "comprador" && p.full_name.trim());
         const hasVendedor = participants.some((p) => p.role === "vendedor" && p.full_name.trim());
