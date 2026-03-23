@@ -492,17 +492,22 @@ const NovoContrato = () => {
       // Add fallback names from participants if not present in dados
       if (flowMode === "ai" && participants.length > 0) {
         for (const p of participants) {
-          const prefix = p.role; // e.g. "comprador", "vendedor"
+          const prefix = p.role;
           const nameKey = `${prefix}_nome`;
           if (!mergedDados[nameKey] && p.full_name) {
             mergedDados[nameKey] = p.full_name;
           }
-          // Also check extractedData for full_name
           const pData = extractedData.find((ed) => ed.participantId === p.id);
           if (pData?.full_name && !mergedDados[nameKey]) {
             mergedDados[nameKey] = pData.full_name;
           }
         }
+      }
+
+      // Warn if dados is essentially empty
+      const filledKeys = Object.entries(mergedDados).filter(([_, v]) => v && String(v).trim());
+      if (filledKeys.length < 2) {
+        toast({ title: "Atenção", description: "O contrato será salvo com poucos dados preenchidos.", variant: "default" });
       }
 
       // Helper to replace template variables (handles {{key}} and {{ key }})
@@ -517,28 +522,52 @@ const NovoContrato = () => {
         return result;
       };
 
+      // Build HTML summary fallback from dados when no template content exists
+      const buildSummaryHtml = (d: Record<string, string>): string => {
+        const sections: { title: string; prefix: string }[] = [
+          { title: "COMPRADOR", prefix: "comprador_" },
+          { title: "VENDEDOR", prefix: "vendedor_" },
+          { title: "IMÓVEL", prefix: "imovel_" },
+          { title: "VALORES", prefix: "valor_" },
+          { title: "EMPRESA", prefix: "empresa_" },
+        ];
+        let html = "<h2>RESUMO DO CONTRATO</h2>\n";
+        for (const sec of sections) {
+          const fields = Object.entries(d).filter(([k, v]) => k.startsWith(sec.prefix) && v && String(v).trim());
+          if (fields.length === 0) continue;
+          html += `<h3>${sec.title}</h3>\n<ul>\n`;
+          for (const [key, value] of fields) {
+            const label = key.replace(sec.prefix, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            html += `<li><strong>${label}:</strong> ${value}</li>\n`;
+          }
+          html += "</ul>\n";
+        }
+        return html;
+      };
+
       // Always recalculate conteudo_final with latest data
-      // Use template base first, then editor content as override
       let fullContent = "";
       const templateBase = selectedTemplate?.conteudo || "";
       const editorContent = conteudoFinal || "";
       
       if (editorContent) {
-        // Editor has content — apply variable substitution on it
         fullContent = replaceVars(editorContent, mergedDados);
       } else if (templateBase) {
-        // No editor content but we have a template — substitute vars on template
         fullContent = replaceVars(templateBase, mergedDados);
       }
 
-      // Debug: log what's being saved
+      // Fallback: if content is still empty but we have data, generate a summary
+      if (!fullContent.trim() && filledKeys.length > 0) {
+        fullContent = buildSummaryHtml(mergedDados);
+      }
+
+      // Debug log
       console.log("[NovoContrato] handleSave debug:", {
         mergedDados,
-        templateBase: templateBase.substring(0, 100),
-        editorContent: editorContent.substring(0, 100),
         fullContentLength: fullContent.length,
         participantsCount: participants.length,
         extractedDataCount: extractedData.length,
+        filledKeysCount: filledKeys.length,
       });
 
       if (selectedClauses.length > 0) {
@@ -568,18 +597,47 @@ const NovoContrato = () => {
         return;
       }
 
-      // Save participants from AI flow to contract_participants table
+      // Save participants — merge extractedData fields + reverse-map from dados state
       if (profile?.tenant_id && flowMode === "ai" && participants.length > 0) {
+        // Reverse mapping: dados key → participant field
+        const DADOS_TO_PARTICIPANT: Record<string, string> = {
+          cpf: "cpf", rg: "rg", orgao_expedidor: "issuing_agency",
+          profissao: "profession", nacionalidade: "nationality",
+          estado_civil: "marital_status", email: "email", whatsapp: "whatsapp",
+        };
+
         for (const p of participants) {
           const pData = extractedData.find((ed) => ed.participantId === p.id);
           const fieldMap: Record<string, string> = {};
           pData?.fields.forEach((f) => { fieldMap[f.key] = f.value; });
 
+          // Also pull from mergedDados using reverse mapping (e.g. comprador_cpf → cpf)
+          const prefix = p.role + "_";
+          Object.entries(DADOS_TO_PARTICIPANT).forEach(([dadosSuffix, participantField]) => {
+            const dadosKey = prefix + dadosSuffix;
+            if (mergedDados[dadosKey] && !fieldMap[participantField]) {
+              fieldMap[participantField] = mergedDados[dadosKey];
+            }
+          });
+          // Address fields from dados
+          const addrMap: Record<string, string> = {
+            endereco_rua: "address_street", endereco_numero: "address_number",
+            endereco_complemento: "address_complement", endereco_bairro: "address_neighborhood",
+            endereco_cidade: "address_city", endereco_estado: "address_state",
+            endereco_cep: "address_zipcode",
+          };
+          Object.entries(addrMap).forEach(([dadosSuffix, participantField]) => {
+            const dadosKey = prefix + dadosSuffix;
+            if (mergedDados[dadosKey] && !fieldMap[participantField]) {
+              fieldMap[participantField] = mergedDados[dadosKey];
+            }
+          });
+
           const { error: partError } = await supabase.from("contract_participants").insert({
             contract_id: contract.id,
             tenant_id: profile.tenant_id,
             role: p.role,
-            full_name: pData?.full_name || p.full_name || "",
+            full_name: pData?.full_name || p.full_name || mergedDados[prefix + "nome"] || "",
             cpf: fieldMap.cpf || null,
             rg: fieldMap.rg || null,
             issuing_agency: fieldMap.issuing_agency || null,
