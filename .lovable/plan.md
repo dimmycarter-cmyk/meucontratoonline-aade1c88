@@ -1,26 +1,40 @@
 
+Diagnóstico atualizado (com base no código atual):
+1) O `handleSave` já grava `dados` e tenta salvar participantes, mas ainda há dois pontos que podem deixar o contrato “em branco” na prática:
+- `conteudo_final` só é recalculado se estiver vazio; se estiver desatualizado, salva texto sem os dados mais recentes.
+- Os inserts em `contract_participants` e `contract_documents` não validam `error`; se falhar, passa silenciosamente.
+2) Na tela de detalhe (`ContratoDetalhe`), comprador/vendedor vêm apenas de `comprador_id`/`vendedor_id` (contatos). No fluxo IA, esses IDs costumam ser `null`, então parece que “não salvou”, mesmo com dados em `contract_participants`.
 
-## Problema
+Plano de implementação:
+1) Fortalecer montagem dos dados no `handleSave` (`src/pages/app/NovoContrato.tsx`)
+- Recalcular `mergedDados` no salvar com prioridade para o que foi digitado no formulário.
+- Adicionar fallback de nome por papel (`comprador_nome` / `vendedor_nome`) usando `participants.full_name` quando a extração não trouxer `full_name`.
+- Garantir que `mergedDados` seja o payload final do contrato sempre.
 
-O contrato salva mas com dados em branco porque:
+2) Garantir `conteudo_final` atualizado no salvar (`src/pages/app/NovoContrato.tsx`)
+- Criar helper único de substituição de variáveis (aceitando `{{chave}}` e `{{ chave }}`).
+- No `handleSave`, aplicar substituição sempre sobre o conteúdo atual do editor (ou template base), não apenas quando vazio.
+- Manter cláusulas anexadas sem perder edições manuais.
 
-1. **Participantes do fluxo IA não são salvos na tabela `contract_participants`**: O `handleSave` não insere os dados dos participantes (nome, CPF, RG, endereço, etc.) na tabela `contract_participants`. Apenas salva `dados` (variáveis de template) e `conteudo_final`.
+3) Tratar erros de persistência auxiliar (`src/pages/app/NovoContrato.tsx`)
+- Em cada insert de `contract_participants` e `contract_documents`, verificar `{ error }` e abortar com toast claro se falhar.
+- Só navegar para `/app/contratos` após todas as gravações concluírem com sucesso.
+- No `catch`, exibir erro explícito (hoje está silencioso).
 
-2. **`dados` pode estar vazio**: O `mapToDados()` só é chamado na transição "review" → "data". Se o usuário pula essa transição ou se `extractedData` está vazio nesse momento, `dados` fica `{}`.
+4) Mostrar dados de participantes no detalhe do contrato (`src/pages/app/ContratoDetalhe.tsx`)
+- Buscar `contract_participants` por `contract_id`.
+- Exibir comprador/vendedor com fallback desses participantes quando `comprador_id`/`vendedor_id` forem nulos.
+- Assim, o usuário enxerga os dados realmente salvos no fluxo IA.
 
-3. **`conteudo_final` pode estar vazio**: Se o template não foi processado com substituição de variáveis, o conteúdo final fica como string vazia.
+Detalhes técnicos:
+- Não exige migração de banco (estrutura e RLS já existem para `contracts` e `contract_participants`).
+- Foco é consistência de payload + visibilidade do que foi salvo + tratamento de erro real.
+- Mantém compatibilidade com fluxo manual e IA.
 
-## Plano de Implementação
-
-### 1. Salvar participantes na tabela `contract_participants` (`NovoContrato.tsx`)
-No `handleSave`, após criar o contrato com sucesso, inserir cada participante do fluxo IA na tabela `contract_participants` com todos os campos extraídos (full_name, cpf, rg, endereço, etc.).
-
-### 2. Garantir que `dados` seja preenchido antes de salvar (`NovoContrato.tsx`)
-No `handleSave`, chamar `mapToDados()` novamente antes de montar o payload do contrato, para garantir que os dados extraídos mais recentes sejam incluídos mesmo que o usuário não tenha passado pela transição "review → data".
-
-### 3. Garantir `conteudo_final` com substituição de variáveis (`NovoContrato.tsx`)
-No `handleSave`, se `conteudoFinal` estiver vazio mas houver um template selecionado, fazer a substituição das variáveis do template com os dados extraídos antes de salvar.
-
-### Arquivos a modificar
-- **`src/pages/app/NovoContrato.tsx`** — `handleSave`: adicionar insert de participants + fallback de `mapToDados()` + substituição de template
-
+Critérios de aceite (E2E):
+1) Criar contrato via IA com 2 participantes e salvar.
+2) Abrir contrato salvo e validar:
+- `conteudo_final` com variáveis preenchidas;
+- nomes de comprador/vendedor visíveis no detalhe (mesmo sem `comprador_id`/`vendedor_id`);
+- ausência de falha silenciosa (toast de erro se qualquer insert auxiliar falhar).
+3) Repetir editando campos na etapa “Dados” e confirmando que a última edição aparece no contrato salvo.
