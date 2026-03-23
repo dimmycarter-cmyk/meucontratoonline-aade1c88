@@ -484,7 +484,20 @@ const NovoContrato = () => {
 
   const handleSave = async () => {
     try {
+      // Ensure dados has the latest extracted data before saving
+      const latestAiDados = mapToDados();
+      const mergedDados = { ...dados, ...latestAiDados };
+
+      // If conteudoFinal is empty but we have a template, build it with substitution
       let fullContent = conteudoFinal;
+      if (!fullContent && selectedTemplate?.conteudo) {
+        fullContent = selectedTemplate.conteudo;
+        Object.entries(mergedDados).forEach(([key, value]) => {
+          const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
+          fullContent = fullContent.replace(regex, value || `{{${key}}}`);
+        });
+      }
+
       if (selectedClauses.length > 0) {
         fullContent += "\n\n<h2>CLÁUSULAS</h2>\n";
         selectedClauses.forEach((c, i) => {
@@ -498,14 +511,45 @@ const NovoContrato = () => {
         comprador_id: compradorId,
         vendedor_id: vendedorId,
         empresa_id: empresaId,
-        dados: dados as any,
+        dados: mergedDados as any,
         conteudo_final: fullContent,
         clausulas_ids: selectedClauseIds as any,
         status: "pronto",
-        valor_total: dados.valor_total ? parseFloat(dados.valor_total.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
-        valor_sinal: dados.valor_sinal ? parseFloat(dados.valor_sinal.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
-        valor_financiamento: dados.valor_financiamento ? parseFloat(dados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
+        valor_total: mergedDados.valor_total ? parseFloat(mergedDados.valor_total.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
+        valor_sinal: mergedDados.valor_sinal ? parseFloat(mergedDados.valor_sinal.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
+        valor_financiamento: mergedDados.valor_financiamento ? parseFloat(mergedDados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
       });
+
+      // Save participants from AI flow to contract_participants table
+      if (contract?.id && profile?.tenant_id && flowMode === "ai" && participants.length > 0) {
+        for (const p of participants) {
+          const pData = extractedData.find((ed) => ed.participantId === p.id);
+          const fieldMap: Record<string, string> = {};
+          pData?.fields.forEach((f) => { fieldMap[f.key] = f.value; });
+
+          await supabase.from("contract_participants").insert({
+            contract_id: contract.id,
+            tenant_id: profile.tenant_id,
+            role: p.role,
+            full_name: pData?.full_name || p.full_name || "",
+            cpf: fieldMap.cpf || null,
+            rg: fieldMap.rg || null,
+            issuing_agency: fieldMap.issuing_agency || null,
+            profession: fieldMap.profession || null,
+            nationality: fieldMap.nationality || null,
+            marital_status: fieldMap.marital_status || null,
+            email: fieldMap.email || null,
+            whatsapp: fieldMap.whatsapp || null,
+            address_street: fieldMap.address_street || null,
+            address_number: fieldMap.address_number || null,
+            address_complement: fieldMap.address_complement || null,
+            address_neighborhood: fieldMap.address_neighborhood || null,
+            address_city: fieldMap.address_city || null,
+            address_state: fieldMap.address_state || null,
+            address_zipcode: fieldMap.address_zipcode || null,
+          } as any);
+        }
+      }
 
       if (uploadedFiles.length > 0 && contract?.id && profile?.tenant_id) {
         for (const file of uploadedFiles) {
