@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
+import ContractDataDisplay from "@/components/contract/ContractDataDisplay";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 
@@ -221,6 +222,9 @@ const ContratoDetalhe = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Participant & contract data display */}
+          <ContractDataDisplay dados={contract.dados as Record<string, any>} participants={contractParticipants} />
 
           {/* Documents */}
           <Card className="shadow-card">

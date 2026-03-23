@@ -518,14 +518,28 @@ const NovoContrato = () => {
       };
 
       // Always recalculate conteudo_final with latest data
-      let fullContent = conteudoFinal;
-      if (selectedTemplate?.conteudo) {
-        // If editor has content, apply substitution on it; otherwise use template base
-        const baseContent = fullContent || selectedTemplate.conteudo;
-        fullContent = replaceVars(baseContent, mergedDados);
-      } else if (fullContent) {
-        fullContent = replaceVars(fullContent, mergedDados);
+      // Use template base first, then editor content as override
+      let fullContent = "";
+      const templateBase = selectedTemplate?.conteudo || "";
+      const editorContent = conteudoFinal || "";
+      
+      if (editorContent) {
+        // Editor has content — apply variable substitution on it
+        fullContent = replaceVars(editorContent, mergedDados);
+      } else if (templateBase) {
+        // No editor content but we have a template — substitute vars on template
+        fullContent = replaceVars(templateBase, mergedDados);
       }
+
+      // Debug: log what's being saved
+      console.log("[NovoContrato] handleSave debug:", {
+        mergedDados,
+        templateBase: templateBase.substring(0, 100),
+        editorContent: editorContent.substring(0, 100),
+        fullContentLength: fullContent.length,
+        participantsCount: participants.length,
+        extractedDataCount: extractedData.length,
+      });
 
       if (selectedClauses.length > 0) {
         fullContent += "\n\n<h2>CLÁUSULAS</h2>\n";
