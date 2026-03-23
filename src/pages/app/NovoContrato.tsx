@@ -610,67 +610,108 @@ const NovoContrato = () => {
         return;
       }
 
-      // Save participants — merge extractedData fields + reverse-map from dados state
-      if (profile?.tenant_id && flowMode === "ai" && participants.length > 0) {
+      // Save participants for BOTH AI and manual flows
+      if (profile?.tenant_id) {
         // Reverse mapping: dados key → participant field
         const DADOS_TO_PARTICIPANT: Record<string, string> = {
           cpf: "cpf", rg: "rg", orgao_expedidor: "issuing_agency",
           profissao: "profession", nacionalidade: "nationality",
           estado_civil: "marital_status", email: "email", whatsapp: "whatsapp",
         };
+        const addrMap: Record<string, string> = {
+          endereco_rua: "address_street", endereco_numero: "address_number",
+          endereco_complemento: "address_complement", endereco_bairro: "address_neighborhood",
+          endereco_cidade: "address_city", endereco_estado: "address_state",
+          endereco_cep: "address_zipcode",
+        };
 
-        for (const p of participants) {
-          const pData = extractedData.find((ed) => ed.participantId === p.id);
-          const fieldMap: Record<string, string> = {};
-          pData?.fields.forEach((f) => { fieldMap[f.key] = f.value; });
+        if (flowMode === "ai" && participants.length > 0) {
+          // AI flow: save each participant with extracted + form data
+          for (const p of participants) {
+            const pData = extractedData.find((ed) => ed.participantId === p.id);
+            const fieldMap: Record<string, string> = {};
+            pData?.fields.forEach((f) => { fieldMap[f.key] = f.value; });
 
-          // Also pull from mergedDados using reverse mapping (e.g. comprador_cpf → cpf)
-          const prefix = p.role + "_";
-          Object.entries(DADOS_TO_PARTICIPANT).forEach(([dadosSuffix, participantField]) => {
-            const dadosKey = prefix + dadosSuffix;
-            if (mergedDados[dadosKey] && !fieldMap[participantField]) {
-              fieldMap[participantField] = mergedDados[dadosKey];
+            const prefix = p.role + "_";
+            Object.entries(DADOS_TO_PARTICIPANT).forEach(([dadosSuffix, participantField]) => {
+              const dadosKey = prefix + dadosSuffix;
+              if (mergedDados[dadosKey] && !fieldMap[participantField]) {
+                fieldMap[participantField] = mergedDados[dadosKey];
+              }
+            });
+            Object.entries(addrMap).forEach(([dadosSuffix, participantField]) => {
+              const dadosKey = prefix + dadosSuffix;
+              if (mergedDados[dadosKey] && !fieldMap[participantField]) {
+                fieldMap[participantField] = mergedDados[dadosKey];
+              }
+            });
+
+            const { error: partError } = await supabase.from("contract_participants").insert({
+              contract_id: contract.id,
+              tenant_id: profile.tenant_id,
+              role: p.role,
+              full_name: pData?.full_name || p.full_name || mergedDados[prefix + "nome"] || "",
+              cpf: fieldMap.cpf || null,
+              rg: fieldMap.rg || null,
+              issuing_agency: fieldMap.issuing_agency || null,
+              profession: fieldMap.profession || null,
+              nationality: fieldMap.nationality || null,
+              marital_status: fieldMap.marital_status || null,
+              email: fieldMap.email || null,
+              whatsapp: fieldMap.whatsapp || null,
+              address_street: fieldMap.address_street || null,
+              address_number: fieldMap.address_number || null,
+              address_complement: fieldMap.address_complement || null,
+              address_neighborhood: fieldMap.address_neighborhood || null,
+              address_city: fieldMap.address_city || null,
+              address_state: fieldMap.address_state || null,
+              address_zipcode: fieldMap.address_zipcode || null,
+            } as any);
+
+            if (partError) {
+              console.error("[NovoContrato] Erro ao salvar participante:", partError);
+              toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
             }
-          });
-          // Address fields from dados
-          const addrMap: Record<string, string> = {
-            endereco_rua: "address_street", endereco_numero: "address_number",
-            endereco_complemento: "address_complement", endereco_bairro: "address_neighborhood",
-            endereco_cidade: "address_city", endereco_estado: "address_state",
-            endereco_cep: "address_zipcode",
-          };
-          Object.entries(addrMap).forEach(([dadosSuffix, participantField]) => {
-            const dadosKey = prefix + dadosSuffix;
-            if (mergedDados[dadosKey] && !fieldMap[participantField]) {
-              fieldMap[participantField] = mergedDados[dadosKey];
+          }
+        } else if (flowMode === "manual") {
+          // Manual flow: create participants from selected contacts or typed names
+          const manualParticipants: { role: "comprador" | "vendedor"; contact: Contact | undefined; typedName: string }[] = [
+            { role: "comprador", contact: comprador, typedName: compradorNome },
+            { role: "vendedor", contact: vendedor, typedName: vendedorNome },
+          ];
+
+          for (const mp of manualParticipants) {
+            const prefix = mp.role + "_";
+            const fullName = mp.contact?.nome || mp.typedName || mergedDados[prefix + "nome"] || "";
+            if (!fullName.trim()) continue;
+
+            const participantData: Record<string, string | null> = {
+              contract_id: contract.id,
+              tenant_id: profile.tenant_id,
+              role: mp.role,
+              full_name: fullName,
+              cpf: mp.contact?.cpf || mergedDados[prefix + "cpf"] || null,
+              rg: mp.contact?.rg || mergedDados[prefix + "rg"] || null,
+              issuing_agency: mp.contact?.orgao_expedidor || mergedDados[prefix + "orgao_expedidor"] || null,
+              profession: mp.contact?.profissao || mergedDados[prefix + "profissao"] || null,
+              nationality: mp.contact?.nacionalidade || mergedDados[prefix + "nacionalidade"] || null,
+              marital_status: mp.contact?.estado_civil || mergedDados[prefix + "estado_civil"] || null,
+              email: mp.contact?.email || mergedDados[prefix + "email"] || null,
+              whatsapp: mp.contact?.whatsapp || mergedDados[prefix + "whatsapp"] || null,
+              address_street: mp.contact?.rua || null,
+              address_number: mp.contact?.numero || null,
+              address_complement: mp.contact?.complemento || null,
+              address_neighborhood: mp.contact?.bairro || null,
+              address_city: mp.contact?.cidade || null,
+              address_state: mp.contact?.estado || null,
+              address_zipcode: mp.contact?.cep || null,
+            };
+
+            const { error: partError } = await supabase.from("contract_participants").insert(participantData as any);
+            if (partError) {
+              console.error("[NovoContrato] Erro ao salvar participante manual:", partError);
+              toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
             }
-          });
-
-          const { error: partError } = await supabase.from("contract_participants").insert({
-            contract_id: contract.id,
-            tenant_id: profile.tenant_id,
-            role: p.role,
-            full_name: pData?.full_name || p.full_name || mergedDados[prefix + "nome"] || "",
-            cpf: fieldMap.cpf || null,
-            rg: fieldMap.rg || null,
-            issuing_agency: fieldMap.issuing_agency || null,
-            profession: fieldMap.profession || null,
-            nationality: fieldMap.nationality || null,
-            marital_status: fieldMap.marital_status || null,
-            email: fieldMap.email || null,
-            whatsapp: fieldMap.whatsapp || null,
-            address_street: fieldMap.address_street || null,
-            address_number: fieldMap.address_number || null,
-            address_complement: fieldMap.address_complement || null,
-            address_neighborhood: fieldMap.address_neighborhood || null,
-            address_city: fieldMap.address_city || null,
-            address_state: fieldMap.address_state || null,
-            address_zipcode: fieldMap.address_zipcode || null,
-          } as any);
-
-          if (partError) {
-            console.error("[NovoContrato] Erro ao salvar participante:", partError);
-            toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
           }
         }
       }
