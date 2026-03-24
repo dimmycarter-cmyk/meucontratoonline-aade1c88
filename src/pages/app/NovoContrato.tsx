@@ -309,16 +309,7 @@ const NovoContrato = () => {
   // Build final content
   const buildFinalContent = useCallback(() => {
     let content = selectedTemplate?.conteudo || "";
-    Object.entries(dados).forEach(([key, value]) => {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
-      content = content.replace(regex, value || `{{${key}}}`);
-    });
-    TEMPLATE_VARIABLES.forEach((v) => {
-      const regex = new RegExp(`\\{\\{${v.key}\\}\\}`, "g");
-      if (!dados[v.key]) {
-        content = content.replace(regex, `{{${v.key}}}`);
-      }
-    });
+    content = replacePlaceholders(content, dados);
     setConteudoFinal(content);
   }, [selectedTemplate, dados]);
 
