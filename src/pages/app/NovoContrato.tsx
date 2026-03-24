@@ -729,7 +729,7 @@ const NovoContrato = () => {
           for (const mp of manualParticipants) {
             const prefix = mp.role + "_";
             const fullName = mp.contact?.nome || mp.typedName || mergedDados[prefix + "nome"] || "";
-            if (!fullName.trim()) continue;
+            if (!fullName.trim() && !mp.contact) continue; // Only skip if truly no data at all
 
             const participantData: Record<string, string | null> = {
               contract_id: contract.id,
