@@ -560,17 +560,7 @@ const NovoContrato = () => {
         toast({ title: "Atenção", description: "O contrato será salvo com poucos dados preenchidos.", variant: "default" });
       }
 
-      // Helper to replace template variables (handles {{key}} and {{ key }})
-      const replaceVars = (text: string, vars: Record<string, string>) => {
-        let result = text;
-        Object.entries(vars).forEach(([key, value]) => {
-          if (value) {
-            const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
-            result = result.replace(regex, value);
-          }
-        });
-        return result;
-      };
+      // (replaceVars removido — agora usa replacePlaceholders de @/lib/placeholder)
 
       // Build HTML summary fallback from dados when no template content exists
       const buildSummaryHtml = (d: Record<string, string>): string => {
