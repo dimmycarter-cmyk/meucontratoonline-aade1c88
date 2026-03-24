@@ -448,7 +448,10 @@ const NovoContrato = () => {
     setIsUploading(true);
     try {
       for (const file of Array.from(files)) {
-        const filePath = `${profile.tenant_id}/${Date.now()}-${file.name}`;
+        const safeName = file.name
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9._-]/g, "_");
+        const filePath = `${profile.tenant_id}/${Date.now()}-${safeName}`;
         const { error } = await supabase.storage.from("contract-documents").upload(filePath, file);
         if (error) {
           toast({ title: "Erro ao enviar arquivo", description: error.message, variant: "destructive" });
