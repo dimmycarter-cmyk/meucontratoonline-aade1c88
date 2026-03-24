@@ -736,40 +736,32 @@ const NovoContrato = () => {
             }
           }
         } else if (flowMode === "manual") {
-          // Manual flow: create participants from selected contacts or typed names
-          const manualParticipants: { role: "comprador" | "vendedor"; contact: Contact | undefined; typedName: string }[] = [
-            { role: "comprador", contact: comprador, typedName: compradorNome },
-            { role: "vendedor", contact: vendedor, typedName: vendedorNome },
-          ];
-
+          // Manual flow: create participants from manualParticipants state
           for (const mp of manualParticipants) {
-            const prefix = mp.role + "_";
-            const fullName = mp.contact?.nome || mp.typedName || mergedDados[prefix + "nome"] || "";
-            if (!fullName.trim() && !mp.contact) continue; // Only skip if truly no data at all
+            if (!mp.nome.trim()) continue;
 
-            const participantData: Record<string, string | null> = {
+            const { error: partError } = await supabase.from("contract_participants").insert({
               contract_id: contract.id,
               tenant_id: profile.tenant_id,
               role: mp.role,
-              full_name: fullName,
-              cpf: mp.contact?.cpf || mergedDados[prefix + "cpf"] || null,
-              rg: mp.contact?.rg || mergedDados[prefix + "rg"] || null,
-              issuing_agency: mp.contact?.orgao_expedidor || mergedDados[prefix + "orgao_expedidor"] || null,
-              profession: mp.contact?.profissao || mergedDados[prefix + "profissao"] || null,
-              nationality: mp.contact?.nacionalidade || mergedDados[prefix + "nacionalidade"] || null,
-              marital_status: mp.contact?.estado_civil || mergedDados[prefix + "estado_civil"] || null,
-              email: mp.contact?.email || mergedDados[prefix + "email"] || null,
-              whatsapp: mp.contact?.whatsapp || mergedDados[prefix + "whatsapp"] || null,
-              address_street: mp.contact?.rua || null,
-              address_number: mp.contact?.numero || null,
-              address_complement: mp.contact?.complemento || null,
-              address_neighborhood: mp.contact?.bairro || null,
-              address_city: mp.contact?.cidade || null,
-              address_state: mp.contact?.estado || null,
-              address_zipcode: mp.contact?.cep || null,
-            };
+              full_name: mp.nome,
+              cpf: mp.cpf || null,
+              rg: mp.rg || null,
+              issuing_agency: mp.orgao_expedidor || null,
+              profession: mp.profissao || null,
+              nationality: mp.nacionalidade || null,
+              marital_status: mp.estado_civil || null,
+              email: mp.email || null,
+              whatsapp: mp.whatsapp || null,
+              address_street: mp.rua || null,
+              address_number: mp.numero || null,
+              address_complement: mp.complemento || null,
+              address_neighborhood: mp.bairro || null,
+              address_city: mp.cidade || null,
+              address_state: mp.estado || null,
+              address_zipcode: mp.cep || null,
+            } as any);
 
-            const { error: partError } = await supabase.from("contract_participants").insert(participantData as any);
             if (partError) {
               console.error("[NovoContrato] Erro ao salvar participante manual:", partError);
               toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
