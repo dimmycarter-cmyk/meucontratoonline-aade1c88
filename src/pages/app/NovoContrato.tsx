@@ -496,16 +496,57 @@ const NovoContrato = () => {
 
   const handleSave = async () => {
     try {
-      // Ensure dados has the latest extracted data before saving
-      const latestAiDados = mapToDados();
-      // Merge: form edits (dados) take priority over AI extraction
-      const mergedDados = { ...latestAiDados, ...dados };
+      // === STEP 1: Build complete dados by re-running autoFill logic inline ===
+      // (We can't rely on setDados + re-render, so we build it synchronously here)
+      const freshDados: Record<string, string> = { ...dados };
 
-      // Add fallback names from participants if not present in dados
+      // Manual typed names
+      if (!comprador && compradorNome.trim()) freshDados.comprador_nome = compradorNome.trim();
+      if (!vendedor && vendedorNome.trim()) freshDados.vendedor_nome = vendedorNome.trim();
+
+      // Fill from selected contacts
+      if (comprador) {
+        if (comprador.nome) freshDados.comprador_nome = comprador.nome;
+        if (comprador.cpf) freshDados.comprador_cpf = comprador.cpf;
+        if (comprador.rg) freshDados.comprador_rg = comprador.rg;
+        if (comprador.orgao_expedidor) freshDados.comprador_orgao_expedidor = comprador.orgao_expedidor;
+        if (comprador.profissao) freshDados.comprador_profissao = comprador.profissao;
+        if (comprador.nacionalidade) freshDados.comprador_nacionalidade = comprador.nacionalidade;
+        if (comprador.estado_civil) freshDados.comprador_estado_civil = comprador.estado_civil;
+        if (comprador.email) freshDados.comprador_email = comprador.email;
+        if (comprador.whatsapp) freshDados.comprador_whatsapp = comprador.whatsapp;
+        const endC = [comprador.rua, comprador.numero, comprador.complemento, comprador.bairro, comprador.cidade, comprador.estado, comprador.cep].filter(Boolean).join(", ");
+        if (endC) freshDados.comprador_endereco = endC;
+      }
+      if (vendedor) {
+        if (vendedor.nome) freshDados.vendedor_nome = vendedor.nome;
+        if (vendedor.cpf) freshDados.vendedor_cpf = vendedor.cpf;
+        if (vendedor.rg) freshDados.vendedor_rg = vendedor.rg;
+        if (vendedor.orgao_expedidor) freshDados.vendedor_orgao_expedidor = vendedor.orgao_expedidor;
+        if (vendedor.profissao) freshDados.vendedor_profissao = vendedor.profissao;
+        if (vendedor.nacionalidade) freshDados.vendedor_nacionalidade = vendedor.nacionalidade;
+        if (vendedor.estado_civil) freshDados.vendedor_estado_civil = vendedor.estado_civil;
+        if (vendedor.email) freshDados.vendedor_email = vendedor.email;
+        if (vendedor.whatsapp) freshDados.vendedor_whatsapp = vendedor.whatsapp;
+        const endV = [vendedor.rua, vendedor.numero, vendedor.complemento, vendedor.bairro, vendedor.cidade, vendedor.estado, vendedor.cep].filter(Boolean).join(", ");
+        if (endV) freshDados.vendedor_endereco = endV;
+      }
+      if (empresa) {
+        if (empresa.nome_fantasia) freshDados.empresa_nome = empresa.nome_fantasia;
+        if (empresa.cnpj) freshDados.empresa_cnpj = empresa.cnpj;
+        const endE = [empresa.rua, empresa.numero, empresa.complemento, empresa.bairro, empresa.cidade, empresa.estado, empresa.cep].filter(Boolean).join(", ");
+        if (endE) freshDados.empresa_endereco = endE;
+      }
+
+      // === STEP 2: Merge with AI extracted data ===
+      const latestAiDados = mapToDados();
+      // freshDados (user edits + contact data) takes priority over AI extraction
+      const mergedDados = { ...latestAiDados, ...freshDados };
+
+      // Add fallback names from participants (AI flow)
       if (flowMode === "ai" && participants.length > 0) {
         for (const p of participants) {
-          const prefix = p.role;
-          const nameKey = `${prefix}_nome`;
+          const nameKey = `${p.role}_nome`;
           if (!mergedDados[nameKey] && p.full_name) {
             mergedDados[nameKey] = p.full_name;
           }
@@ -514,6 +555,11 @@ const NovoContrato = () => {
             mergedDados[nameKey] = pData.full_name;
           }
         }
+      }
+      // Add fallback names for manual flow
+      if (flowMode === "manual") {
+        if (!mergedDados.comprador_nome) mergedDados.comprador_nome = compradorNome || comprador?.nome || "";
+        if (!mergedDados.vendedor_nome) mergedDados.vendedor_nome = vendedorNome || vendedor?.nome || "";
       }
 
       // Warn if dados is essentially empty
