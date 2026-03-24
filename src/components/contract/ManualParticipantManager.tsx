@@ -22,18 +22,21 @@ const ROLE_ORDER: ParticipantRole[] = [
   "comprador", "vendedor", "conjuge", "fiador", "testemunha", "procurador", "interveniente", "outro",
 ];
 
-function smartSort(participants: ManualParticipantData[]): ManualParticipantData[] {
-  const compradores = participants.filter((p) => p.role === "comprador");
-  const vendedores = participants.filter((p) => p.role === "vendedor");
-  const conjuges = participants.filter((p) => p.role === "conjuge");
-  const others = participants.filter(
-    (p) => !["comprador", "vendedor", "conjuge"].includes(p.role)
-  );
+function emptyFirst(arr: ManualParticipantData[]): ManualParticipantData[] {
+  return [...arr.filter((p) => !p.nome.trim()), ...arr.filter((p) => p.nome.trim())];
+}
 
-  // Split cônjuges: first half go after compradores, second half after vendedores
+function smartSort(participants: ManualParticipantData[]): ManualParticipantData[] {
+  const compradores = emptyFirst(participants.filter((p) => p.role === "comprador"));
+  const vendedores = emptyFirst(participants.filter((p) => p.role === "vendedor"));
+  const conjuges = participants.filter((p) => p.role === "conjuge");
+  const others = emptyFirst(participants.filter(
+    (p) => !["comprador", "vendedor", "conjuge"].includes(p.role)
+  ));
+
   const halfConjuges = Math.ceil(conjuges.length / 2);
-  const conjugesComprador = conjuges.slice(0, compradores.length > 0 ? halfConjuges : 0);
-  const conjugesVendedor = conjuges.slice(compradores.length > 0 ? halfConjuges : 0);
+  const conjugesComprador = emptyFirst(conjuges.slice(0, compradores.length > 0 ? halfConjuges : 0));
+  const conjugesVendedor = emptyFirst(conjuges.slice(compradores.length > 0 ? halfConjuges : 0));
 
   return [
     ...compradores,
