@@ -1344,7 +1344,7 @@ const NovoContrato = () => {
       {/* Print View */}
       <ContractPrintView
         ref={printRef}
-        nome={nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || ""}`}
+        nome={nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || ""}`}
         conteudo={conteudoFinal}
         clausulas={selectedClauses.map((c) => ({ titulo: c.titulo, conteudo: c.conteudo }))}
       />
