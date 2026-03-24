@@ -1,46 +1,35 @@
 
 
-## Diagnostico Real - Por que nao consegue criar contrato manual
+## Diagnostico Definitivo
 
-Analisei o codigo inteiro e encontrei **o problema principal**:
+Depois de analisar todo o codigo linha por linha, o problema tem **duas causas reais**:
 
-**No fluxo manual, o botao "Proximo" esta bloqueado se voce nao tiver contatos ja cadastrados.** O sistema exige selecionar um Comprador e um Vendedor da lista de contatos (`canProceed` verifica `!!compradorId && !!vendedorId`). Se nao tem contatos cadastrados, voce simplesmente nao consegue avancar. E isso que trava.
+### Causa 1: `dados` chega vazio no `handleSave`
+- No fluxo manual, `autoFillDados()` so roda ao sair do step "parties-docs" (linha 392-394)
+- Se o usuario digita nomes mas nao preenche nenhum campo no step "data-clauses" e vai direto para o editor, `dados` tem apenas `comprador_nome` e `vendedor_nome`
+- Mas o `handleSave` faz `mergedDados = { ...mapToDados(), ...dados }`. No fluxo manual, `mapToDados()` retorna `{}` (so funciona com `extractedData` do fluxo IA). Entao `mergedDados` = `dados` que pode ser praticamente vazio
+- **O `handleSave` nao chama `autoFillDados()` antes de salvar**, entao se houve qualquer re-render que resetou `dados`, ele salva vazio
 
-Alem disso, mesmo que consiga avancar (com contatos), o fluxo manual **nunca salva participantes** na tabela `contract_participants` (so o fluxo IA faz isso), entao a tela de detalhe nao mostra os dados.
+### Causa 2: Participantes nao sao criados quando `fullName` esta vazio
+- Na linha 686: `if (!fullName.trim()) continue;` — se `compradorNome` esta vazio e nao tem contato selecionado, o participante nao e criado
+- Resultado: nenhum registro em `contract_participants`, nada aparece no detalhe
 
----
+## Plano de Correcao (2 arquivos, correcao cirurgica)
 
-## Plano de Correcao Definitivo
+### 1. `src/pages/app/NovoContrato.tsx` — handleSave
+- **Chamar `autoFillDados()` dentro do `handleSave`** antes de montar `mergedDados`, para garantir que dados dos contatos/nomes digitados sempre estejam presentes
+- Usar o state `dados` **atualizado apos autoFill** para o merge final
+- Adicionar fallback: se `mergedDados["comprador_nome"]` ainda estiver vazio, pegar de `compradorNome` ou `comprador?.nome`
+- Mesmo para vendedor
+- Remover a condicao `if (!fullName.trim()) continue;` que silenciosamente pula participantes — em vez disso, sempre criar o registro se houver qualquer dado (nome digitado, contato, ou dado no formulario)
 
-### 1. Permitir digitar comprador/vendedor na hora (NovoContrato.tsx - step "parties-docs")
-- Adicionar campos de texto para Nome do Comprador e Nome do Vendedor, alem da busca de contatos
-- Se o usuario digitar o nome, nao precisa selecionar contato da lista
-- Atualizar `canProceed()` para aceitar **nome digitado OU contato selecionado**
-- Manter a busca de contatos como opcao (selecionar preenche automaticamente)
+### 2. `src/pages/app/NovoContrato.tsx` — handleSave (conteudo_final)
+- Chamar `buildFinalContent()` no handleSave para garantir que o conteudo final esteja atualizado com os dados mais recentes
+- Usar o conteudo recem-calculado em vez do state (que pode estar desatualizado)
 
-### 2. Salvar participantes tambem no fluxo manual (NovoContrato.tsx - handleSave)
-- Atualmente, o bloco `if (flowMode === "ai" && participants.length > 0)` so salva participantes no fluxo IA
-- Adicionar logica para criar registros em `contract_participants` tambem no fluxo manual, usando os dados do contato selecionado ou os nomes digitados + dados do formulario
-- Isso garante que a tela de detalhe sempre tem dados para mostrar
-
-### 3. Preencher dados automaticamente ao digitar nomes (NovoContrato.tsx)
-- Quando o usuario digita nome do comprador/vendedor manualmente, salvar em `dados["comprador_nome"]` e `dados["vendedor_nome"]`
-- Quando seleciona contato da lista, continuar preenchendo todos os campos como ja faz
-
-### 4. Garantir que dados aparecem na tela de detalhe (ContratoDetalhe.tsx)
-- Ja esta implementado com `ContractDataDisplay` + query de `contract_participants`
-- Com as correcoes acima (salvar participants em ambos os fluxos), os dados vao aparecer automaticamente
-
-### Arquivos a modificar
-- **`src/pages/app/NovoContrato.tsx`**:
-  - Step "parties-docs": campos de texto para nomes + busca opcional
-  - `canProceed()`: aceitar nome digitado
-  - `handleSave()`: salvar participants para fluxo manual tambem
-  - `autoFillDados()`: incluir nomes digitados
-
-### Detalhes tecnicos
-- Novos states: `compradorNome` e `vendedorNome` para nomes digitados manualmente
-- `canProceed` para "parties-docs": `(!!compradorId || compradorNome.trim()) && (!!vendedorId || vendedorNome.trim())`
-- No `handleSave`, criar participantes com role "comprador"/"vendedor" usando dados do contato selecionado ou dos campos `dados["comprador_*"]`
-- Nenhuma migracao de banco necessaria (tabelas e RLS ja existem)
+### Resultado esperado
+- O contrato sempre salva com os dados que o usuario digitou/selecionou
+- Participantes sempre sao criados (comprador e vendedor)
+- O texto do contrato nunca fica vazio se houver dados ou template
+- A tela de detalhe mostra tudo corretamente (ja funciona, so precisa de dados no banco)
 
