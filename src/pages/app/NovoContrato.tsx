@@ -267,16 +267,27 @@ const NovoContrato = () => {
     c.nome_fantasia.toLowerCase().includes(searchCompanies.toLowerCase())
   );
 
-  // Auto-fill dados from selected contacts/company (manual mode)
+  // Auto-fill dados from manualParticipants and company (manual mode)
   const autoFillDados = useCallback(() => {
     const filled: Record<string, string> = { ...dados };
-    // Manual typed names (fallback when no contact selected)
-    if (!comprador && compradorNome.trim()) {
-      filled.comprador_nome = compradorNome.trim();
+
+    // Map manual participants to dados
+    for (const mp of manualParticipants) {
+      const prefix = mp.role + "_";
+      if (mp.nome) filled[prefix + "nome"] = mp.nome;
+      if (mp.cpf) filled[prefix + "cpf"] = mp.cpf;
+      if (mp.rg) filled[prefix + "rg"] = mp.rg;
+      if (mp.orgao_expedidor) filled[prefix + "orgao_expedidor"] = mp.orgao_expedidor;
+      if (mp.profissao) filled[prefix + "profissao"] = mp.profissao;
+      if (mp.nacionalidade) filled[prefix + "nacionalidade"] = mp.nacionalidade;
+      if (mp.estado_civil) filled[prefix + "estado_civil"] = mp.estado_civil;
+      if (mp.email) filled[prefix + "email"] = mp.email;
+      if (mp.whatsapp) filled[prefix + "whatsapp"] = mp.whatsapp;
+      const endParts = [mp.rua, mp.numero, mp.complemento, mp.bairro, mp.cidade, mp.estado, mp.cep].filter(Boolean).join(", ");
+      if (endParts) filled[prefix + "endereco"] = endParts;
     }
-    if (!vendedor && vendedorNome.trim()) {
-      filled.vendedor_nome = vendedorNome.trim();
-    }
+
+    // Legacy: also fill from selected contacts (backward compat)
     if (comprador) {
       if (comprador.nome) filled.comprador_nome = comprador.nome;
       if (comprador.cpf) filled.comprador_cpf = comprador.cpf;
@@ -310,7 +321,7 @@ const NovoContrato = () => {
       if (endEmpresa) filled.empresa_endereco = endEmpresa;
     }
     setDados(filled);
-  }, [comprador, vendedor, empresa, dados, compradorNome, vendedorNome]);
+  }, [comprador, vendedor, empresa, dados, manualParticipants]);
 
   // Build final content
   const buildFinalContent = useCallback(() => {
