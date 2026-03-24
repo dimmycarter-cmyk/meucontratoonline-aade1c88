@@ -61,7 +61,7 @@ const ManualParticipantManager = ({
   const [newRole, setNewRole] = useState<ParticipantRole>("comprador");
 
   const handleAdd = () => {
-    const updated = [...participants, emptyParticipant(newRole)];
+    const updated = [emptyParticipant(newRole), ...participants];
     onChange(smartSort(updated));
   };
 
