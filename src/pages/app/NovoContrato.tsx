@@ -591,12 +591,22 @@ const NovoContrato = () => {
       const editorContent = conteudoFinal || "";
       
       if (editorContent) {
-        fullContent = replaceVars(editorContent, mergedDados);
+        fullContent = replacePlaceholders(editorContent, mergedDados);
       } else if (templateBase) {
-        fullContent = replaceVars(templateBase, mergedDados);
+        fullContent = replacePlaceholders(templateBase, mergedDados);
       }
 
-      // Fallback: if content is still empty but we have data, generate a summary
+      // Aviso de placeholders não resolvidos
+      const unresolved = getUnresolvedPlaceholders(fullContent, mergedDados);
+      if (unresolved.length > 0) {
+        toast({
+          title: "Atenção: campos não preenchidos",
+          description: `${unresolved.length} campo(s) sem dados: ${unresolved.slice(0, 3).join(", ")}${unresolved.length > 3 ? "..." : ""}`,
+          variant: "default",
+        });
+      }
+
+      // Fallback: se conteúdo vazio mas há dados, gerar resumo
       if (!fullContent.trim() && filledKeys.length > 0) {
         fullContent = buildSummaryHtml(mergedDados);
       }
