@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { extractVariables } from "@/lib/placeholder";
 import { FileText, Plus, Trash2, Pencil, MoreHorizontal, Copy, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
