@@ -665,7 +665,7 @@ const NovoContrato = () => {
         });
       }
 
-      const contractName = nomeContrato || `Contrato - ${comprador?.nome || compradorNome || participants.find((p) => p.role === "comprador")?.full_name || "Novo"}`;
+      const contractName = nomeContrato || `Contrato - ${mergedDados.comprador_nome || comprador?.nome || compradorNome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || "Novo"}`;
       const contract = await createContract({
         nome: contractName,
         template_id: selectedTemplateId,
