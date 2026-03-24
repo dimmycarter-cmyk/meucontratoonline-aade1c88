@@ -29,6 +29,9 @@ import ContractModeSelector from "@/components/contract/ContractModeSelector";
 import ParticipantManager from "@/components/contract/ParticipantManager";
 import type { Participant, ParticipantRole } from "@/components/contract/ParticipantCard";
 import type { DocType, UploadedDoc } from "@/components/contract/DocumentUploader";
+import ManualParticipantManager from "@/components/contract/ManualParticipantManager";
+import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
+import { emptyParticipant } from "@/components/contract/ManualParticipantCard";
 import ExtractionProgress from "@/components/contract/ExtractionProgress";
 import ExtractedDataReview from "@/components/contract/ExtractedDataReview";
 import { useDocumentExtraction } from "@/hooks/useDocumentExtraction";
@@ -163,6 +166,7 @@ const NovoContrato = () => {
   const [checkedDocs, setCheckedDocs] = useState<string[]>(draft.current?.checkedDocs ?? []);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(draft.current?.uploadedFiles ?? []);
   const [isUploading, setIsUploading] = useState(false);
+  const [manualParticipants, setManualParticipants] = useState<ManualParticipantData[]>(draft.current?.manualParticipants ?? []);
 
   // AI flow state
   const [participants, setParticipants] = useState<Participant[]>(draft.current?.participants ?? []);
@@ -203,11 +207,13 @@ const NovoContrato = () => {
     })),
     aiReviewSubStep,
     extractedData,
+    manualParticipants,
   }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
     compradorNome, vendedorNome,
     checkedDocs, uploadedFiles, participants, aiReviewSubStep, extractedData,
+    manualParticipants,
   ]);
 
   // Persist state to localStorage with debounce
@@ -261,16 +267,27 @@ const NovoContrato = () => {
     c.nome_fantasia.toLowerCase().includes(searchCompanies.toLowerCase())
   );
 
-  // Auto-fill dados from selected contacts/company (manual mode)
+  // Auto-fill dados from manualParticipants and company (manual mode)
   const autoFillDados = useCallback(() => {
     const filled: Record<string, string> = { ...dados };
-    // Manual typed names (fallback when no contact selected)
-    if (!comprador && compradorNome.trim()) {
-      filled.comprador_nome = compradorNome.trim();
+
+    // Map manual participants to dados
+    for (const mp of manualParticipants) {
+      const prefix = mp.role + "_";
+      if (mp.nome) filled[prefix + "nome"] = mp.nome;
+      if (mp.cpf) filled[prefix + "cpf"] = mp.cpf;
+      if (mp.rg) filled[prefix + "rg"] = mp.rg;
+      if (mp.orgao_expedidor) filled[prefix + "orgao_expedidor"] = mp.orgao_expedidor;
+      if (mp.profissao) filled[prefix + "profissao"] = mp.profissao;
+      if (mp.nacionalidade) filled[prefix + "nacionalidade"] = mp.nacionalidade;
+      if (mp.estado_civil) filled[prefix + "estado_civil"] = mp.estado_civil;
+      if (mp.email) filled[prefix + "email"] = mp.email;
+      if (mp.whatsapp) filled[prefix + "whatsapp"] = mp.whatsapp;
+      const endParts = [mp.rua, mp.numero, mp.complemento, mp.bairro, mp.cidade, mp.estado, mp.cep].filter(Boolean).join(", ");
+      if (endParts) filled[prefix + "endereco"] = endParts;
     }
-    if (!vendedor && vendedorNome.trim()) {
-      filled.vendedor_nome = vendedorNome.trim();
-    }
+
+    // Legacy: also fill from selected contacts (backward compat)
     if (comprador) {
       if (comprador.nome) filled.comprador_nome = comprador.nome;
       if (comprador.cpf) filled.comprador_cpf = comprador.cpf;
@@ -304,7 +321,7 @@ const NovoContrato = () => {
       if (endEmpresa) filled.empresa_endereco = endEmpresa;
     }
     setDados(filled);
-  }, [comprador, vendedor, empresa, dados, compradorNome, vendedorNome]);
+  }, [comprador, vendedor, empresa, dados, manualParticipants]);
 
   // Build final content
   const buildFinalContent = useCallback(() => {
@@ -474,7 +491,11 @@ const NovoContrato = () => {
     const stepId = currentStep?.id;
     switch (stepId) {
       case "selection": return !!selectedTemplateId && !!flowMode;
-      case "parties-docs": return (!!compradorId || !!compradorNome.trim()) && (!!vendedorId || !!vendedorNome.trim());
+      case "parties-docs": {
+        const hasComprador = manualParticipants.some((p) => p.role === "comprador" && p.nome.trim());
+        const hasVendedor = manualParticipants.some((p) => p.role === "vendedor" && p.nome.trim());
+        return hasComprador && hasVendedor;
+      }
       case "participants": {
         const hasComprador = participants.some((p) => p.role === "comprador" && p.full_name.trim());
         const hasVendedor = participants.some((p) => p.role === "vendedor" && p.full_name.trim());
@@ -492,14 +513,27 @@ const NovoContrato = () => {
   const handleSave = async () => {
     try {
       // === STEP 1: Build complete dados by re-running autoFill logic inline ===
-      // (We can't rely on setDados + re-render, so we build it synchronously here)
       const freshDados: Record<string, string> = { ...dados };
 
-      // Manual typed names
-      if (!comprador && compradorNome.trim()) freshDados.comprador_nome = compradorNome.trim();
-      if (!vendedor && vendedorNome.trim()) freshDados.vendedor_nome = vendedorNome.trim();
+      // Fill from manualParticipants (manual flow)
+      if (flowMode === "manual") {
+        for (const mp of manualParticipants) {
+          const prefix = mp.role + "_";
+          if (mp.nome) freshDados[prefix + "nome"] = mp.nome;
+          if (mp.cpf) freshDados[prefix + "cpf"] = mp.cpf;
+          if (mp.rg) freshDados[prefix + "rg"] = mp.rg;
+          if (mp.orgao_expedidor) freshDados[prefix + "orgao_expedidor"] = mp.orgao_expedidor;
+          if (mp.profissao) freshDados[prefix + "profissao"] = mp.profissao;
+          if (mp.nacionalidade) freshDados[prefix + "nacionalidade"] = mp.nacionalidade;
+          if (mp.estado_civil) freshDados[prefix + "estado_civil"] = mp.estado_civil;
+          if (mp.email) freshDados[prefix + "email"] = mp.email;
+          if (mp.whatsapp) freshDados[prefix + "whatsapp"] = mp.whatsapp;
+          const endParts = [mp.rua, mp.numero, mp.complemento, mp.bairro, mp.cidade, mp.estado, mp.cep].filter(Boolean).join(", ");
+          if (endParts) freshDados[prefix + "endereco"] = endParts;
+        }
+      }
 
-      // Fill from selected contacts
+      // Fill from selected contacts (legacy/backward compat)
       if (comprador) {
         if (comprador.nome) freshDados.comprador_nome = comprador.nome;
         if (comprador.cpf) freshDados.comprador_cpf = comprador.cpf;
@@ -535,7 +569,6 @@ const NovoContrato = () => {
 
       // === STEP 2: Merge with AI extracted data ===
       const latestAiDados = mapToDados();
-      // freshDados (user edits + contact data) takes priority over AI extraction
       const mergedDados = { ...latestAiDados, ...freshDados };
 
       // Add fallback names from participants (AI flow)
@@ -553,8 +586,10 @@ const NovoContrato = () => {
       }
       // Add fallback names for manual flow
       if (flowMode === "manual") {
-        if (!mergedDados.comprador_nome) mergedDados.comprador_nome = compradorNome || comprador?.nome || "";
-        if (!mergedDados.vendedor_nome) mergedDados.vendedor_nome = vendedorNome || vendedor?.nome || "";
+        const firstComprador = manualParticipants.find((p) => p.role === "comprador");
+        const firstVendedor = manualParticipants.find((p) => p.role === "vendedor");
+        if (!mergedDados.comprador_nome && firstComprador) mergedDados.comprador_nome = firstComprador.nome;
+        if (!mergedDados.vendedor_nome && firstVendedor) mergedDados.vendedor_nome = firstVendedor.nome;
       }
 
       // Warn if dados is essentially empty
@@ -630,7 +665,7 @@ const NovoContrato = () => {
         });
       }
 
-      const contractName = nomeContrato || `Contrato - ${comprador?.nome || compradorNome || participants.find((p) => p.role === "comprador")?.full_name || "Novo"}`;
+      const contractName = nomeContrato || `Contrato - ${mergedDados.comprador_nome || comprador?.nome || compradorNome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || "Novo"}`;
       const contract = await createContract({
         nome: contractName,
         template_id: selectedTemplateId,
@@ -715,40 +750,32 @@ const NovoContrato = () => {
             }
           }
         } else if (flowMode === "manual") {
-          // Manual flow: create participants from selected contacts or typed names
-          const manualParticipants: { role: "comprador" | "vendedor"; contact: Contact | undefined; typedName: string }[] = [
-            { role: "comprador", contact: comprador, typedName: compradorNome },
-            { role: "vendedor", contact: vendedor, typedName: vendedorNome },
-          ];
-
+          // Manual flow: create participants from manualParticipants state
           for (const mp of manualParticipants) {
-            const prefix = mp.role + "_";
-            const fullName = mp.contact?.nome || mp.typedName || mergedDados[prefix + "nome"] || "";
-            if (!fullName.trim() && !mp.contact) continue; // Only skip if truly no data at all
+            if (!mp.nome.trim()) continue;
 
-            const participantData: Record<string, string | null> = {
+            const { error: partError } = await supabase.from("contract_participants").insert({
               contract_id: contract.id,
               tenant_id: profile.tenant_id,
               role: mp.role,
-              full_name: fullName,
-              cpf: mp.contact?.cpf || mergedDados[prefix + "cpf"] || null,
-              rg: mp.contact?.rg || mergedDados[prefix + "rg"] || null,
-              issuing_agency: mp.contact?.orgao_expedidor || mergedDados[prefix + "orgao_expedidor"] || null,
-              profession: mp.contact?.profissao || mergedDados[prefix + "profissao"] || null,
-              nationality: mp.contact?.nacionalidade || mergedDados[prefix + "nacionalidade"] || null,
-              marital_status: mp.contact?.estado_civil || mergedDados[prefix + "estado_civil"] || null,
-              email: mp.contact?.email || mergedDados[prefix + "email"] || null,
-              whatsapp: mp.contact?.whatsapp || mergedDados[prefix + "whatsapp"] || null,
-              address_street: mp.contact?.rua || null,
-              address_number: mp.contact?.numero || null,
-              address_complement: mp.contact?.complemento || null,
-              address_neighborhood: mp.contact?.bairro || null,
-              address_city: mp.contact?.cidade || null,
-              address_state: mp.contact?.estado || null,
-              address_zipcode: mp.contact?.cep || null,
-            };
+              full_name: mp.nome,
+              cpf: mp.cpf || null,
+              rg: mp.rg || null,
+              issuing_agency: mp.orgao_expedidor || null,
+              profession: mp.profissao || null,
+              nationality: mp.nacionalidade || null,
+              marital_status: mp.estado_civil || null,
+              email: mp.email || null,
+              whatsapp: mp.whatsapp || null,
+              address_street: mp.rua || null,
+              address_number: mp.numero || null,
+              address_complement: mp.complemento || null,
+              address_neighborhood: mp.bairro || null,
+              address_city: mp.cidade || null,
+              address_state: mp.estado || null,
+              address_zipcode: mp.cep || null,
+            } as any);
 
-            const { error: partError } = await supabase.from("contract_participants").insert(participantData as any);
             if (partError) {
               console.error("[NovoContrato] Erro ao salvar participante manual:", partError);
               toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
@@ -1032,181 +1059,35 @@ const NovoContrato = () => {
         </div>
       )}
 
-      {/* ==================== MANUAL: PARTIES & DOCS (Step 2) ==================== */}
+      {/* ==================== MANUAL: PARTIES (Step 2) ==================== */}
       {currentStep?.id === "parties-docs" && flowMode === "manual" && (
         <div className="space-y-8">
-          {/* Parties section */}
-          <div className="space-y-6">
-            <h2 className="font-display text-lg font-semibold text-foreground">Informe as partes</h2>
-            <p className="text-sm text-muted-foreground">Digite o nome ou selecione um contato já cadastrado.</p>
-            
-            {/* Comprador */}
-            <div>
-              <Label className="mb-2 block text-sm font-medium">Comprador *</Label>
-              <Input
-                placeholder="Nome do comprador..."
-                value={compradorId ? (comprador?.nome || "") : compradorNome}
-                onChange={(e) => {
-                  setCompradorNome(e.target.value);
-                  setCompradorId(null); // clear contact selection when typing
-                }}
-                className="mb-2"
-              />
-              {compradorId && comprador && (
-                <div className="flex items-center gap-2 mb-2 rounded-lg border border-primary bg-primary/5 px-3 py-2">
-                  <User className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">{comprador.nome}</span>
-                  <span className="text-xs text-muted-foreground">{comprador.cpf || ""}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => { setCompradorId(null); setCompradorNome(""); }}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-              {contacts.length > 0 && !compradorId && (
-                <details className="text-sm">
-                  <summary className="cursor-pointer text-xs text-primary hover:underline mb-1">Selecionar de contatos cadastrados</summary>
-                  <div className="relative mb-2 mt-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input placeholder="Buscar contato..." className="pl-10 h-8 text-xs" value={searchContacts} onChange={(e) => setSearchContacts(e.target.value)} />
-                  </div>
-                  <div className="grid gap-2 max-h-36 overflow-y-auto sm:grid-cols-2">
-                    {filteredContacts.map((c) => (
-                      <Card key={c.id} className={`cursor-pointer p-2 transition-all hover:shadow-card ${compradorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => { setCompradorId(c.id); setCompradorNome(c.nome); }}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-3.5 w-3.5 text-primary" />
-                          <div>
-                            <p className="text-xs font-medium text-foreground">{c.nome}</p>
-                            <p className="text-[10px] text-muted-foreground">{c.cpf || c.email || "—"}</p>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </details>
-              )}
-            </div>
+          <ManualParticipantManager
+            participants={manualParticipants}
+            onChange={setManualParticipants}
+            contacts={contacts}
+          />
 
-            {/* Vendedor */}
-            <div>
-              <Label className="mb-2 block text-sm font-medium">Vendedor *</Label>
-              <Input
-                placeholder="Nome do vendedor..."
-                value={vendedorId ? (vendedor?.nome || "") : vendedorNome}
-                onChange={(e) => {
-                  setVendedorNome(e.target.value);
-                  setVendedorId(null);
-                }}
-                className="mb-2"
-              />
-              {vendedorId && vendedor && (
-                <div className="flex items-center gap-2 mb-2 rounded-lg border border-primary bg-primary/5 px-3 py-2">
-                  <User className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">{vendedor.nome}</span>
-                  <span className="text-xs text-muted-foreground">{vendedor.cpf || ""}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={() => { setVendedorId(null); setVendedorNome(""); }}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-              {contacts.length > 0 && !vendedorId && (
-                <details className="text-sm">
-                  <summary className="cursor-pointer text-xs text-primary hover:underline mb-1">Selecionar de contatos cadastrados</summary>
-                  <div className="grid gap-2 max-h-36 overflow-y-auto sm:grid-cols-2 mt-1">
-                    {contacts.filter((c) => c.id !== compradorId).map((c) => (
-                      <Card key={c.id} className={`cursor-pointer p-2 transition-all hover:shadow-card ${vendedorId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => { setVendedorId(c.id); setVendedorNome(c.nome); }}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-3.5 w-3.5 text-muted-foreground" />
-                          <div>
-                            <p className="text-xs font-medium text-foreground">{c.nome}</p>
-                            <p className="text-[10px] text-muted-foreground">{c.cpf || c.email || "—"}</p>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </details>
-              )}
+          {/* Empresa */}
+          <div className="space-y-4">
+            <h2 className="font-display text-lg font-semibold text-foreground">Empresa Intermediadora (opcional)</h2>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Buscar empresa..." className="pl-10" value={searchCompanies} onChange={(e) => setSearchCompanies(e.target.value)} />
             </div>
-
-            {/* Empresa */}
-            <div>
-              <Label className="mb-2 block text-sm font-medium">Empresa Intermediadora (opcional)</Label>
-              <div className="relative mb-2">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Buscar empresa..." className="pl-10" value={searchCompanies} onChange={(e) => setSearchCompanies(e.target.value)} />
-              </div>
-              <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
-                {filteredCompanies.map((c) => (
-                  <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${empresaId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setEmpresaId(empresaId === c.id ? null : c.id)}>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{c.nome_fantasia}</p>
-                        <p className="text-xs text-muted-foreground">{c.cnpj || "—"}</p>
-                      </div>
+            <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
+              {filteredCompanies.map((c) => (
+                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${empresaId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setEmpresaId(empresaId === c.id ? null : c.id)}>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{c.nome_fantasia}</p>
+                      <p className="text-xs text-muted-foreground">{c.cnpj || "—"}</p>
                     </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Documents section */}
-          <div className="space-y-6">
-            <h2 className="font-display text-lg font-semibold text-foreground">Documentos</h2>
-            <p className="text-sm text-muted-foreground">Envie os documentos necessários e confirme o checklist.</p>
-
-            <Card className="shadow-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm"><Upload className="h-4 w-4" /> Upload de Documentos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-muted/50">
-                  <Upload className="h-8 w-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Clique para enviar arquivos</span>
-                  <span className="text-xs text-muted-foreground">PDF, JPG, PNG (máx 20MB)</span>
-                  <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                </label>
-                {isUploading && <p className="mt-2 text-xs text-muted-foreground">Enviando...</p>}
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {uploadedFiles.map((file) => (
-                      <div key={file.path} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <File className="h-4 w-4 text-primary" />
-                          <span className="text-sm text-foreground">{file.name}</span>
-                          <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveFile(file.path)}>
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Checklist de Documentos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {documentChecklist.map((doc) => (
-                    <label key={doc} className="flex items-center gap-3 cursor-pointer">
-                      <Checkbox
-                        checked={checkedDocs.includes(doc)}
-                        onCheckedChange={(checked) => {
-                          setCheckedDocs((prev) => checked ? [...prev, doc] : prev.filter((d) => d !== doc));
-                        }}
-                      />
-                      <span className="text-sm text-foreground">{doc}</span>
-                    </label>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1329,7 +1210,7 @@ const NovoContrato = () => {
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Comprador</p>
                 <p className="text-sm font-medium text-foreground">
-                  {comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || "—"}
+                  {comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || "—"}
                 </p>
               </CardContent>
             </Card>
@@ -1337,7 +1218,7 @@ const NovoContrato = () => {
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Vendedor</p>
                 <p className="text-sm font-medium text-foreground">
-                  {vendedor?.nome || participants.find((p) => p.role === "vendedor")?.full_name || "—"}
+                  {vendedor?.nome || participants.find((p) => p.role === "vendedor")?.full_name || manualParticipants.find((p) => p.role === "vendedor")?.nome || "—"}
                 </p>
               </CardContent>
             </Card>
@@ -1463,7 +1344,7 @@ const NovoContrato = () => {
       {/* Print View */}
       <ContractPrintView
         ref={printRef}
-        nome={nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || ""}`}
+        nome={nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || ""}`}
         conteudo={conteudoFinal}
         clausulas={selectedClauses.map((c) => ({ titulo: c.titulo, conteudo: c.conteudo }))}
       />
