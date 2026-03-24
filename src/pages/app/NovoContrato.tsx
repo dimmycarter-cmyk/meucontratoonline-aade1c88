@@ -207,11 +207,13 @@ const NovoContrato = () => {
     })),
     aiReviewSubStep,
     extractedData,
+    manualParticipants,
   }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
     compradorNome, vendedorNome,
     checkedDocs, uploadedFiles, participants, aiReviewSubStep, extractedData,
+    manualParticipants,
   ]);
 
   // Persist state to localStorage with debounce
