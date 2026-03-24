@@ -513,14 +513,27 @@ const NovoContrato = () => {
   const handleSave = async () => {
     try {
       // === STEP 1: Build complete dados by re-running autoFill logic inline ===
-      // (We can't rely on setDados + re-render, so we build it synchronously here)
       const freshDados: Record<string, string> = { ...dados };
 
-      // Manual typed names
-      if (!comprador && compradorNome.trim()) freshDados.comprador_nome = compradorNome.trim();
-      if (!vendedor && vendedorNome.trim()) freshDados.vendedor_nome = vendedorNome.trim();
+      // Fill from manualParticipants (manual flow)
+      if (flowMode === "manual") {
+        for (const mp of manualParticipants) {
+          const prefix = mp.role + "_";
+          if (mp.nome) freshDados[prefix + "nome"] = mp.nome;
+          if (mp.cpf) freshDados[prefix + "cpf"] = mp.cpf;
+          if (mp.rg) freshDados[prefix + "rg"] = mp.rg;
+          if (mp.orgao_expedidor) freshDados[prefix + "orgao_expedidor"] = mp.orgao_expedidor;
+          if (mp.profissao) freshDados[prefix + "profissao"] = mp.profissao;
+          if (mp.nacionalidade) freshDados[prefix + "nacionalidade"] = mp.nacionalidade;
+          if (mp.estado_civil) freshDados[prefix + "estado_civil"] = mp.estado_civil;
+          if (mp.email) freshDados[prefix + "email"] = mp.email;
+          if (mp.whatsapp) freshDados[prefix + "whatsapp"] = mp.whatsapp;
+          const endParts = [mp.rua, mp.numero, mp.complemento, mp.bairro, mp.cidade, mp.estado, mp.cep].filter(Boolean).join(", ");
+          if (endParts) freshDados[prefix + "endereco"] = endParts;
+        }
+      }
 
-      // Fill from selected contacts
+      // Fill from selected contacts (legacy/backward compat)
       if (comprador) {
         if (comprador.nome) freshDados.comprador_nome = comprador.nome;
         if (comprador.cpf) freshDados.comprador_cpf = comprador.cpf;
@@ -556,7 +569,6 @@ const NovoContrato = () => {
 
       // === STEP 2: Merge with AI extracted data ===
       const latestAiDados = mapToDados();
-      // freshDados (user edits + contact data) takes priority over AI extraction
       const mergedDados = { ...latestAiDados, ...freshDados };
 
       // Add fallback names from participants (AI flow)
@@ -574,8 +586,10 @@ const NovoContrato = () => {
       }
       // Add fallback names for manual flow
       if (flowMode === "manual") {
-        if (!mergedDados.comprador_nome) mergedDados.comprador_nome = compradorNome || comprador?.nome || "";
-        if (!mergedDados.vendedor_nome) mergedDados.vendedor_nome = vendedorNome || vendedor?.nome || "";
+        const firstComprador = manualParticipants.find((p) => p.role === "comprador");
+        const firstVendedor = manualParticipants.find((p) => p.role === "vendedor");
+        if (!mergedDados.comprador_nome && firstComprador) mergedDados.comprador_nome = firstComprador.nome;
+        if (!mergedDados.vendedor_nome && firstVendedor) mergedDados.vendedor_nome = firstVendedor.nome;
       }
 
       // Warn if dados is essentially empty
