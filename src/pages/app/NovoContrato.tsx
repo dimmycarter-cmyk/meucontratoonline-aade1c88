@@ -166,6 +166,7 @@ const NovoContrato = () => {
   const [checkedDocs, setCheckedDocs] = useState<string[]>(draft.current?.checkedDocs ?? []);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(draft.current?.uploadedFiles ?? []);
   const [isUploading, setIsUploading] = useState(false);
+  const [manualParticipants, setManualParticipants] = useState<ManualParticipantData[]>(draft.current?.manualParticipants ?? []);
 
   // AI flow state
   const [participants, setParticipants] = useState<Participant[]>(draft.current?.participants ?? []);
