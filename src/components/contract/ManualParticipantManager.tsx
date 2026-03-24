@@ -123,7 +123,7 @@ const ManualParticipantManager = ({
         <div className="space-y-4">
           {grouped.map((group) => (
             <div key={group.role} className="space-y-2">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="text-lg font-semibold text-foreground">
                 {ROLE_LABELS[group.role]}
                 <span className="ml-1.5 text-muted-foreground font-normal">({group.items.length})</span>
               </h3>
