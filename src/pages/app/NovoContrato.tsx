@@ -21,6 +21,7 @@ import { useContracts } from "@/hooks/useContracts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
+import { replacePlaceholders, getUnresolvedPlaceholders } from "@/lib/placeholder";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import { useToast } from "@/hooks/use-toast";
@@ -308,16 +309,7 @@ const NovoContrato = () => {
   // Build final content
   const buildFinalContent = useCallback(() => {
     let content = selectedTemplate?.conteudo || "";
-    Object.entries(dados).forEach(([key, value]) => {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
-      content = content.replace(regex, value || `{{${key}}}`);
-    });
-    TEMPLATE_VARIABLES.forEach((v) => {
-      const regex = new RegExp(`\\{\\{${v.key}\\}\\}`, "g");
-      if (!dados[v.key]) {
-        content = content.replace(regex, `{{${v.key}}}`);
-      }
-    });
+    content = replacePlaceholders(content, dados);
     setConteudoFinal(content);
   }, [selectedTemplate, dados]);
 
@@ -568,17 +560,7 @@ const NovoContrato = () => {
         toast({ title: "Atenção", description: "O contrato será salvo com poucos dados preenchidos.", variant: "default" });
       }
 
-      // Helper to replace template variables (handles {{key}} and {{ key }})
-      const replaceVars = (text: string, vars: Record<string, string>) => {
-        let result = text;
-        Object.entries(vars).forEach(([key, value]) => {
-          if (value) {
-            const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
-            result = result.replace(regex, value);
-          }
-        });
-        return result;
-      };
+      // (replaceVars removido — agora usa replacePlaceholders de @/lib/placeholder)
 
       // Build HTML summary fallback from dados when no template content exists
       const buildSummaryHtml = (d: Record<string, string>): string => {
@@ -609,12 +591,22 @@ const NovoContrato = () => {
       const editorContent = conteudoFinal || "";
       
       if (editorContent) {
-        fullContent = replaceVars(editorContent, mergedDados);
+        fullContent = replacePlaceholders(editorContent, mergedDados);
       } else if (templateBase) {
-        fullContent = replaceVars(templateBase, mergedDados);
+        fullContent = replacePlaceholders(templateBase, mergedDados);
       }
 
-      // Fallback: if content is still empty but we have data, generate a summary
+      // Aviso de placeholders não resolvidos
+      const unresolved = getUnresolvedPlaceholders(fullContent, mergedDados);
+      if (unresolved.length > 0) {
+        toast({
+          title: "Atenção: campos não preenchidos",
+          description: `${unresolved.length} campo(s) sem dados: ${unresolved.slice(0, 3).join(", ")}${unresolved.length > 3 ? "..." : ""}`,
+          variant: "default",
+        });
+      }
+
+      // Fallback: se conteúdo vazio mas há dados, gerar resumo
       if (!fullContent.trim() && filledKeys.length > 0) {
         fullContent = buildSummaryHtml(mergedDados);
       }

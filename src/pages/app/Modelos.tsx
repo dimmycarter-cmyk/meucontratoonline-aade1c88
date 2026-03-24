@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { extractVariables } from "@/lib/placeholder";
 import { FileText, Plus, Trash2, Pencil, MoreHorizontal, Copy, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,8 +52,7 @@ const Modelos = () => {
 
   const handleSaveContent = async () => {
     if (!editorTemplate) return;
-    const varMatches = editorContent.match(/\{\{(\w+)\}\}/g) || [];
-    const variaveis = [...new Set(varMatches.map((m: string) => m.replace(/\{\{|\}\}/g, "")))];
+    const variaveis = extractVariables(editorContent);
     await updateTemplate({ id: editorTemplate.id, conteudo: editorContent, variaveis });
     setEditorOpen(false);
   };
