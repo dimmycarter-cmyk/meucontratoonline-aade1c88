@@ -21,6 +21,7 @@ import { useContracts } from "@/hooks/useContracts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
+import { replacePlaceholders, getUnresolvedPlaceholders } from "@/lib/placeholder";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import { useToast } from "@/hooks/use-toast";

@@ -141,7 +141,7 @@ export default function ContractDataDisplay({ dados, participants }: ContractDat
           <CardContent>{renderFields(compradorDados, LABEL_MAP)}</CardContent>
         </Card>
       )}
-      {Object.keys(vendedorDados).length > 0 && !hasParticipants && (
+      {Object.keys(vendedorDados).length > 0 && (
         <Card className="shadow-card">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><User className="h-4 w-4" /> Vendedor</CardTitle></CardHeader>
           <CardContent>{renderFields(vendedorDados, LABEL_MAP)}</CardContent>
