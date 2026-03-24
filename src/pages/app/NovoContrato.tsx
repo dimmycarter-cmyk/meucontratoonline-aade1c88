@@ -1218,7 +1218,7 @@ const NovoContrato = () => {
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Vendedor</p>
                 <p className="text-sm font-medium text-foreground">
-                  {vendedor?.nome || participants.find((p) => p.role === "vendedor")?.full_name || "—"}
+                  {vendedor?.nome || participants.find((p) => p.role === "vendedor")?.full_name || manualParticipants.find((p) => p.role === "vendedor")?.nome || "—"}
                 </p>
               </CardContent>
             </Card>
