@@ -10,904 +10,894 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.4"
   }
   public: {
     Tables: {
-      admin_audit_logs: {
+      activity_logs: {
         Row: {
           action: string
+          company_id: string
           created_at: string
-          details: Json
+          entity_id: string | null
+          entity_type: string | null
           id: string
-          target_id: string
-          target_type: string
-          user_id: string
+          metadata: Json | null
+          user_id: string | null
         }
         Insert: {
           action: string
+          company_id: string
           created_at?: string
-          details?: Json
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
-          target_id: string
-          target_type: string
-          user_id: string
+          metadata?: Json | null
+          user_id?: string | null
         }
         Update: {
           action?: string
+          company_id?: string
           created_at?: string
-          details?: Json
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
-          target_id?: string
-          target_type?: string
-          user_id?: string
+          metadata?: Json | null
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      clauses: {
+      ai_decision_logs: {
         Row: {
-          ativa: boolean
-          categoria: string
-          conteudo: string
+          company_id: string
+          confidence_score: number | null
           created_at: string
+          decision_type: string
+          entity_id: string | null
+          entity_type: string | null
           id: string
-          ordem: number
-          tenant_id: string
-          titulo: string
+          input_data: Json
+          output_decision: Json
+          overridden_at: string | null
+          overridden_by: string | null
+        }
+        Insert: {
+          company_id: string
+          confidence_score?: number | null
+          created_at?: string
+          decision_type: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          input_data?: Json
+          output_decision?: Json
+          overridden_at?: string | null
+          overridden_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          confidence_score?: number | null
+          created_at?: string
+          decision_type?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          input_data?: Json
+          output_decision?: Json
+          overridden_at?: string | null
+          overridden_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_decision_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          address: string | null
+          birth_date: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          document: string | null
+          email: string | null
+          full_name: string
+          id: string
+          monthly_income: number | null
+          notes: string | null
+          occupation: string | null
+          phone: string | null
           updated_at: string
         }
         Insert: {
-          ativa?: boolean
-          categoria?: string
-          conteudo?: string
+          address?: string | null
+          birth_date?: string | null
+          company_id: string
           created_at?: string
+          created_by?: string | null
+          document?: string | null
+          email?: string | null
+          full_name: string
           id?: string
-          ordem?: number
-          tenant_id: string
-          titulo: string
+          monthly_income?: number | null
+          notes?: string | null
+          occupation?: string | null
+          phone?: string | null
           updated_at?: string
         }
         Update: {
-          ativa?: boolean
-          categoria?: string
-          conteudo?: string
+          address?: string | null
+          birth_date?: string | null
+          company_id?: string
           created_at?: string
+          created_by?: string | null
+          document?: string | null
+          email?: string | null
+          full_name?: string
           id?: string
-          ordem?: number
-          tenant_id?: string
-          titulo?: string
+          monthly_income?: number | null
+          notes?: string | null
+          occupation?: string | null
+          phone?: string | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "clauses_tenant_id_fkey"
-            columns: ["tenant_id"]
+            foreignKeyName: "clients_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
       }
       companies: {
         Row: {
-          agencia: string | null
-          bairro: string | null
-          banco: string | null
-          cep: string | null
-          cidade: string | null
-          cnpj: string | null
-          complemento: string | null
-          conta: string | null
+          address: string | null
           created_at: string
+          document: string | null
           email: string | null
-          estado: string | null
           id: string
           logo_url: string | null
-          nome_fantasia: string
-          numero: string | null
-          pix: string | null
-          razao_social: string | null
-          rua: string | null
-          tenant_id: string
+          name: string
+          phone: string | null
           updated_at: string
-          whatsapp: string | null
         }
         Insert: {
-          agencia?: string | null
-          bairro?: string | null
-          banco?: string | null
-          cep?: string | null
-          cidade?: string | null
-          cnpj?: string | null
-          complemento?: string | null
-          conta?: string | null
+          address?: string | null
           created_at?: string
+          document?: string | null
           email?: string | null
-          estado?: string | null
           id?: string
           logo_url?: string | null
-          nome_fantasia: string
-          numero?: string | null
-          pix?: string | null
-          razao_social?: string | null
-          rua?: string | null
-          tenant_id: string
+          name: string
+          phone?: string | null
           updated_at?: string
-          whatsapp?: string | null
         }
         Update: {
-          agencia?: string | null
-          bairro?: string | null
-          banco?: string | null
-          cep?: string | null
-          cidade?: string | null
-          cnpj?: string | null
-          complemento?: string | null
-          conta?: string | null
+          address?: string | null
           created_at?: string
+          document?: string | null
           email?: string | null
-          estado?: string | null
           id?: string
           logo_url?: string | null
-          nome_fantasia?: string
-          numero?: string | null
-          pix?: string | null
-          razao_social?: string | null
-          rua?: string | null
-          tenant_id?: string
+          name?: string
+          phone?: string | null
           updated_at?: string
-          whatsapp?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "companies_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      contacts: {
+      company_settings: {
         Row: {
-          agencia: string | null
-          bairro: string | null
-          banco: string | null
-          cep: string | null
-          cidade: string | null
-          complemento: string | null
-          conta: string | null
-          cpf: string | null
+          company_id: string
+          contract_params: Json | null
           created_at: string
-          data_nascimento: string | null
-          email: string | null
-          estado: string | null
-          estado_civil: string | null
-          genero: string | null
           id: string
-          nacionalidade: string | null
-          nome: string
-          numero: string | null
-          orgao_expedidor: string | null
-          pix: string | null
-          profissao: string | null
-          rg: string | null
-          rua: string | null
-          tenant_id: string
           updated_at: string
-          whatsapp: string | null
+          use_insurance: boolean
+          workflow_rules: Json | null
         }
         Insert: {
-          agencia?: string | null
-          bairro?: string | null
-          banco?: string | null
-          cep?: string | null
-          cidade?: string | null
-          complemento?: string | null
-          conta?: string | null
-          cpf?: string | null
+          company_id: string
+          contract_params?: Json | null
           created_at?: string
-          data_nascimento?: string | null
-          email?: string | null
-          estado?: string | null
-          estado_civil?: string | null
-          genero?: string | null
           id?: string
-          nacionalidade?: string | null
-          nome: string
-          numero?: string | null
-          orgao_expedidor?: string | null
-          pix?: string | null
-          profissao?: string | null
-          rg?: string | null
-          rua?: string | null
-          tenant_id: string
           updated_at?: string
-          whatsapp?: string | null
+          use_insurance?: boolean
+          workflow_rules?: Json | null
         }
         Update: {
-          agencia?: string | null
-          bairro?: string | null
-          banco?: string | null
-          cep?: string | null
-          cidade?: string | null
-          complemento?: string | null
-          conta?: string | null
-          cpf?: string | null
+          company_id?: string
+          contract_params?: Json | null
           created_at?: string
-          data_nascimento?: string | null
-          email?: string | null
-          estado?: string | null
-          estado_civil?: string | null
-          genero?: string | null
           id?: string
-          nacionalidade?: string | null
-          nome?: string
-          numero?: string | null
-          orgao_expedidor?: string | null
-          pix?: string | null
-          profissao?: string | null
-          rg?: string | null
-          rua?: string | null
-          tenant_id?: string
           updated_at?: string
-          whatsapp?: string | null
+          use_insurance?: boolean
+          workflow_rules?: Json | null
         }
         Relationships: [
           {
-            foreignKeyName: "contacts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
+            foreignKeyName: "company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
       }
-      contract_documents: {
+      contract_drafts: {
         Row: {
-          contract_id: string | null
+          company_id: string
           created_at: string
-          file_name: string
-          file_path: string
-          file_size: number
+          created_by: string | null
+          data: Json
           id: string
-          mime_type: string
-          tenant_id: string
-        }
-        Insert: {
-          contract_id?: string | null
-          created_at?: string
-          file_name: string
-          file_path: string
-          file_size?: number
-          id?: string
-          mime_type?: string
-          tenant_id: string
-        }
-        Update: {
-          contract_id?: string | null
-          created_at?: string
-          file_name?: string
-          file_path?: string
-          file_size?: number
-          id?: string
-          mime_type?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contract_documents_contract_id_fkey"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contract_documents_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      contract_participants: {
-        Row: {
-          address_city: string | null
-          address_complement: string | null
-          address_neighborhood: string | null
-          address_number: string | null
-          address_state: string | null
-          address_street: string | null
-          address_zipcode: string | null
-          birth_date: string | null
-          cnpj: string | null
-          company_name: string | null
-          contract_id: string | null
-          cpf: string | null
-          created_at: string
-          email: string | null
-          full_name: string
-          gender: string | null
-          id: string
-          issuing_agency: string | null
-          legal_representative_name: string | null
-          marital_status: string | null
-          nationality: string | null
-          profession: string | null
-          rg: string | null
-          role: Database["public"]["Enums"]["participant_role"]
-          tenant_id: string
-          trade_name: string | null
+          notes: string | null
+          precedence: string
+          proposal_id: string | null
           updated_at: string
-          whatsapp: string | null
+          version: number
         }
         Insert: {
-          address_city?: string | null
-          address_complement?: string | null
-          address_neighborhood?: string | null
-          address_number?: string | null
-          address_state?: string | null
-          address_street?: string | null
-          address_zipcode?: string | null
-          birth_date?: string | null
-          cnpj?: string | null
-          company_name?: string | null
-          contract_id?: string | null
-          cpf?: string | null
+          company_id: string
           created_at?: string
-          email?: string | null
-          full_name?: string
-          gender?: string | null
+          created_by?: string | null
+          data?: Json
           id?: string
-          issuing_agency?: string | null
-          legal_representative_name?: string | null
-          marital_status?: string | null
-          nationality?: string | null
-          profession?: string | null
-          rg?: string | null
-          role?: Database["public"]["Enums"]["participant_role"]
-          tenant_id: string
-          trade_name?: string | null
+          notes?: string | null
+          precedence?: string
+          proposal_id?: string | null
           updated_at?: string
-          whatsapp?: string | null
+          version?: number
         }
         Update: {
-          address_city?: string | null
-          address_complement?: string | null
-          address_neighborhood?: string | null
-          address_number?: string | null
-          address_state?: string | null
-          address_street?: string | null
-          address_zipcode?: string | null
-          birth_date?: string | null
-          cnpj?: string | null
-          company_name?: string | null
-          contract_id?: string | null
-          cpf?: string | null
+          company_id?: string
           created_at?: string
-          email?: string | null
-          full_name?: string
-          gender?: string | null
+          created_by?: string | null
+          data?: Json
           id?: string
-          issuing_agency?: string | null
-          legal_representative_name?: string | null
-          marital_status?: string | null
-          nationality?: string | null
-          profession?: string | null
-          rg?: string | null
-          role?: Database["public"]["Enums"]["participant_role"]
-          tenant_id?: string
-          trade_name?: string | null
+          notes?: string | null
+          precedence?: string
+          proposal_id?: string | null
           updated_at?: string
-          whatsapp?: string | null
+          version?: number
         }
         Relationships: [
           {
-            foreignKeyName: "contract_participants_contract_id_fkey"
-            columns: ["contract_id"]
+            foreignKeyName: "contract_drafts_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "contracts"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contract_participants_tenant_id_fkey"
-            columns: ["tenant_id"]
+            foreignKeyName: "contract_drafts_proposal_id_fkey"
+            columns: ["proposal_id"]
             isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      contract_templates: {
-        Row: {
-          conteudo: string
-          created_at: string
-          descricao: string | null
-          id: string
-          is_global: boolean
-          nome: string
-          status: string
-          tenant_id: string
-          tipo: string
-          updated_at: string
-          variaveis: Json
-        }
-        Insert: {
-          conteudo?: string
-          created_at?: string
-          descricao?: string | null
-          id?: string
-          is_global?: boolean
-          nome: string
-          status?: string
-          tenant_id: string
-          tipo?: string
-          updated_at?: string
-          variaveis?: Json
-        }
-        Update: {
-          conteudo?: string
-          created_at?: string
-          descricao?: string | null
-          id?: string
-          is_global?: boolean
-          nome?: string
-          status?: string
-          tenant_id?: string
-          tipo?: string
-          updated_at?: string
-          variaveis?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contract_templates_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "proposals"
             referencedColumns: ["id"]
           },
         ]
       }
       contracts: {
         Row: {
-          clausulas_ids: Json
-          comprador_id: string | null
-          conteudo_final: string
+          client_id: string | null
+          closing_status: Database["public"]["Enums"]["closing_status"] | null
+          company_id: string
           created_at: string
-          dados: Json
-          empresa_id: string | null
+          created_by: string | null
+          draft_id: string | null
+          end_date: string | null
+          financial_status:
+            | Database["public"]["Enums"]["financial_status"]
+            | null
           id: string
-          nome: string
-          status: string
-          template_id: string | null
-          tenant_id: string
+          idempotency_key: string | null
+          operation_status:
+            | Database["public"]["Enums"]["operation_status"]
+            | null
+          property_id: string | null
+          proposal_id: string | null
+          rent_amount: number
+          signed_at: string | null
+          signing_external_id: string | null
+          signing_provider: string | null
+          sla_deadline: string | null
+          start_date: string | null
+          status: Database["public"]["Enums"]["contract_status"]
           updated_at: string
-          valor_financiamento: number | null
-          valor_sinal: number | null
-          valor_total: number | null
-          vendedor_id: string | null
         }
         Insert: {
-          clausulas_ids?: Json
-          comprador_id?: string | null
-          conteudo_final?: string
+          client_id?: string | null
+          closing_status?: Database["public"]["Enums"]["closing_status"] | null
+          company_id: string
           created_at?: string
-          dados?: Json
-          empresa_id?: string | null
+          created_by?: string | null
+          draft_id?: string | null
+          end_date?: string | null
+          financial_status?:
+            | Database["public"]["Enums"]["financial_status"]
+            | null
           id?: string
-          nome?: string
-          status?: string
-          template_id?: string | null
-          tenant_id: string
+          idempotency_key?: string | null
+          operation_status?:
+            | Database["public"]["Enums"]["operation_status"]
+            | null
+          property_id?: string | null
+          proposal_id?: string | null
+          rent_amount?: number
+          signed_at?: string | null
+          signing_external_id?: string | null
+          signing_provider?: string | null
+          sla_deadline?: string | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["contract_status"]
           updated_at?: string
-          valor_financiamento?: number | null
-          valor_sinal?: number | null
-          valor_total?: number | null
-          vendedor_id?: string | null
         }
         Update: {
-          clausulas_ids?: Json
-          comprador_id?: string | null
-          conteudo_final?: string
+          client_id?: string | null
+          closing_status?: Database["public"]["Enums"]["closing_status"] | null
+          company_id?: string
           created_at?: string
-          dados?: Json
-          empresa_id?: string | null
+          created_by?: string | null
+          draft_id?: string | null
+          end_date?: string | null
+          financial_status?:
+            | Database["public"]["Enums"]["financial_status"]
+            | null
           id?: string
-          nome?: string
-          status?: string
-          template_id?: string | null
-          tenant_id?: string
+          idempotency_key?: string | null
+          operation_status?:
+            | Database["public"]["Enums"]["operation_status"]
+            | null
+          property_id?: string | null
+          proposal_id?: string | null
+          rent_amount?: number
+          signed_at?: string | null
+          signing_external_id?: string | null
+          signing_provider?: string | null
+          sla_deadline?: string | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["contract_status"]
           updated_at?: string
-          valor_financiamento?: number | null
-          valor_sinal?: number | null
-          valor_total?: number | null
-          vendedor_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "contracts_comprador_id_fkey"
-            columns: ["comprador_id"]
+            foreignKeyName: "contracts_client_id_fkey"
+            columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "contacts"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contracts_empresa_id_fkey"
-            columns: ["empresa_id"]
+            foreignKeyName: "contracts_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contracts_template_id_fkey"
-            columns: ["template_id"]
+            foreignKeyName: "contracts_draft_id_fkey"
+            columns: ["draft_id"]
             isOneToOne: false
-            referencedRelation: "contract_templates"
+            referencedRelation: "contract_drafts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contracts_tenant_id_fkey"
-            columns: ["tenant_id"]
+            foreignKeyName: "contracts_property_id_fkey"
+            columns: ["property_id"]
             isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contracts_vendedor_id_fkey"
-            columns: ["vendedor_id"]
+            foreignKeyName: "contracts_proposal_id_fkey"
+            columns: ["proposal_id"]
             isOneToOne: false
-            referencedRelation: "contacts"
+            referencedRelation: "proposals"
             referencedColumns: ["id"]
           },
         ]
       }
-      extracted_document_data: {
+      documents: {
         Row: {
-          confidence_score: number
-          created_at: string
-          document_id: string
-          extracted_json: Json
-          id: string
-          reviewed: boolean
-          reviewed_at: string | null
-        }
-        Insert: {
-          confidence_score?: number
-          created_at?: string
-          document_id: string
-          extracted_json?: Json
-          id?: string
-          reviewed?: boolean
-          reviewed_at?: string | null
-        }
-        Update: {
-          confidence_score?: number
-          created_at?: string
-          document_id?: string
-          extracted_json?: Json
-          id?: string
-          reviewed?: boolean
-          reviewed_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "extracted_document_data_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "participant_documents"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      invitations: {
-        Row: {
-          created_at: string
-          email: string
-          expires_at: string
-          id: string
-          invited_by: string
-          role: Database["public"]["Enums"]["app_role"]
-          status: string
-          tenant_id: string
-          token: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          expires_at?: string
-          id?: string
-          invited_by: string
-          role?: Database["public"]["Enums"]["app_role"]
-          status?: string
-          tenant_id: string
-          token?: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          invited_by?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          status?: string
-          tenant_id?: string
-          token?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invitations_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      participant_documents: {
-        Row: {
+          company_id: string
           created_at: string
           document_type: Database["public"]["Enums"]["document_type"]
+          entity_id: string | null
+          entity_type: string | null
           file_name: string
           file_path: string
-          file_size: number
+          file_size: number | null
           id: string
-          mime_type: string
-          participant_id: string
-          processing_status: Database["public"]["Enums"]["processing_status"]
-          tenant_id: string
+          is_sensitive: boolean | null
+          mime_type: string | null
+          uploaded_by: string | null
         }
         Insert: {
+          company_id: string
           created_at?: string
           document_type?: Database["public"]["Enums"]["document_type"]
+          entity_id?: string | null
+          entity_type?: string | null
           file_name: string
           file_path: string
-          file_size?: number
+          file_size?: number | null
           id?: string
-          mime_type?: string
-          participant_id: string
-          processing_status?: Database["public"]["Enums"]["processing_status"]
-          tenant_id: string
+          is_sensitive?: boolean | null
+          mime_type?: string | null
+          uploaded_by?: string | null
         }
         Update: {
+          company_id?: string
           created_at?: string
           document_type?: Database["public"]["Enums"]["document_type"]
+          entity_id?: string | null
+          entity_type?: string | null
           file_name?: string
           file_path?: string
-          file_size?: number
+          file_size?: number | null
           id?: string
-          mime_type?: string
-          participant_id?: string
-          processing_status?: Database["public"]["Enums"]["processing_status"]
-          tenant_id?: string
+          is_sensitive?: boolean | null
+          mime_type?: string | null
+          uploaded_by?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "participant_documents_participant_id_fkey"
-            columns: ["participant_id"]
+            foreignKeyName: "documents_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "contract_participants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "participant_documents_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
       }
-      plans: {
+      maintenance_requests: {
         Row: {
+          company_id: string
+          contract_id: string | null
           created_at: string
-          features: Json
+          description: string | null
           id: string
-          max_contracts_per_month: number
-          max_users: number
-          name: string
-          price: number
+          notes: string | null
+          priority: Database["public"]["Enums"]["maintenance_priority"]
+          property_id: string | null
+          reported_by: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["maintenance_status"]
+          title: string
+          updated_at: string
         }
         Insert: {
+          company_id: string
+          contract_id?: string | null
           created_at?: string
-          features?: Json
+          description?: string | null
           id?: string
-          max_contracts_per_month?: number
-          max_users?: number
-          name: string
-          price?: number
+          notes?: string | null
+          priority?: Database["public"]["Enums"]["maintenance_priority"]
+          property_id?: string | null
+          reported_by?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["maintenance_status"]
+          title: string
+          updated_at?: string
         }
         Update: {
+          company_id?: string
+          contract_id?: string | null
           created_at?: string
-          features?: Json
+          description?: string | null
           id?: string
-          max_contracts_per_month?: number
-          max_users?: number
-          name?: string
-          price?: number
+          notes?: string | null
+          priority?: Database["public"]["Enums"]["maintenance_priority"]
+          property_id?: string | null
+          reported_by?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["maintenance_status"]
+          title?: string
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_requests_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_requests_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          client_id: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          due_date: string
+          external_id: string | null
+          id: string
+          idempotency_key: string | null
+          notes: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          payment_method: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          client_id?: string | null
+          company_id: string
+          contract_id?: string | null
+          created_at?: string
+          due_date: string
+          external_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          client_id?: string | null
+          company_id?: string
+          contract_id?: string | null
+          created_at?: string
+          due_date?: string
+          external_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
           avatar_url: string | null
+          company_id: string | null
           created_at: string
-          email: string
+          email: string | null
+          full_name: string | null
           id: string
-          nome: string
-          status: string
-          tenant_id: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string
-          id: string
-          nome?: string
-          status?: string
-          tenant_id: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string
-          id?: string
-          nome?: string
-          status?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      subscriptions: {
-        Row: {
-          created_at: string
-          end_date: string | null
-          id: string
-          plan_id: string
-          start_date: string
-          status: string
-          tenant_id: string
-          trial_end: string | null
-          trial_start: string | null
+          phone: string | null
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
+          company_id?: string | null
           created_at?: string
-          end_date?: string | null
-          id?: string
-          plan_id: string
-          start_date?: string
-          status?: string
-          tenant_id: string
-          trial_end?: string | null
-          trial_start?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          end_date?: string | null
-          id?: string
-          plan_id?: string
-          start_date?: string
-          status?: string
-          tenant_id?: string
-          trial_end?: string | null
-          trial_start?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "subscriptions_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "subscriptions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: true
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      template_clauses: {
-        Row: {
-          clause_id: string
+          email?: string | null
+          full_name?: string | null
           id: string
-          ordem: number
-          template_id: string
-        }
-        Insert: {
-          clause_id: string
-          id?: string
-          ordem?: number
-          template_id: string
+          phone?: string | null
+          updated_at?: string
         }
         Update: {
-          clause_id?: string
+          avatar_url?: string | null
+          company_id?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
           id?: string
-          ordem?: number
-          template_id?: string
+          phone?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "template_clauses_clause_id_fkey"
-            columns: ["clause_id"]
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "clauses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "template_clauses_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "contract_templates"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
       }
-      tenants: {
+      properties: {
         Row: {
+          address: string | null
+          area_sqm: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          city: string | null
+          company_id: string
+          condo_fee: number | null
           created_at: string
+          created_by: string | null
+          description: string | null
+          external_id: string | null
           id: string
-          nome: string
-          onboarding_completed: boolean
-          slug: string
-          status: string
+          iptu_amount: number | null
+          neighborhood: string | null
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          parking_spots: number | null
+          property_type: string | null
+          rent_amount: number
+          state: string | null
+          status: Database["public"]["Enums"]["property_status"]
+          title: string
+          updated_at: string
+          zip_code: string | null
         }
         Insert: {
+          address?: string | null
+          area_sqm?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string | null
+          company_id: string
+          condo_fee?: number | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
+          external_id?: string | null
           id?: string
-          nome: string
-          onboarding_completed?: boolean
-          slug: string
-          status?: string
+          iptu_amount?: number | null
+          neighborhood?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          parking_spots?: number | null
+          property_type?: string | null
+          rent_amount?: number
+          state?: string | null
+          status?: Database["public"]["Enums"]["property_status"]
+          title: string
+          updated_at?: string
+          zip_code?: string | null
         }
         Update: {
+          address?: string | null
+          area_sqm?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string | null
+          company_id?: string
+          condo_fee?: number | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
+          external_id?: string | null
           id?: string
-          nome?: string
-          onboarding_completed?: boolean
-          slug?: string
-          status?: string
+          iptu_amount?: number | null
+          neighborhood?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          parking_spots?: number | null
+          property_type?: string | null
+          rent_amount?: number
+          state?: string | null
+          status?: Database["public"]["Enums"]["property_status"]
+          title?: string
+          updated_at?: string
+          zip_code?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "properties_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposals: {
+        Row: {
+          client_id: string | null
+          company_id: string
+          contract_duration_months: number | null
+          created_at: string
+          created_by: string | null
+          deposit_amount: number | null
+          guarantee_type: string | null
+          id: string
+          idempotency_key: string | null
+          notes: string | null
+          property_id: string | null
+          rejection_reason: string | null
+          rent_amount: number | null
+          sla_deadline: string | null
+          start_date: string | null
+          status: Database["public"]["Enums"]["proposal_status"]
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          company_id: string
+          contract_duration_months?: number | null
+          created_at?: string
+          created_by?: string | null
+          deposit_amount?: number | null
+          guarantee_type?: string | null
+          id?: string
+          idempotency_key?: string | null
+          notes?: string | null
+          property_id?: string | null
+          rejection_reason?: string | null
+          rent_amount?: number | null
+          sla_deadline?: string | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["proposal_status"]
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          company_id?: string
+          contract_duration_months?: number | null
+          created_at?: string
+          created_by?: string | null
+          deposit_amount?: number | null
+          guarantee_type?: string | null
+          id?: string
+          idempotency_key?: string | null
+          notes?: string | null
+          property_id?: string | null
+          rejection_reason?: string | null
+          rent_amount?: number | null
+          sla_deadline?: string | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["proposal_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
+          company_id: string
+          created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
-          tenant_id: string
           user_id: string
         }
         Insert: {
+          company_id: string
+          created_at?: string
           id?: string
           role: Database["public"]["Enums"]["app_role"]
-          tenant_id: string
           user_id: string
         }
         Update: {
+          company_id?: string
+          created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
-          tenant_id?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_tenant_id_fkey"
-            columns: ["tenant_id"]
+            foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_events: {
+        Row: {
+          company_id: string
+          created_at: string
+          error: string | null
+          event_type: string
+          id: string
+          idempotency_key: string
+          payload: Json
+          processed: boolean
+          processed_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          error?: string | null
+          event_type: string
+          id?: string
+          idempotency_key?: string
+          payload?: Json
+          processed?: boolean
+          processed_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          error?: string | null
+          event_type?: string
+          id?: string
+          idempotency_key?: string
+          payload?: Json
+          processed?: boolean
+          processed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -917,42 +907,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      accept_invitation: {
-        Args: { p_token: string; p_user_id: string }
-        Returns: Json
+      get_user_company_id: { Args: { _user_id: string }; Returns: string }
+      has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: boolean
       }
-      check_tenant_limits: { Args: { p_tenant_id: string }; Returns: Json }
-      complete_onboarding:
-        | {
-            Args: {
-              p_cep: string
-              p_cidade: string
-              p_cnpj: string
-              p_email: string
-              p_estado: string
-              p_nome: string
-              p_whatsapp: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_bairro?: string
-              p_cep: string
-              p_cidade: string
-              p_cnpj: string
-              p_complemento?: string
-              p_email: string
-              p_estado: string
-              p_nome: string
-              p_numero?: string
-              p_rua?: string
-              p_whatsapp: string
-            }
-            Returns: undefined
-          }
-      get_admin_metrics: { Args: never; Returns: Json }
-      get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -960,39 +922,49 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
-        | "super_admin"
-        | "admin_empresa"
+        | "admin"
+        | "gerente"
         | "corretor"
-        | "assistente"
-        | "operacional"
+        | "financeiro"
+        | "atendimento"
+        | "vistoria"
+        | "super_admin"
+      closing_status: "em_rescisao" | "encerrado"
+      contract_status:
+        | "draft"
+        | "em_revisao"
+        | "aguardando_resposta_externa"
+        | "aguardando_assinatura"
+        | "assinado"
+        | "expirado"
       document_type:
-        | "cnh"
-        | "rg"
-        | "cpf"
-        | "comprovante_endereco"
-        | "certidao_casamento"
-        | "procuracao"
-        | "contrato_social"
-        | "cnpj"
+        | "identidade"
+        | "comprovante_renda"
+        | "comprovante_residencia"
+        | "contrato"
+        | "vistoria"
         | "outro"
-      participant_role:
-        | "comprador"
-        | "vendedor"
-        | "conjuge"
-        | "fiador"
-        | "testemunha"
-        | "procurador"
-        | "interveniente"
-        | "outro"
-      processing_status:
-        | "pending"
-        | "processing"
-        | "completed"
-        | "failed"
-        | "low_confidence"
+      financial_status: "adimplente" | "inadimplente"
+      maintenance_priority: "baixa" | "media" | "alta" | "urgente"
+      maintenance_status: "aberta" | "em_andamento" | "concluida" | "cancelada"
+      operation_status:
+        | "aguardando_vistoria"
+        | "vistoria_reprovada"
+        | "aguardando_entrega_chaves"
+        | "ativo"
+      payment_status: "pendente" | "pago" | "atrasado" | "cancelado"
+      property_status: "disponivel" | "reservado" | "locado" | "indisponivel"
+      proposal_status:
+        | "iniciada"
+        | "enviada"
+        | "aguardando_resposta_externa"
+        | "pre_aprovada"
+        | "recusada"
+        | "cancelada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1121,39 +1093,49 @@ export const Constants = {
   public: {
     Enums: {
       app_role: [
-        "super_admin",
-        "admin_empresa",
+        "admin",
+        "gerente",
         "corretor",
-        "assistente",
-        "operacional",
+        "financeiro",
+        "atendimento",
+        "vistoria",
+        "super_admin",
+      ],
+      closing_status: ["em_rescisao", "encerrado"],
+      contract_status: [
+        "draft",
+        "em_revisao",
+        "aguardando_resposta_externa",
+        "aguardando_assinatura",
+        "assinado",
+        "expirado",
       ],
       document_type: [
-        "cnh",
-        "rg",
-        "cpf",
-        "comprovante_endereco",
-        "certidao_casamento",
-        "procuracao",
-        "contrato_social",
-        "cnpj",
+        "identidade",
+        "comprovante_renda",
+        "comprovante_residencia",
+        "contrato",
+        "vistoria",
         "outro",
       ],
-      participant_role: [
-        "comprador",
-        "vendedor",
-        "conjuge",
-        "fiador",
-        "testemunha",
-        "procurador",
-        "interveniente",
-        "outro",
+      financial_status: ["adimplente", "inadimplente"],
+      maintenance_priority: ["baixa", "media", "alta", "urgente"],
+      maintenance_status: ["aberta", "em_andamento", "concluida", "cancelada"],
+      operation_status: [
+        "aguardando_vistoria",
+        "vistoria_reprovada",
+        "aguardando_entrega_chaves",
+        "ativo",
       ],
-      processing_status: [
-        "pending",
-        "processing",
-        "completed",
-        "failed",
-        "low_confidence",
+      payment_status: ["pendente", "pago", "atrasado", "cancelado"],
+      property_status: ["disponivel", "reservado", "locado", "indisponivel"],
+      proposal_status: [
+        "iniciada",
+        "enviada",
+        "aguardando_resposta_externa",
+        "pre_aprovada",
+        "recusada",
+        "cancelada",
       ],
     },
   },
