@@ -1399,6 +1399,25 @@ const NovoContrato = () => {
         conteudo={conteudoFinal}
         clausulas={selectedClauses.map((c) => ({ titulo: c.titulo, conteudo: c.conteudo }))}
       />
+
+      {/* Lote D: Unresolved placeholders dialog */}
+      <UnresolvedPlaceholdersDialog
+        open={unresolvedDialogOpen}
+        onOpenChange={setUnresolvedDialogOpen}
+        unresolved={liveUnresolved}
+        mode={unresolvedDialogMode}
+        onGoBack={() => setUnresolvedDialogOpen(false)}
+        onContinueAnyway={
+          unresolvedDialogMode === "soft"
+            ? () => {
+                setUnresolvedDialogOpen(false);
+                const action = pendingSoftActionRef.current;
+                pendingSoftActionRef.current = null;
+                if (action) action();
+              }
+            : undefined
+        }
+      />
     </div>
   );
 };
