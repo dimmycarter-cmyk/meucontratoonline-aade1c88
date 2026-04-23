@@ -142,6 +142,22 @@ const ContratoDetalhe = () => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
   };
 
+  // Lote D: live unresolved placeholders no contrato salvo
+  const liveUnresolved = useMemo(() => {
+    const text = editing ? editContent : (contract?.conteudo_final ?? "");
+    const dados = (contract?.dados ?? {}) as Record<string, string>;
+    if (!text) return [];
+    return parseUnresolvedStrings(getUnresolvedPlaceholders(text, dados));
+  }, [editing, editContent, contract?.conteudo_final, contract?.dados]);
+
+  const handlePrintClick = () => {
+    if (liveUnresolved.length > 0) {
+      setUnresolvedDialogOpen(true);
+      return;
+    }
+    window.print();
+  };
+
   if (isLoading) return <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>;
   if (!contract) return <div className="p-8 text-center text-sm text-muted-foreground">Contrato não encontrado.</div>;
 
