@@ -102,7 +102,38 @@ const MultipleParticipantsPanel = ({
         </p>
       </div>
 
+      {/* Toggle Procurador (T6) */}
+      {onFlagChange && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Scale className="h-4 w-4 text-primary" />
+              <div>
+                <Label className="text-sm font-medium cursor-pointer" htmlFor="toggle-procurador">
+                  Vendedor representado por procurador?
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Ao ativar, o bloco de procuração aparece no contrato e um card de procurador é habilitado.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="toggle-procurador"
+              checked={temProcurador}
+              onCheckedChange={(v) => {
+                onFlagChange("tem_procurador", v);
+                // Limpa cards de procurador quando desliga
+                if (!v) {
+                  onChange(participants.filter((p) => p.role !== "procurador"));
+                }
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {SECTIONS.map((section) => {
+        if (section.hideUnlessFlag && !flags?.[section.hideUnlessFlag]) return null;
         const items = participants.filter((p) => p.role === section.role);
         const canAdd = items.length < section.max;
         return (
