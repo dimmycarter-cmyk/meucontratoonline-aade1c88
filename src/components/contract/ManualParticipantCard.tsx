@@ -14,6 +14,7 @@ const ROLE_LABELS: Record<ParticipantRole, string> = {
   comprador: "Comprador",
   vendedor: "Vendedor",
   conjuge: "Cônjuge",
+  anuente: "Anuente",
   fiador: "Fiador",
   testemunha: "Testemunha",
   procurador: "Procurador",
@@ -41,6 +42,19 @@ export interface ManualParticipantData {
   cidade: string;
   estado: string;
   contact_id: string | null;
+  // Leva 2 — campos extras
+  oab?: string;
+  regime_bens?: string;
+  genero?: string;
+  data_nascimento?: string;
+  banco?: string;
+  agencia?: string;
+  conta?: string;
+  pix?: string;
+  /** Marca esse cônjuge para também aparecer como anuente_* (sem duplicar cadastro). */
+  also_anuente?: boolean;
+  /** Vínculo opcional ao participante "principal" (comprador/vendedor) — usado para cônjuges. */
+  linked_to_id?: string | null;
 }
 
 export const emptyParticipant = (role: ParticipantRole): ManualParticipantData => ({
@@ -63,6 +77,16 @@ export const emptyParticipant = (role: ParticipantRole): ManualParticipantData =
   cidade: "",
   estado: "",
   contact_id: null,
+  oab: "",
+  regime_bens: "",
+  genero: "",
+  data_nascimento: "",
+  banco: "",
+  agencia: "",
+  conta: "",
+  pix: "",
+  also_anuente: false,
+  linked_to_id: null,
 });
 
 interface ManualParticipantCardProps {
