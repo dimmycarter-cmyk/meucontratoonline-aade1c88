@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { extractVariables } from "@/lib/placeholder";
-import { FileText, Plus, Trash2, Pencil, MoreHorizontal, Copy, Globe } from "lucide-react";
+import { FileText, Plus, Trash2, Pencil, MoreHorizontal, Copy, Globe, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useAuth } from "@/contexts/AuthContext";
 import RichTextEditor from "@/components/RichTextEditor";
+import ImportDocxDialog from "@/components/templates/ImportDocxDialog";
 
 const TIPOS = ["Compra e Venda", "Locação", "Proposta", "Intermediação", "Outro"];
 
@@ -21,6 +22,7 @@ const Modelos = () => {
   const { templates, isLoading, createTemplate, updateTemplate, deleteTemplate, isCreating, isSaving } = useTemplates();
   const { isSuperAdmin } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ nome: "", descricao: "", tipo: "Compra e Venda" });
@@ -111,7 +113,12 @@ const Modelos = () => {
           <h1 className="font-display text-2xl font-bold text-foreground">Modelos de Contrato</h1>
           <p className="text-sm text-muted-foreground">{templates.length} modelos cadastrados</p>
         </div>
-        <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Modelo</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" /> Importar .docx
+          </Button>
+          <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Modelo</Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -228,6 +235,8 @@ const Modelos = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ImportDocxDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
     </div>
   );
 };
