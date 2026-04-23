@@ -29,7 +29,7 @@ import ContractModeSelector from "@/components/contract/ContractModeSelector";
 import ParticipantManager from "@/components/contract/ParticipantManager";
 import type { Participant, ParticipantRole } from "@/components/contract/ParticipantCard";
 import type { DocType, UploadedDoc } from "@/components/contract/DocumentUploader";
-import ManualParticipantManager from "@/components/contract/ManualParticipantManager";
+import MultipleParticipantsPanel from "@/components/contract/MultipleParticipantsPanel";
 import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
 import { emptyParticipant } from "@/components/contract/ManualParticipantCard";
 import ExtractionProgress from "@/components/contract/ExtractionProgress";
