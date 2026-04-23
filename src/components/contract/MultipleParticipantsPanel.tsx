@@ -41,7 +41,10 @@ const MultipleParticipantsPanel = ({
   participants,
   onChange,
   contacts,
+  flags,
+  onFlagChange,
 }: MultipleParticipantsPanelProps) => {
+  const temProcurador = flags?.tem_procurador === true;
   // Spouses linked to a principal participant
   const spousesByPrincipal = useMemo(() => {
     const map = new Map<string, ManualParticipantData[]>();
