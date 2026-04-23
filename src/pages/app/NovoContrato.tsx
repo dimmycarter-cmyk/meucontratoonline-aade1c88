@@ -1327,14 +1327,21 @@ const NovoContrato = () => {
 
       {/* Navigation */}
       {currentStep?.id !== "editor-finish" && currentStep?.id !== "selection" && (
-        <div className="mt-6 flex justify-between">
+        <div className="mt-6 flex items-center justify-between gap-4">
           <Button variant="outline" onClick={handleBack}>
             <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
           </Button>
-          <Button disabled={!canProceed()} onClick={handleNext}>
-            {currentStep?.id === "review-data" && aiReviewSubStep !== "data" ? "Próximo" : "Próximo"}
-            <ChevronRight className="ml-1 h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-3">
+            {getBlockReason() && (
+              <span className="text-xs text-muted-foreground text-right max-w-sm">
+                {getBlockReason()}
+              </span>
+            )}
+            <Button disabled={!canProceed()} onClick={handleNext} title={getBlockReason() ?? undefined}>
+              Próximo
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 
