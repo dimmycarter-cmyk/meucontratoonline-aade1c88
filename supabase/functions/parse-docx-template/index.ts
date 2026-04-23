@@ -1,0 +1,223 @@
+// supabase/functions/parse-docx-template/index.ts
+// Lote G.1 — Importador .docx (Leva 3)
+//
+// Recebe um .docx via multipart/form-data, extrai HTML + texto via mammoth,
+// detecta placeholders em colchetes [LABEL], identifica labels ambíguos
+// (genéricos como [CPF]), executa o detector de PII e retorna o payload
+// que alimenta o ImportDocxDialog no client.
+
+import { z } from "https://esm.sh/zod@3.23.8";
+// @ts-ignore — mammoth roda em Deno via esm.sh
+import mammoth from "https://esm.sh/mammoth@1.8.0?target=deno";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+// ============================================================================
+// Tipos / dicionários (espelho mínimo de src/lib/placeholder.ts)
+// ============================================================================
+
+// Subset do LEGACY_BRACKET_MAP — labels qualificados conhecidos.
+// Usamos apenas para CHECAR se um label é ambíguo ou já mapeado.
+// Não precisa estar completo: qualquer label fora desta lista vira "desconhecido"
+// e pode ser tratado como ambíguo no client.
+const KNOWN_QUALIFIED_LABELS = new Set([
+  "NOME COMPLETO DO(A) COMPRADOR(A)", "NOME DO COMPRADOR", "COMPRADOR",
+  "CPF DO(A) COMPRADOR(A)", "CPF DO COMPRADOR",
+  "RG DO(A) COMPRADOR(A)", "RG DO COMPRADOR",
+  "NOME COMPLETO DO(A) VENDEDOR(A)", "NOME DO VENDEDOR", "VENDEDOR",
+  "CPF DO(A) VENDEDOR(A)", "CPF DO VENDEDOR",
+  "RG DO(A) VENDEDOR(A)", "RG DO VENDEDOR",
+  "NOME DO(A) PROCURADOR(A)", "OAB DO(A) PROCURADOR(A)", "OAB DO PROCURADOR",
+  "DESCRIÇÃO DO IMÓVEL", "MATRÍCULA DO IMÓVEL",
+  "VALOR TOTAL", "FORMA DE PAGAMENTO",
+  "NOME DA IMOBILIÁRIA", "CNPJ DA IMOBILIÁRIA",
+  // Genéricos AMBÍGUOS — listados aqui também para serem reportados como ambíguos
+  // explicitamente, em vez de "desconhecidos".
+]);
+
+// Labels genéricos (sem qualificação de papel) que disparam ambiguidade.
+const GENERIC_AMBIGUOUS = new Set([
+  "CPF", "RG", "NOME", "NOME COMPLETO", "ENDEREÇO", "ENDEREÇO COMPLETO",
+  "NACIONALIDADE", "ESTADO CIVIL", "PROFISSÃO", "E-MAIL", "EMAIL",
+  "TELEFONE", "ÓRGÃO EMISSOR", "ÓRGÃO EXPEDIDOR", "RG/ÓRGÃO EMISSOR",
+]);
+
+// PII patterns — espelho de src/lib/pii-detector.ts (versão server)
+const PII_PATTERNS: Array<{ kind: string; regex: RegExp; hint: string }> = [
+  { kind: "cpf", regex: /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, hint: "CPF formatado encontrado — substitua por {{vendedor_cpf}} ou {{comprador_cpf}}." },
+  { kind: "cnpj", regex: /\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, hint: "CNPJ formatado encontrado — substitua por {{empresa_cnpj}}." },
+  { kind: "telefone", regex: /\(\d{2}\)\s*\d{4,5}-\d{4}/g, hint: "Telefone formatado — substitua por {{*_whatsapp}}." },
+  { kind: "email", regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, hint: "E-mail real — substitua por {{*_email}}." },
+  { kind: "endereco_cep", regex: /\b\d{5}-\d{3}\b/g, hint: "CEP encontrado — provável endereço real." },
+  { kind: "valor_monetario_extenso", regex: /R\$\s*[\d.]+,\d{2}\s*\([^)]*(?:reais|centavos|mil|milh)[^)]*\)/gi, hint: "Valor monetário com extenso — substitua por {{valor_*}}." },
+];
+
+// ============================================================================
+// Validação de input
+// ============================================================================
+
+const InputSchema = z.object({
+  filename: z.string().min(1).max(255),
+});
+
+// ============================================================================
+// Handler
+// ============================================================================
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return jsonError(405, "Method not allowed");
+  }
+
+  try {
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("multipart/form-data")) {
+      return jsonError(400, "Esperado multipart/form-data");
+    }
+
+    const form = await req.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) {
+      return jsonError(400, "Campo 'file' ausente ou inválido");
+    }
+    if (!/\.docx$/i.test(file.name)) {
+      return jsonError(400, "Arquivo deve ter extensão .docx");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return jsonError(413, "Arquivo excede 5MB");
+    }
+
+    const parsed = InputSchema.safeParse({ filename: file.name });
+    if (!parsed.success) {
+      return jsonError(400, JSON.stringify(parsed.error.flatten().fieldErrors));
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+
+    // mammoth.convertToHtml + extractRawText
+    const htmlResult = await mammoth.convertToHtml({ arrayBuffer });
+    const textResult = await mammoth.extractRawText({ arrayBuffer });
+
+    const html: string = htmlResult.value || "";
+    const text: string = textResult.value || "";
+    const mammothMessages: string[] = (htmlResult.messages || []).map(
+      (m: { message: string; type?: string }) => `${m.type ?? "info"}: ${m.message}`
+    );
+
+    // ----------------------------------------------------------------
+    // Detectar labels em colchetes
+    // ----------------------------------------------------------------
+    const labelOccurrencesByRaw = new Map<string, number>();
+    const detectedLabels: Array<{
+      raw: string;
+      occurrenceIndex: number;
+      context: string;
+    }> = [];
+    const ambiguousLabels: Array<{
+      raw: string;
+      occurrenceIndex: number;
+      context: string;
+    }> = [];
+    const knownPlaceholders = new Set<string>();
+
+    const bracketRe = /\[([^\]]+)\]/g;
+    let m: RegExpExecArray | null;
+    while ((m = bracketRe.exec(text)) !== null) {
+      const raw = `[${m[1]}]`;
+      const labelUpper = m[1].trim().toUpperCase();
+
+      // Filtra falsos positivos: numerais, refs legais
+      if (/^\d+([.,]\d+)?$/.test(m[1].trim())) continue;
+      if (/^(art\.?|lei|inc(iso)?|§|par[áa]grafo)\b/i.test(m[1].trim())) continue;
+
+      const startCtx = Math.max(0, m.index - 80);
+      const endCtx = Math.min(text.length, m.index + m[0].length + 30);
+      const context = text.slice(startCtx, endCtx);
+
+      const prevCount = labelOccurrencesByRaw.get(raw) ?? 0;
+      labelOccurrencesByRaw.set(raw, prevCount + 1);
+
+      const entry = { raw, occurrenceIndex: prevCount, context };
+      detectedLabels.push(entry);
+
+      if (GENERIC_AMBIGUOUS.has(labelUpper)) {
+        ambiguousLabels.push(entry);
+      } else if (KNOWN_QUALIFIED_LABELS.has(labelUpper)) {
+        knownPlaceholders.add(raw);
+      } else {
+        // Desconhecido — também devolve como ambíguo para UI decidir
+        ambiguousLabels.push(entry);
+      }
+    }
+
+    // Detectar curly placeholders já presentes ({{key}})
+    const curlyRe = /\{\{\s*([\w]+)\s*\}\}/g;
+    while ((m = curlyRe.exec(text)) !== null) {
+      knownPlaceholders.add(`{{${m[1]}}}`);
+    }
+
+    // ----------------------------------------------------------------
+    // PII
+    // ----------------------------------------------------------------
+    const piiMatches: Array<{ kind: string; value: string; index: number; hint: string }> = [];
+    for (const { kind, regex, hint } of PII_PATTERNS) {
+      const re = new RegExp(regex.source, regex.flags);
+      let pm: RegExpExecArray | null;
+      while ((pm = re.exec(text)) !== null) {
+        piiMatches.push({ kind, value: pm[0], index: pm.index, hint });
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // Warnings (limitações do mammoth)
+    // ----------------------------------------------------------------
+    const warnings: string[] = [];
+    if (/<table/i.test(html)) {
+      warnings.push(
+        "Tabelas detectadas — células mescladas podem não ser preservadas. Revise o preview antes de confirmar."
+      );
+    }
+    if (/<img/i.test(html) || mammothMessages.some((m) => /image/i.test(m))) {
+      warnings.push("Imagens detectadas — serão descartadas na importação.");
+    }
+    for (const msg of mammothMessages) {
+      if (/warning|error/i.test(msg)) warnings.push(`mammoth: ${msg}`);
+    }
+
+    return new Response(
+      JSON.stringify({
+        html,
+        text,
+        detectedLabels,
+        knownPlaceholders: Array.from(knownPlaceholders),
+        ambiguousLabels,
+        piiMatches,
+        warnings,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (err) {
+    console.error("[parse-docx-template] erro:", err);
+    const message = err instanceof Error ? err.message : "Erro desconhecido";
+    return jsonError(500, message);
+  }
+});
+
+function jsonError(status: number, message: string) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
