@@ -55,6 +55,7 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   ...pessoa("anuente", "Anuente", "Anuente"),
 
   // ===== Procuração (T6) =====
+  { key: "tem_procurador", label: "Possui procurador? (true/false)", category: "Procuração" },
   ...pessoa("procurador", "Procurador", "Procuração"),
   { key: "procurador_oab", label: "Procurador - OAB", category: "Procuração" },
   { key: "procurador_outorgante", label: "Outorgante (quem deu a procuração)", category: "Procuração" },

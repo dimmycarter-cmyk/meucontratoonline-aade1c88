@@ -220,6 +220,80 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "DATA DO CONTRATO POR EXTENSO": "data_contrato_extenso",
 };
 
+/**
+ * Remove blocos condicionais {{#if FLAG}}…{{/if}} cuja FLAG não esteja
+ * truthy em `vars` (truthy = "true" case-insensitive).
+ *
+ * Quando a flag é truthy: as tags são removidas, o conteúdo interno permanece.
+ * Quando é falsy/ausente: o bloco inteiro é removido (incluindo conteúdo).
+ *
+ * Falsy = "" | "false" | "0" | "no" | "não"  (case-insensitive, trim).
+ * Qualquer outro valor preenchido é truthy — isso permite usar tanto flags
+ * boolean ("true"/"false") quanto blocos condicionados à presença de um
+ * campo (ex: {{#if procurador_oab}}…{{/if}} fica visível só se o OAB existir).
+ *
+ * Suporta blocos aninhados via execução iterativa até estabilizar — o
+ * padrão non-greedy `[\s\S]*?` casa o `{{/if}}` mais próximo, então a cada
+ * iteração resolvemos os blocos mais internos primeiro.
+ *
+ * IMPORTANTE: deve ser chamado ANTES de `replacePlaceholders` e
+ * `getUnresolvedPlaceholders` — caso contrário, placeholders dentro de
+ * blocos desativados serão erroneamente listados como pendentes.
+ */
+export function stripConditionalBlocks(
+  text: string,
+  vars: Record<string, string>
+): string {
+  if (!text) return text;
+  const isTruthy = (key: string) => {
+    const v = (vars[key] ?? "").toString().trim().toLowerCase();
+    if (v === "" || v === "false" || v === "0" || v === "no" || v === "não") return false;
+    return true;
+  };
+
+  // Parser balanceado: a cada iteração, encontra o bloco MAIS INTERNO
+  // (último `{{#if X}}` antes do primeiro `{{/if}}` que o segue) e o resolve.
+  // Isso evita que o regex non-greedy case `{{/if}}` interno como fim do externo.
+  const openRe = /\{\{#if\s+([\w]+)\}\}/g;
+  const closeStr = "{{/if}}";
+
+  let curr = text;
+  let safety = 0;
+  while (safety < 50) {
+    safety++;
+    const closeIdx = curr.indexOf(closeStr);
+    if (closeIdx === -1) break;
+
+    // Encontra o último `{{#if ...}}` antes desse `{{/if}}`
+    openRe.lastIndex = 0;
+    let lastOpen: { idx: number; len: number; flag: string } | null = null;
+    let m: RegExpExecArray | null;
+    while ((m = openRe.exec(curr)) !== null) {
+      if (m.index >= closeIdx) break;
+      lastOpen = { idx: m.index, len: m[0].length, flag: m[1] };
+    }
+    if (!lastOpen) break; // `{{/if}}` órfão — para evitar loop, sai
+
+    const innerStart = lastOpen.idx + lastOpen.len;
+    const inner = curr.slice(innerStart, closeIdx);
+    const replacement = isTruthy(lastOpen.flag) ? inner : "";
+    curr = curr.slice(0, lastOpen.idx) + replacement + curr.slice(closeIdx + closeStr.length);
+  }
+  return curr;
+}
+
+/**
+ * Helper de conveniência: pré-processa o template (resolve condicionais)
+ * para que tanto `replacePlaceholders` quanto `getUnresolvedPlaceholders`
+ * recebam exatamente o mesmo texto base e não divirjam.
+ */
+export function preprocessTemplate(
+  text: string,
+  vars: Record<string, string>
+): string {
+  return stripConditionalBlocks(text, vars);
+}
+
 export function replacePlaceholders(
   text: string,
   vars: Record<string, string>

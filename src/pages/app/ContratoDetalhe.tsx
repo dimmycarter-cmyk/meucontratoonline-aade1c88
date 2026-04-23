@@ -14,7 +14,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import ContractDataDisplay from "@/components/contract/ContractDataDisplay";
 import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
-import { getUnresolvedPlaceholders } from "@/lib/placeholder";
+import { getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 
@@ -147,7 +147,8 @@ const ContratoDetalhe = () => {
     const text = editing ? editContent : (contract?.conteudo_final ?? "");
     const dados = (contract?.dados ?? {}) as Record<string, string>;
     if (!text) return [];
-    return parseUnresolvedStrings(getUnresolvedPlaceholders(text, dados));
+    const processed = preprocessTemplate(text, dados);
+    return parseUnresolvedStrings(getUnresolvedPlaceholders(processed, dados));
   }, [editing, editContent, contract?.conteudo_final, contract?.dados]);
 
   const handlePrintClick = () => {

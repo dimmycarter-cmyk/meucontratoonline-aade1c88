@@ -1,7 +1,9 @@
 import { useMemo } from "react";
-import { Plus, Heart, UserPlus, Link2 } from "lucide-react";
+import { Plus, Heart, UserPlus, Link2, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import ManualParticipantCard, {
   type ManualParticipantData,
   emptyParticipant,
@@ -14,13 +16,14 @@ interface Section {
   label: string;
   max: number;
   allowSpouse?: boolean;
+  hideUnlessFlag?: string; // se setado, só renderiza quando flags[hideUnlessFlag] === true
 }
 
 const SECTIONS: Section[] = [
   { role: "comprador", label: "Comprador", max: 2, allowSpouse: true },
   { role: "vendedor", label: "Vendedor", max: 5, allowSpouse: true },
   { role: "anuente", label: "Anuente", max: 1 },
-  { role: "procurador", label: "Procurador", max: 1 },
+  { role: "procurador", label: "Procurador", max: 1, hideUnlessFlag: "tem_procurador" },
   { role: "fiador", label: "Fiador", max: 2 },
   { role: "testemunha", label: "Testemunha", max: 4 },
 ];
@@ -29,13 +32,19 @@ interface MultipleParticipantsPanelProps {
   participants: ManualParticipantData[];
   onChange: (participants: ManualParticipantData[]) => void;
   contacts: Contact[];
+  /** Flags booleanas para blocos condicionais (ex: tem_procurador). Opcional. */
+  flags?: Record<string, boolean>;
+  onFlagChange?: (key: string, value: boolean) => void;
 }
 
 const MultipleParticipantsPanel = ({
   participants,
   onChange,
   contacts,
+  flags,
+  onFlagChange,
 }: MultipleParticipantsPanelProps) => {
+  const temProcurador = flags?.tem_procurador === true;
   // Spouses linked to a principal participant
   const spousesByPrincipal = useMemo(() => {
     const map = new Map<string, ManualParticipantData[]>();
@@ -93,7 +102,38 @@ const MultipleParticipantsPanel = ({
         </p>
       </div>
 
+      {/* Toggle Procurador (T6) */}
+      {onFlagChange && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Scale className="h-4 w-4 text-primary" />
+              <div>
+                <Label className="text-sm font-medium cursor-pointer" htmlFor="toggle-procurador">
+                  Vendedor representado por procurador?
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Ao ativar, o bloco de procuração aparece no contrato e um card de procurador é habilitado.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="toggle-procurador"
+              checked={temProcurador}
+              onCheckedChange={(v) => {
+                onFlagChange("tem_procurador", v);
+                // Limpa cards de procurador quando desliga
+                if (!v) {
+                  onChange(participants.filter((p) => p.role !== "procurador"));
+                }
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {SECTIONS.map((section) => {
+        if (section.hideUnlessFlag && !flags?.[section.hideUnlessFlag]) return null;
         const items = participants.filter((p) => p.role === section.role);
         const canAdd = items.length < section.max;
         return (
