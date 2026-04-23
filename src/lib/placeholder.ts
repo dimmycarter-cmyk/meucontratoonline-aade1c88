@@ -220,6 +220,53 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "DATA DO CONTRATO POR EXTENSO": "data_contrato_extenso",
 };
 
+/**
+ * Remove blocos condicionais {{#if FLAG}}…{{/if}} cuja FLAG não esteja
+ * truthy em `vars` (truthy = "true" case-insensitive).
+ *
+ * Quando a flag é truthy: as tags são removidas, o conteúdo interno permanece.
+ * Quando é falsy/ausente: o bloco inteiro é removido (incluindo conteúdo).
+ *
+ * Suporta blocos aninhados via execução iterativa até estabilizar — o
+ * padrão non-greedy `[\s\S]*?` casa o `{{/if}}` mais próximo, então a cada
+ * iteração resolvemos os blocos mais internos primeiro.
+ *
+ * IMPORTANTE: deve ser chamado ANTES de `replacePlaceholders` e
+ * `getUnresolvedPlaceholders` — caso contrário, placeholders dentro de
+ * blocos desativados serão erroneamente listados como pendentes.
+ */
+export function stripConditionalBlocks(
+  text: string,
+  vars: Record<string, string>
+): string {
+  if (!text) return text;
+  const isTruthy = (key: string) =>
+    (vars[key] ?? "").toString().trim().toLowerCase() === "true";
+
+  const re = /\{\{#if\s+([\w]+)\}\}([\s\S]*?)\{\{\/if\}\}/g;
+  let prev = "";
+  let curr = text;
+  let safety = 0;
+  while (prev !== curr && safety < 20) {
+    prev = curr;
+    curr = curr.replace(re, (_m, flag, body) => (isTruthy(flag) ? body : ""));
+    safety++;
+  }
+  return curr;
+}
+
+/**
+ * Helper de conveniência: pré-processa o template (resolve condicionais)
+ * para que tanto `replacePlaceholders` quanto `getUnresolvedPlaceholders`
+ * recebam exatamente o mesmo texto base e não divirjam.
+ */
+export function preprocessTemplate(
+  text: string,
+  vars: Record<string, string>
+): string {
+  return stripConditionalBlocks(text, vars);
+}
+
 export function replacePlaceholders(
   text: string,
   vars: Record<string, string>
