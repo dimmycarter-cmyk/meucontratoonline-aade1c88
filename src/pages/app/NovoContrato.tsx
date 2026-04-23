@@ -33,6 +33,8 @@ import MultipleParticipantsPanel from "@/components/contract/MultipleParticipant
 import FixedDataFields from "@/components/contract/FixedDataFields";
 import ParcelasManager from "@/components/contract/ParcelasManager";
 import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
+import WizardStepEditor from "@/components/contract/wizard/WizardStepEditor";
+import WizardActions from "@/components/contract/wizard/WizardActions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
@@ -1236,148 +1238,40 @@ const NovoContrato = () => {
 
       {/* ==================== SHARED: EDITOR & FINALIZE (Step 4) ==================== */}
       {currentStep?.id === "editor-finish" && (
-        <div className="space-y-6">
-          <h2 className="font-display text-lg font-semibold text-foreground">Editor do Contrato</h2>
-          <p className="text-sm text-muted-foreground">Revise e ajuste o conteúdo final do contrato.</p>
-
-          {liveUnresolved.length > 0 && (
-            <Alert className="border-warning/50 bg-warning/10">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              <AlertTitle className="text-warning">
-                {liveUnresolved.length} campo{liveUnresolved.length > 1 ? "s" : ""} sem dados
-              </AlertTitle>
-              <AlertDescription className="flex items-center justify-between gap-3">
-                <span className="text-sm">
-                  Existem placeholders não resolvidos no contrato. A exportação para PDF está bloqueada até que sejam corrigidos.
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setUnresolvedDialogOpen(true)}
-                >
-                  Ver pendências
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <RichTextEditor content={conteudoFinal} onChange={setConteudoFinal} placeholder="Conteúdo do contrato..." />
-
-          {selectedClauses.length > 0 && (
-            <Card className="shadow-card">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Cláusulas selecionadas ({selectedClauses.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {selectedClauses.map((c, i) => (
-                    <div key={c.id} className="rounded-md border border-border p-3">
-                      <p className="text-xs font-semibold text-foreground">Cláusula {i + 1}ª — {c.titulo}</p>
-                      <div className="mt-1 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: c.conteudo }} />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Summary */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Card className="shadow-card">
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Modelo</p>
-                <p className="text-sm font-medium text-foreground">{selectedTemplate?.nome || "—"}</p>
-              </CardContent>
-            </Card>
-            <Card className="shadow-card">
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Comprador</p>
-                <p className="text-sm font-medium text-foreground">
-                  {comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || "—"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="shadow-card">
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Vendedor</p>
-                <p className="text-sm font-medium text-foreground">
-                  {vendedor?.nome || participants.find((p) => p.role === "vendedor")?.full_name || manualParticipants.find((p) => p.role === "vendedor")?.nome || "—"}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {empresa && (
-            <Card className="shadow-card">
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Empresa</p>
-                <p className="text-sm font-medium text-foreground">{empresa.nome_fantasia}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Preview */}
-          <Card className="shadow-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Preview do Contrato</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="prose prose-sm max-w-none rounded-md border border-border p-4 text-foreground" dangerouslySetInnerHTML={{ __html: conteudoFinal }} />
-              {selectedClauses.length > 0 && (
-                <div className="mt-4 space-y-3">
-                  <h3 className="text-sm font-semibold text-foreground">Cláusulas ({selectedClauses.length})</h3>
-                  {selectedClauses.map((c, i) => (
-                    <div key={c.id} className="rounded-md border border-border p-3">
-                      <p className="text-xs font-semibold">Cláusula {i + 1}ª — {c.titulo}</p>
-                      <div className="mt-1 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: c.conteudo }} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex gap-3">
-            <Button onClick={handleSaveClick} disabled={isCreating} className="gap-2">
-              <Check className="h-4 w-4" />
-              {isCreating ? "Salvando..." : "Salvar Contrato"}
-            </Button>
-            <Button variant="outline" onClick={handlePrintClick} className="gap-2">
-              <Printer className="h-4 w-4" />
-              Exportar PDF
-            </Button>
-          </div>
-        </div>
+        <WizardStepEditor
+          conteudoFinal={conteudoFinal}
+          onConteudoChange={setConteudoFinal}
+          liveUnresolved={liveUnresolved}
+          onShowPendencias={() => setUnresolvedDialogOpen(true)}
+          selectedClauses={selectedClauses}
+          selectedTemplateName={selectedTemplate?.nome}
+          compradorNome={
+            comprador?.nome ||
+            participants.find((p) => p.role === "comprador")?.full_name ||
+            manualParticipants.find((p) => p.role === "comprador")?.nome ||
+            ""
+          }
+          vendedorNome={
+            vendedor?.nome ||
+            participants.find((p) => p.role === "vendedor")?.full_name ||
+            manualParticipants.find((p) => p.role === "vendedor")?.nome ||
+            ""
+          }
+          empresaNome={empresa?.nome_fantasia}
+          isSaving={isCreating}
+          onSaveClick={handleSaveClick}
+          onPrintClick={handlePrintClick}
+        />
       )}
 
-      {/* Navigation */}
-      {currentStep?.id !== "editor-finish" && currentStep?.id !== "selection" && (
-        <div className="mt-6 flex items-center justify-between gap-4">
-          <Button variant="outline" onClick={handleBack}>
-            <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
-          </Button>
-          <div className="flex items-center gap-3">
-            {getBlockReason() && (
-              <span className="text-xs text-muted-foreground text-right max-w-sm">
-                {getBlockReason()}
-              </span>
-            )}
-            <Button disabled={!canProceed()} onClick={handleNext} title={getBlockReason() ?? undefined}>
-              Próximo
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Back button on editor-finish */}
-      {currentStep?.id === "editor-finish" && (
-        <div className="mt-6">
-          <Button variant="outline" onClick={handleBack}>
-            <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
-          </Button>
-        </div>
-      )}
+      <WizardActions
+        showNavigation={currentStep?.id !== "editor-finish" && currentStep?.id !== "selection"}
+        showBackOnly={currentStep?.id === "editor-finish"}
+        canProceed={canProceed()}
+        blockReason={getBlockReason()}
+        onBack={handleBack}
+        onNext={handleNext}
+      />
 
       {/* Inline Create Template Dialog */}
       <Dialog open={showCreateTemplate} onOpenChange={setShowCreateTemplate}>
