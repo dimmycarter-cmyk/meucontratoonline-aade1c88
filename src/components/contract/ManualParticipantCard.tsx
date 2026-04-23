@@ -110,9 +110,13 @@ const ManualParticipantCard = ({
   const [contactSearch, setContactSearch] = useState("");
   const [showContactPicker, setShowContactPicker] = useState(false);
 
-  const updateField = (field: keyof ManualParticipantData, value: string) => {
-    onUpdate({ ...participant, [field]: value });
+  const updateField = (field: keyof ManualParticipantData, value: string | boolean) => {
+    onUpdate({ ...participant, [field]: value as never });
   };
+
+  const isLawyer = /advogad/i.test(participant.profissao || "");
+  const isMarried = /casad|uni[ãa]o\s+est[áa]vel/i.test(participant.estado_civil || "");
+  const showBankBlock = participant.role === "vendedor" || participant.role === "procurador";
 
   const onCepResult = useCallback(
     (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
