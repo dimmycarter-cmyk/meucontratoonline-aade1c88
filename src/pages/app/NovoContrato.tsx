@@ -30,6 +30,8 @@ import ParticipantManager from "@/components/contract/ParticipantManager";
 import type { Participant, ParticipantRole } from "@/components/contract/ParticipantCard";
 import type { DocType, UploadedDoc } from "@/components/contract/DocumentUploader";
 import MultipleParticipantsPanel from "@/components/contract/MultipleParticipantsPanel";
+import FixedDataFields from "@/components/contract/FixedDataFields";
+import ParcelasManager from "@/components/contract/ParcelasManager";
 import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
 import { emptyParticipant } from "@/components/contract/ManualParticipantCard";
 import ExtractionProgress from "@/components/contract/ExtractionProgress";
@@ -1107,27 +1109,13 @@ const NovoContrato = () => {
               <Input value={nomeContrato} onChange={(e) => setNomeContrato(e.target.value)} placeholder="Ex: Compra e Venda - Apt 302" />
             </div>
 
-            {Object.entries(templateVarsGrouped).map(([category, vars]) => (
-              <Card key={category} className="shadow-card">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold text-foreground">{category}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {vars.map((v) => (
-                      <div key={v.key}>
-                        <Label className="mb-1 text-xs text-muted-foreground">{v.label}</Label>
-                        <Input
-                          value={dados[v.key] || ""}
-                          onChange={(e) => setDados((prev) => ({ ...prev, [v.key]: e.target.value }))}
-                          placeholder={v.label}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <FixedDataFields
+              dados={dados}
+              onChange={setDados}
+              manualParticipants={manualParticipants}
+            />
+
+            <ParcelasManager dados={dados} onChange={setDados} />
           </div>
 
           {/* Clauses section */}
