@@ -1110,6 +1110,10 @@ const NovoContrato = () => {
             participants={manualParticipants}
             onChange={setManualParticipants}
             contacts={contacts}
+            flags={{ tem_procurador: dados.tem_procurador === "true" }}
+            onFlagChange={(key, value) =>
+              setDados((prev) => ({ ...prev, [key]: value ? "true" : "false" }))
+            }
           />
 
           {/* Empresa */}
