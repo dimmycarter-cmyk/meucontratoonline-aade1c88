@@ -408,6 +408,58 @@ const ManualParticipantCard = ({
                 />
               </div>
             </div>
+
+            {showBankBlock && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1 px-2 -mx-2"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                    Dados Bancários (opcional)
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Banco</Label>
+                      <Input
+                        value={participant.banco || ""}
+                        onChange={(e) => updateField("banco", e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Agência</Label>
+                      <Input
+                        value={participant.agencia || ""}
+                        onChange={(e) => updateField("agencia", e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Conta</Label>
+                      <Input
+                        value={participant.conta || ""}
+                        onChange={(e) => updateField("conta", e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Chave PIX</Label>
+                      <Input
+                        value={participant.pix || ""}
+                        onChange={(e) => updateField("pix", e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         )}
       </CardContent>
