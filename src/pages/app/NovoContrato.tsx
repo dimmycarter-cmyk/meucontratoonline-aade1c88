@@ -522,6 +522,39 @@ const NovoContrato = () => {
     }
   };
 
+  const getBlockReason = (): string | null => {
+    const stepId = currentStep?.id;
+    switch (stepId) {
+      case "selection":
+        if (!selectedTemplateId) return "Selecione um modelo de contrato.";
+        if (!flowMode) return "Escolha como deseja preencher (manual ou IA).";
+        return null;
+      case "parties-docs": {
+        const hasComprador = manualParticipants.some((p) => p.role === "comprador" && p.nome.trim());
+        const hasVendedor = manualParticipants.some((p) => p.role === "vendedor" && p.nome.trim());
+        const faltam: string[] = [];
+        if (!hasComprador) faltam.push("nome do comprador");
+        if (!hasVendedor) faltam.push("nome do vendedor");
+        return faltam.length ? `Preencha o ${faltam.join(" e o ")} para continuar.` : null;
+      }
+      case "participants": {
+        const hasComprador = participants.some((p) => p.role === "comprador" && p.full_name.trim());
+        const hasVendedor = participants.some((p) => p.role === "vendedor" && p.full_name.trim());
+        const hasDocs = participants.some((p) => p.documents.length > 0);
+        const faltam: string[] = [];
+        if (!hasComprador) faltam.push("um comprador");
+        if (!hasVendedor) faltam.push("um vendedor");
+        if (!hasDocs) faltam.push("ao menos um documento");
+        return faltam.length ? `Adicione ${faltam.join(", ")}.` : null;
+      }
+      case "review-data":
+        if (aiReviewSubStep === "extraction" && isProcessing) return "Aguarde a extração concluir.";
+        return null;
+      default:
+        return null;
+    }
+  };
+
   const handleSave = async () => {
     try {
       // === STEP 1: Build complete dados by re-running autoFill logic inline ===
@@ -1327,14 +1360,21 @@ const NovoContrato = () => {
 
       {/* Navigation */}
       {currentStep?.id !== "editor-finish" && currentStep?.id !== "selection" && (
-        <div className="mt-6 flex justify-between">
+        <div className="mt-6 flex items-center justify-between gap-4">
           <Button variant="outline" onClick={handleBack}>
             <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
           </Button>
-          <Button disabled={!canProceed()} onClick={handleNext}>
-            {currentStep?.id === "review-data" && aiReviewSubStep !== "data" ? "Próximo" : "Próximo"}
-            <ChevronRight className="ml-1 h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-3">
+            {getBlockReason() && (
+              <span className="text-xs text-muted-foreground text-right max-w-sm">
+                {getBlockReason()}
+              </span>
+            )}
+            <Button disabled={!canProceed()} onClick={handleNext} title={getBlockReason() ?? undefined}>
+              Próximo
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 
