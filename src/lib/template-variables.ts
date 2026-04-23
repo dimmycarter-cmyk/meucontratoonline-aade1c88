@@ -52,6 +52,16 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   // ===== Anuente =====
   ...pessoa("anuente", "Anuente", "Anuente"),
 
+  // ===== Testemunhas =====
+  { key: "testemunha1_nome", label: "Testemunha 1 - Nome", category: "Testemunhas" },
+  { key: "testemunha1_cpf", label: "Testemunha 1 - CPF", category: "Testemunhas" },
+  { key: "testemunha1_creci", label: "Testemunha 1 - CRECI", category: "Testemunhas" },
+  { key: "testemunha1_email", label: "Testemunha 1 - E-mail", category: "Testemunhas" },
+  { key: "testemunha2_nome", label: "Testemunha 2 - Nome", category: "Testemunhas" },
+  { key: "testemunha2_cpf", label: "Testemunha 2 - CPF", category: "Testemunhas" },
+  { key: "testemunha2_creci", label: "Testemunha 2 - CRECI", category: "Testemunhas" },
+  { key: "testemunha2_email", label: "Testemunha 2 - E-mail", category: "Testemunhas" },
+
   // ===== Imóvel =====
   { key: "imovel_endereco", label: "Endereço do Imóvel", category: "Imóvel" },
   { key: "imovel_descricao", label: "Descrição do Imóvel", category: "Imóvel" },
@@ -75,8 +85,11 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   { key: "valor_financiamento", label: "Valor do Financiamento", category: "Financeiro" },
   { key: "valor_financiamento_extenso", label: "Valor do Financiamento por Extenso", category: "Financeiro" },
   { key: "valor_vendedor_sinal", label: "Valor para o Vendedor (Sinal)", category: "Financeiro" },
+  { key: "valor_corretagem", label: "Valor da Corretagem", category: "Financeiro" },
   { key: "forma_pagamento", label: "Forma de Pagamento", category: "Financeiro" },
   { key: "banco_financiamento", label: "Banco do Financiamento", category: "Financeiro" },
+  { key: "prazo_posse_dias", label: "Prazo de Posse (dias)", category: "Financeiro" },
+  { key: "multa_atraso_diaria", label: "Multa Diária por Atraso", category: "Financeiro" },
 
   // ===== Parcelas (até 12) =====
   ...Array.from({ length: 12 }, (_, i): TemplateVariable[] => [
@@ -105,8 +118,10 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   // ===== Intermediadoras =====
   { key: "intermediadora1_nome", label: "Intermediadora 1 - Nome", category: "Intermediadoras" },
   { key: "intermediadora1_cnpj", label: "Intermediadora 1 - CNPJ/CPF", category: "Intermediadoras" },
+  { key: "intermediadora1_valor", label: "Intermediadora 1 - Valor", category: "Intermediadoras" },
   { key: "intermediadora2_nome", label: "Intermediadora 2 - Nome", category: "Intermediadoras" },
   { key: "intermediadora2_cnpj", label: "Intermediadora 2 - CNPJ/CPF", category: "Intermediadoras" },
+  { key: "intermediadora2_valor", label: "Intermediadora 2 - Valor", category: "Intermediadoras" },
 
   // ===== Contrato =====
   { key: "data_contrato", label: "Data do Contrato", category: "Contrato" },

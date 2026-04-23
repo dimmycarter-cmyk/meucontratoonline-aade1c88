@@ -90,21 +90,34 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "RG DO(A) ANUENTE": "anuente_rg",
   "ENDEREÇO DO(A) ANUENTE": "anuente_endereco",
 
-  // ===== Genéricos sem qualificação (compatibilidade) =====
-  "CPF": "comprador_cpf",
-  "RG": "comprador_rg",
-  "RG/ÓRGÃO EMISSOR": "comprador_rg",
-  "ÓRGÃO EMISSOR": "comprador_orgao_expedidor",
-  "E-MAIL": "comprador_email",
-  "EMAIL": "comprador_email",
-  "ENDEREÇO COMPLETO": "comprador_endereco",
-  "ENDEREÇO": "comprador_endereco",
+  // ===== Genéricos sem qualificação =====
+  // NOTA: labels minúsculos sem qualificação ([nacionalidade], [profissão], etc.)
+  // são resolvidos por heurística de ordem de aparição em resolveAmbiguousLabels()
+  // Estes mapeamentos default servem apenas como fallback (1ª ocorrência = vendedor).
+  "CPF": "vendedor_cpf",
+  "RG": "vendedor_rg",
+  "RG/ÓRGÃO EMISSOR": "vendedor_rg",
+  "ÓRGÃO EMISSOR": "vendedor_orgao_expedidor",
+  "E-MAIL": "vendedor_email",
+  "EMAIL": "vendedor_email",
+  "ENDEREÇO COMPLETO": "vendedor_endereco",
+  "ENDEREÇO": "vendedor_endereco",
+  "NACIONALIDADE": "vendedor_nacionalidade",
+  "ESTADO CIVIL": "vendedor_estado_civil",
+  "PROFISSÃO": "vendedor_profissao",
+
+  // Variantes de assinatura (rodapé do contrato)
+  "NOME COMPLETO DO(A) PROMITENTE VENDEDOR(A)": "vendedor_nome",
+  "NOME COMPLETO DO(A) PROMISSÁRIO(A) COMPRADOR(A)": "comprador_nome",
 
   // ===== Imóvel =====
   "DESCRIÇÃO DO IMÓVEL": "imovel_descricao",
+  "DESCRIÇÃO COMPLETA DO IMÓVEL": "imovel_descricao",
+  "TIPO DO IMÓVEL": "imovel_tipo",
   "ENDEREÇO DO IMÓVEL": "imovel_endereco",
   "MATRÍCULA": "imovel_matricula",
   "MATRÍCULA DO IMÓVEL": "imovel_matricula",
+  "NÚMERO DA MATRÍCULA": "imovel_matricula",
   "CARTÓRIO": "imovel_cartorio",
   "ÁREA PRIVATIVA": "imovel_area_privativa",
   "ÁREA TOTAL": "imovel_area_total",
@@ -123,6 +136,11 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "FORMA DE PAGAMENTO": "forma_pagamento",
   "BANCO DO FINANCIAMENTO": "banco_financiamento",
   "VALOR PARA O VENDEDOR": "valor_vendedor_sinal",
+  "VALOR DA CORRETAGEM": "valor_corretagem",
+  "PRAZO DE POSSE": "prazo_posse_dias",
+  "PRAZO DE POSSE EM DIAS": "prazo_posse_dias",
+  "MULTA DIÁRIA POR ATRASO": "multa_atraso_diaria",
+  "MULTA POR ATRASO": "multa_atraso_diaria",
 
   // ===== Imobiliária / Empresa =====
   "NOME DA AGÊNCIA": "empresa_nome",
@@ -140,8 +158,23 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "NOME DA INTERMEDIADORA I": "intermediadora1_nome",
   "NOME DA INTERMEDIADORA 1": "intermediadora1_nome",
   "CNPJ/CPF 1": "intermediadora1_cnpj",
+  "CNPJ/PIX 1": "intermediadora1_cnpj",
   "NOME DA INTERMEDIADORA 2": "intermediadora2_nome",
   "CNPJ/CPF 2": "intermediadora2_cnpj",
+  "CNPJ/PIX 2": "intermediadora2_cnpj",
+  "CNPJ OU CHAVE PIX": "intermediadora1_cnpj",
+  "VALOR DA INTERMEDIADORA 1": "intermediadora1_valor",
+  "VALOR DA INTERMEDIADORA 2": "intermediadora2_valor",
+
+  // ===== Testemunhas =====
+  "NOME DA TESTEMUNHA 1": "testemunha1_nome",
+  "CPF DA TESTEMUNHA 1": "testemunha1_cpf",
+  "CRECI DA TESTEMUNHA 1": "testemunha1_creci",
+  "E-MAIL DA TESTEMUNHA 1": "testemunha1_email",
+  "NOME DA TESTEMUNHA 2": "testemunha2_nome",
+  "CPF DA TESTEMUNHA 2": "testemunha2_cpf",
+  "CRECI DA TESTEMUNHA 2": "testemunha2_creci",
+  "E-MAIL DA TESTEMUNHA 2": "testemunha2_email",
 
   // ===== Contrato / Local =====
   "CIDADE/UF": "cidade_uf",
