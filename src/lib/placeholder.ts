@@ -101,6 +101,24 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "RG DO(A) ANUENTE": "anuente_rg",
   "ENDEREÇO DO(A) ANUENTE": "anuente_endereco",
 
+  // ===== Procurador (T6) =====
+  "NOME DO(A) PROCURADOR(A)": "procurador_nome",
+  "NOME COMPLETO DO(A) PROCURADOR(A)": "procurador_nome",
+  "CPF DO(A) PROCURADOR(A)": "procurador_cpf",
+  "RG DO(A) PROCURADOR(A)": "procurador_rg",
+  "OAB DO(A) PROCURADOR(A)": "procurador_oab",
+  "OAB DO PROCURADOR": "procurador_oab",
+  "PROFISSÃO DO(A) PROCURADOR(A)": "procurador_profissao",
+  "ESTADO CIVIL DO(A) PROCURADOR(A)": "procurador_estado_civil",
+  "NACIONALIDADE DO(A) PROCURADOR(A)": "procurador_nacionalidade",
+  "ENDEREÇO DO(A) PROCURADOR(A)": "procurador_endereco",
+  "OUTORGANTE": "procurador_outorgante",
+  "OUTORGANTE DA PROCURAÇÃO": "procurador_outorgante",
+  "DATA DA PROCURAÇÃO": "procurador_data_procuracao",
+  "CARTÓRIO DA PROCURAÇÃO": "procurador_cartorio_procuracao",
+  "LIVRO DA PROCURAÇÃO": "procurador_livro_procuracao",
+  "FOLHA DA PROCURAÇÃO": "procurador_folha_procuracao",
+
   // ===== Genéricos sem qualificação (HEURÍSTICA BEST-EFFORT) =====
   // Labels minúsculos sem qualificação ([nacionalidade], [profissão], [cpf], etc.)
   // são resolvidos por heurística de ordem de aparição no template — vide

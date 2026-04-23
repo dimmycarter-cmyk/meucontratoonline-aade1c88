@@ -54,6 +54,14 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   // ===== Anuente =====
   ...pessoa("anuente", "Anuente", "Anuente"),
 
+  // ===== Procuração (T6) =====
+  ...pessoa("procurador", "Procurador", "Procuração"),
+  { key: "procurador_oab", label: "Procurador - OAB", category: "Procuração" },
+  { key: "procurador_outorgante", label: "Outorgante (quem deu a procuração)", category: "Procuração" },
+  { key: "procurador_data_procuracao", label: "Data da Procuração", category: "Procuração" },
+  { key: "procurador_cartorio_procuracao", label: "Cartório da Procuração", category: "Procuração" },
+  { key: "procurador_livro_procuracao", label: "Livro da Procuração", category: "Procuração" },
+  { key: "procurador_folha_procuracao", label: "Folha da Procuração", category: "Procuração" },
   // ===== Testemunhas =====
   { key: "testemunha1_nome", label: "Testemunha 1 - Nome", category: "Testemunhas" },
   { key: "testemunha1_cpf", label: "Testemunha 1 - CPF", category: "Testemunhas" },
