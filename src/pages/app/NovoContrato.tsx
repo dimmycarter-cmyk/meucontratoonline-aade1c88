@@ -1062,7 +1062,7 @@ const NovoContrato = () => {
       {/* ==================== MANUAL: PARTIES (Step 2) ==================== */}
       {currentStep?.id === "parties-docs" && flowMode === "manual" && (
         <div className="space-y-8">
-          <ManualParticipantManager
+          <MultipleParticipantsPanel
             participants={manualParticipants}
             onChange={setManualParticipants}
             contacts={contacts}
