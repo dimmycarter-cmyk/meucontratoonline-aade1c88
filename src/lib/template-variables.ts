@@ -39,7 +39,7 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   ...pessoa("conjuge", "Cônjuge", "Cônjuge"),
   ...pessoa("conjuge2", "Cônjuge 2", "Cônjuge"),
 
-  // ===== Vendedor (até 4) =====
+  // ===== Vendedor (até 5) =====
   ...pessoa("vendedor", "Vendedor", "Vendedor"),
   ...dadosBancarios("vendedor", "Vendedor", "Vendedor"),
   ...pessoa("vendedor2", "Vendedor 2", "Vendedor"),
@@ -48,6 +48,8 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   ...dadosBancarios("vendedor3", "Vendedor 3", "Vendedor"),
   ...pessoa("vendedor4", "Vendedor 4", "Vendedor"),
   ...dadosBancarios("vendedor4", "Vendedor 4", "Vendedor"),
+  ...pessoa("vendedor5", "Vendedor 5", "Vendedor"),
+  ...dadosBancarios("vendedor5", "Vendedor 5", "Vendedor"),
 
   // ===== Anuente =====
   ...pessoa("anuente", "Anuente", "Anuente"),
@@ -85,6 +87,10 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   { key: "valor_financiamento", label: "Valor do Financiamento", category: "Financeiro" },
   { key: "valor_financiamento_extenso", label: "Valor do Financiamento por Extenso", category: "Financeiro" },
   { key: "valor_vendedor_sinal", label: "Valor para o Vendedor (Sinal)", category: "Financeiro" },
+  { key: "valor_vendedor2_sinal", label: "Valor para o Vendedor 2 (Sinal)", category: "Financeiro" },
+  { key: "valor_vendedor3_sinal", label: "Valor para o Vendedor 3 (Sinal)", category: "Financeiro" },
+  { key: "valor_vendedor4_sinal", label: "Valor para o Vendedor 4 (Sinal)", category: "Financeiro" },
+  { key: "valor_vendedor5_sinal", label: "Valor para o Vendedor 5 (Sinal)", category: "Financeiro" },
   { key: "valor_corretagem", label: "Valor da Corretagem", category: "Financeiro" },
   { key: "forma_pagamento", label: "Forma de Pagamento", category: "Financeiro" },
   { key: "banco_financiamento", label: "Banco do Financiamento", category: "Financeiro" },
@@ -118,10 +124,20 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   // ===== Intermediadoras =====
   { key: "intermediadora1_nome", label: "Intermediadora 1 - Nome", category: "Intermediadoras" },
   { key: "intermediadora1_cnpj", label: "Intermediadora 1 - CNPJ/CPF", category: "Intermediadoras" },
-  { key: "intermediadora1_valor", label: "Intermediadora 1 - Valor", category: "Intermediadoras" },
+  { key: "intermediadora1_banco", label: "Intermediadora 1 - Banco", category: "Intermediadoras" },
+  { key: "intermediadora1_agencia", label: "Intermediadora 1 - Agência", category: "Intermediadoras" },
+  { key: "intermediadora1_conta", label: "Intermediadora 1 - Conta", category: "Intermediadoras" },
+  { key: "intermediadora1_pix", label: "Intermediadora 1 - PIX", category: "Intermediadoras" },
+  { key: "intermediadora1_valor", label: "Intermediadora 1 - Valor Corretagem", category: "Intermediadoras" },
+  { key: "intermediadora1_valor_sinal", label: "Intermediadora 1 - Valor recebido do Sinal", category: "Intermediadoras" },
   { key: "intermediadora2_nome", label: "Intermediadora 2 - Nome", category: "Intermediadoras" },
   { key: "intermediadora2_cnpj", label: "Intermediadora 2 - CNPJ/CPF", category: "Intermediadoras" },
-  { key: "intermediadora2_valor", label: "Intermediadora 2 - Valor", category: "Intermediadoras" },
+  { key: "intermediadora2_banco", label: "Intermediadora 2 - Banco", category: "Intermediadoras" },
+  { key: "intermediadora2_agencia", label: "Intermediadora 2 - Agência", category: "Intermediadoras" },
+  { key: "intermediadora2_conta", label: "Intermediadora 2 - Conta", category: "Intermediadoras" },
+  { key: "intermediadora2_pix", label: "Intermediadora 2 - PIX", category: "Intermediadoras" },
+  { key: "intermediadora2_valor", label: "Intermediadora 2 - Valor Corretagem", category: "Intermediadoras" },
+  { key: "intermediadora2_valor_sinal", label: "Intermediadora 2 - Valor recebido do Sinal", category: "Intermediadoras" },
 
   // ===== Contrato =====
   { key: "data_contrato", label: "Data do Contrato", category: "Contrato" },

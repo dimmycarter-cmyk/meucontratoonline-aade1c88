@@ -75,6 +75,17 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "RG DO VENDEDOR 4": "vendedor4_rg",
   "ENDEREÇO DO VENDEDOR 4": "vendedor4_endereco",
 
+  "NOME DO VENDEDOR 5": "vendedor5_nome",
+  "CPF DO VENDEDOR 5": "vendedor5_cpf",
+  "RG DO VENDEDOR 5": "vendedor5_rg",
+  "PROFISSÃO DO VENDEDOR 5": "vendedor5_profissao",
+  "ESTADO CIVIL DO VENDEDOR 5": "vendedor5_estado_civil",
+  "ENDEREÇO DO VENDEDOR 5": "vendedor5_endereco",
+  "BANCO DO VENDEDOR 5": "vendedor5_banco",
+  "AGÊNCIA DO VENDEDOR 5": "vendedor5_agencia",
+  "CONTA DO VENDEDOR 5": "vendedor5_conta",
+  "PIX DO VENDEDOR 5": "vendedor5_pix",
+
   // ===== Cônjuge =====
   "NOME DO(A) CÔNJUGE": "conjuge_nome",
   "CPF DO(A) CÔNJUGE": "conjuge_cpf",
@@ -90,10 +101,14 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "RG DO(A) ANUENTE": "anuente_rg",
   "ENDEREÇO DO(A) ANUENTE": "anuente_endereco",
 
-  // ===== Genéricos sem qualificação =====
-  // NOTA: labels minúsculos sem qualificação ([nacionalidade], [profissão], etc.)
-  // são resolvidos por heurística de ordem de aparição em resolveAmbiguousLabels()
-  // Estes mapeamentos default servem apenas como fallback (1ª ocorrência = vendedor).
+  // ===== Genéricos sem qualificação (HEURÍSTICA BEST-EFFORT) =====
+  // Labels minúsculos sem qualificação ([nacionalidade], [profissão], [cpf], etc.)
+  // são resolvidos por heurística de ordem de aparição no template — vide
+  // resolveAmbiguousLabels() (a ser implementado na Leva 2 do importador .docx).
+  // Limitação conhecida: a heurística é best-effort. Templates importados pela
+  // Leva 3 (.docx) DEVEM usar labels qualificados explícitos (ex: "CPF DO VENDEDOR 2")
+  // — o importador alerta o usuário quando detecta labels genéricos sem qualificação.
+  // Os mapeamentos abaixo servem APENAS como fallback (1ª ocorrência = vendedor).
   "CPF": "vendedor_cpf",
   "RG": "vendedor_rg",
   "RG/ÓRGÃO EMISSOR": "vendedor_rg",
