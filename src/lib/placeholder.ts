@@ -75,6 +75,17 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "RG DO VENDEDOR 4": "vendedor4_rg",
   "ENDEREÇO DO VENDEDOR 4": "vendedor4_endereco",
 
+  "NOME DO VENDEDOR 5": "vendedor5_nome",
+  "CPF DO VENDEDOR 5": "vendedor5_cpf",
+  "RG DO VENDEDOR 5": "vendedor5_rg",
+  "PROFISSÃO DO VENDEDOR 5": "vendedor5_profissao",
+  "ESTADO CIVIL DO VENDEDOR 5": "vendedor5_estado_civil",
+  "ENDEREÇO DO VENDEDOR 5": "vendedor5_endereco",
+  "BANCO DO VENDEDOR 5": "vendedor5_banco",
+  "AGÊNCIA DO VENDEDOR 5": "vendedor5_agencia",
+  "CONTA DO VENDEDOR 5": "vendedor5_conta",
+  "PIX DO VENDEDOR 5": "vendedor5_pix",
+
   // ===== Cônjuge =====
   "NOME DO(A) CÔNJUGE": "conjuge_nome",
   "CPF DO(A) CÔNJUGE": "conjuge_cpf",
