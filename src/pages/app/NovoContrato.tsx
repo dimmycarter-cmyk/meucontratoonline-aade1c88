@@ -190,6 +190,11 @@ const NovoContrato = () => {
   // AI sub-step inside "review-data": extraction → review → data
   const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
 
+  // Unresolved placeholders dialog (Lote D)
+  const [unresolvedDialogOpen, setUnresolvedDialogOpen] = useState(false);
+  const [unresolvedDialogMode, setUnresolvedDialogMode] = useState<"hard" | "soft">("hard");
+  const pendingSoftActionRef = useRef<(() => void) | null>(null);
+
   // Build draft payload
   const buildDraftPayload = useCallback(() => ({
     flowMode,
