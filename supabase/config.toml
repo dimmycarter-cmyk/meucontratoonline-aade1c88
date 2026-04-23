@@ -1,4 +1,4 @@
 project_id = "ahewugbsgddrvggsllmt"
 
 [functions.seed-templates-leva1]
-verify_jwt = true
+verify_jwt = false
