@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import DocumentUploader, { type UploadedDoc, type DocType } from "./DocumentUploader";
 
-export type ParticipantRole = "comprador" | "vendedor" | "conjuge" | "fiador" | "testemunha" | "procurador" | "interveniente" | "outro";
+export type ParticipantRole = "comprador" | "vendedor" | "conjuge" | "anuente" | "fiador" | "testemunha" | "procurador" | "interveniente" | "outro";
 
 export interface Participant {
   id: string;
@@ -17,6 +17,7 @@ const ROLE_LABELS: Record<ParticipantRole, string> = {
   comprador: "Comprador",
   vendedor: "Vendedor",
   conjuge: "Cônjuge",
+  anuente: "Anuente",
   fiador: "Fiador",
   testemunha: "Testemunha",
   procurador: "Procurador",
