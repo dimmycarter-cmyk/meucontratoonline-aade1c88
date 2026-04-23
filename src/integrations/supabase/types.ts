@@ -431,7 +431,7 @@ export type Database = {
           is_global: boolean
           nome: string
           status: string
-          tenant_id: string
+          tenant_id: string | null
           tipo: string
           updated_at: string
           variaveis: Json
@@ -444,7 +444,7 @@ export type Database = {
           is_global?: boolean
           nome: string
           status?: string
-          tenant_id: string
+          tenant_id?: string | null
           tipo?: string
           updated_at?: string
           variaveis?: Json
@@ -457,7 +457,7 @@ export type Database = {
           is_global?: boolean
           nome?: string
           status?: string
-          tenant_id?: string
+          tenant_id?: string | null
           tipo?: string
           updated_at?: string
           variaveis?: Json
