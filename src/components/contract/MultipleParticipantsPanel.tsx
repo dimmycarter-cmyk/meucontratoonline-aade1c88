@@ -1,7 +1,9 @@
 import { useMemo } from "react";
-import { Plus, Heart, UserPlus, Link2 } from "lucide-react";
+import { Plus, Heart, UserPlus, Link2, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import ManualParticipantCard, {
   type ManualParticipantData,
   emptyParticipant,
@@ -14,13 +16,14 @@ interface Section {
   label: string;
   max: number;
   allowSpouse?: boolean;
+  hideUnlessFlag?: string; // se setado, só renderiza quando flags[hideUnlessFlag] === true
 }
 
 const SECTIONS: Section[] = [
   { role: "comprador", label: "Comprador", max: 2, allowSpouse: true },
   { role: "vendedor", label: "Vendedor", max: 5, allowSpouse: true },
   { role: "anuente", label: "Anuente", max: 1 },
-  { role: "procurador", label: "Procurador", max: 1 },
+  { role: "procurador", label: "Procurador", max: 1, hideUnlessFlag: "tem_procurador" },
   { role: "fiador", label: "Fiador", max: 2 },
   { role: "testemunha", label: "Testemunha", max: 4 },
 ];
@@ -29,6 +32,9 @@ interface MultipleParticipantsPanelProps {
   participants: ManualParticipantData[];
   onChange: (participants: ManualParticipantData[]) => void;
   contacts: Contact[];
+  /** Flags booleanas para blocos condicionais (ex: tem_procurador). Opcional. */
+  flags?: Record<string, boolean>;
+  onFlagChange?: (key: string, value: boolean) => void;
 }
 
 const MultipleParticipantsPanel = ({
