@@ -405,6 +405,8 @@ const NovoContrato = () => {
   };
 
   const handleNext = () => {
+    // NÃO validar placeholders aqui — só em handlePrintClick (hard block PDF).
+    // Navegação entre etapas do wizard deve ser sempre livre.
     const stepId = currentStep?.id;
 
     // Manual: auto-fill when leaving parties-docs
@@ -646,12 +648,13 @@ const NovoContrato = () => {
         fullContent = replacePlaceholders(processed, mergedDados);
       }
 
-      // Aviso de placeholders não resolvidos (já roda sobre conteúdo pré-processado)
+      // Aviso de placeholders não resolvidos (já roda sobre conteúdo pré-processado).
+      // Não bloqueia o salvamento — o contrato é gravado como rascunho mesmo com pendências.
       const unresolved = getUnresolvedPlaceholders(fullContent, mergedDados);
       if (unresolved.length > 0) {
         toast({
-          title: "Atenção: campos não preenchidos",
-          description: `${unresolved.length} campo(s) sem dados: ${unresolved.slice(0, 3).join(", ")}${unresolved.length > 3 ? "..." : ""}`,
+          title: "Salvo como rascunho",
+          description: `${unresolved.length} campo(s) ainda sem dados: ${unresolved.slice(0, 3).join(", ")}${unresolved.length > 3 ? "..." : ""}. Você pode completar depois.`,
           variant: "default",
         });
       }
@@ -824,14 +827,9 @@ const NovoContrato = () => {
 
   const handlePrint = () => window.print();
 
-  // Lote D: handlers protegidos por validação de placeholders
+  // Lote D: Salvar nunca bloqueia — grava como rascunho mesmo com pendências.
+  // O hard block fica restrito ao Exportar PDF (handlePrintClick).
   const handleSaveClick = () => {
-    if (liveUnresolved.length > 0) {
-      setUnresolvedDialogMode("soft");
-      pendingSoftActionRef.current = () => { void handleSave(); };
-      setUnresolvedDialogOpen(true);
-      return;
-    }
     void handleSave();
   };
 
