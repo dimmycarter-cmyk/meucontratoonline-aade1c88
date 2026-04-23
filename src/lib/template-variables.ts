@@ -52,6 +52,16 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   // ===== Anuente =====
   ...pessoa("anuente", "Anuente", "Anuente"),
 
+  // ===== Testemunhas =====
+  { key: "testemunha1_nome", label: "Testemunha 1 - Nome", category: "Testemunhas" },
+  { key: "testemunha1_cpf", label: "Testemunha 1 - CPF", category: "Testemunhas" },
+  { key: "testemunha1_creci", label: "Testemunha 1 - CRECI", category: "Testemunhas" },
+  { key: "testemunha1_email", label: "Testemunha 1 - E-mail", category: "Testemunhas" },
+  { key: "testemunha2_nome", label: "Testemunha 2 - Nome", category: "Testemunhas" },
+  { key: "testemunha2_cpf", label: "Testemunha 2 - CPF", category: "Testemunhas" },
+  { key: "testemunha2_creci", label: "Testemunha 2 - CRECI", category: "Testemunhas" },
+  { key: "testemunha2_email", label: "Testemunha 2 - E-mail", category: "Testemunhas" },
+
   // ===== Imóvel =====
   { key: "imovel_endereco", label: "Endereço do Imóvel", category: "Imóvel" },
   { key: "imovel_descricao", label: "Descrição do Imóvel", category: "Imóvel" },
