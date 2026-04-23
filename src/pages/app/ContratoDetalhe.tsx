@@ -201,7 +201,7 @@ const ContratoDetalhe = () => {
               <Edit3 className="h-4 w-4" /> Editar
             </Button>
           )}
-          <Button variant="outline" onClick={() => window.print()} className="gap-2">
+          <Button variant="outline" onClick={handlePrintClick} className="gap-2">
             <Printer className="h-4 w-4" /> Imprimir
           </Button>
         </div>
