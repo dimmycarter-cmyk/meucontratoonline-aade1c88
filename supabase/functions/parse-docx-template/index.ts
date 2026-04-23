@@ -102,10 +102,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const arrayBuffer = await file.arrayBuffer();
+    const buffer = new Uint8Array(arrayBuffer);
 
-    // mammoth.convertToHtml + extractRawText
-    const htmlResult = await mammoth.convertToHtml({ arrayBuffer });
-    const textResult = await mammoth.extractRawText({ arrayBuffer });
+    // mammoth no Deno espera { buffer } (Uint8Array/Buffer-like), não { arrayBuffer }.
+    const htmlResult = await mammoth.convertToHtml({ buffer });
+    const textResult = await mammoth.extractRawText({ buffer });
 
     const html: string = htmlResult.value || "";
     const text: string = textResult.value || "";
