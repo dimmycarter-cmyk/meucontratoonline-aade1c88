@@ -308,12 +308,11 @@ const ContratoDetalhe = () => {
         <ContractPrintView ref={printRef} conteudo={contract.conteudo_final} nome={contract.nome} clausulas={[]} />
       </div>
 
-      {/* Lote D: Unresolved placeholders dialog (hard block) */}
+      {/* Hard block para Imprimir/Exportar PDF */}
       <UnresolvedPlaceholdersDialog
         open={unresolvedDialogOpen}
         onOpenChange={setUnresolvedDialogOpen}
         unresolved={liveUnresolved}
-        mode="hard"
         onGoBack={() => setUnresolvedDialogOpen(false)}
       />
     </div>
