@@ -273,7 +273,23 @@ const ContratoDetalhe = () => {
         </div>
 
         {/* Content */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
+          {liveUnresolved.length > 0 && (
+            <Alert className="border-warning/50 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle className="text-warning">
+                {liveUnresolved.length} campo{liveUnresolved.length > 1 ? "s" : ""} sem dados
+              </AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span className="text-sm">
+                  Há placeholders não resolvidos no contrato. A impressão/exportação está bloqueada.
+                </span>
+                <Button size="sm" variant="outline" onClick={() => setUnresolvedDialogOpen(true)}>
+                  Ver pendências
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           <Card className="shadow-card">
             <CardContent className="pt-6">
               {editing ? (
@@ -290,6 +306,15 @@ const ContratoDetalhe = () => {
       <div className="hidden print:block">
         <ContractPrintView ref={printRef} conteudo={contract.conteudo_final} nome={contract.nome} clausulas={[]} />
       </div>
+
+      {/* Lote D: Unresolved placeholders dialog (hard block) */}
+      <UnresolvedPlaceholdersDialog
+        open={unresolvedDialogOpen}
+        onOpenChange={setUnresolvedDialogOpen}
+        unresolved={liveUnresolved}
+        mode="hard"
+        onGoBack={() => setUnresolvedDialogOpen(false)}
+      />
     </div>
   );
 };
