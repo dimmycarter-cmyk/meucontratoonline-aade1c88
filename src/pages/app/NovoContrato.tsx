@@ -1280,11 +1280,11 @@ const NovoContrato = () => {
           </Card>
 
           <div className="flex gap-3">
-            <Button onClick={handleSave} disabled={isCreating} className="gap-2">
+            <Button onClick={handleSaveClick} disabled={isCreating} className="gap-2">
               <Check className="h-4 w-4" />
               {isCreating ? "Salvando..." : "Salvar Contrato"}
             </Button>
-            <Button variant="outline" onClick={handlePrint} className="gap-2">
+            <Button variant="outline" onClick={handlePrintClick} className="gap-2">
               <Printer className="h-4 w-4" />
               Exportar PDF
             </Button>
