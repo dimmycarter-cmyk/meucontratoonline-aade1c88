@@ -39,7 +39,7 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   ...pessoa("conjuge", "Cônjuge", "Cônjuge"),
   ...pessoa("conjuge2", "Cônjuge 2", "Cônjuge"),
 
-  // ===== Vendedor (até 4) =====
+  // ===== Vendedor (até 5) =====
   ...pessoa("vendedor", "Vendedor", "Vendedor"),
   ...dadosBancarios("vendedor", "Vendedor", "Vendedor"),
   ...pessoa("vendedor2", "Vendedor 2", "Vendedor"),
@@ -48,6 +48,8 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   ...dadosBancarios("vendedor3", "Vendedor 3", "Vendedor"),
   ...pessoa("vendedor4", "Vendedor 4", "Vendedor"),
   ...dadosBancarios("vendedor4", "Vendedor 4", "Vendedor"),
+  ...pessoa("vendedor5", "Vendedor 5", "Vendedor"),
+  ...dadosBancarios("vendedor5", "Vendedor 5", "Vendedor"),
 
   // ===== Anuente =====
   ...pessoa("anuente", "Anuente", "Anuente"),
