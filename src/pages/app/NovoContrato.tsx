@@ -335,9 +335,9 @@ const NovoContrato = () => {
 
   // Build final content
   const buildFinalContent = useCallback(() => {
-    let content = selectedTemplate?.conteudo || "";
-    content = replacePlaceholders(content, dados);
-    setConteudoFinal(content);
+    const raw = selectedTemplate?.conteudo || "";
+    const processed = preprocessTemplate(raw, dados);
+    setConteudoFinal(replacePlaceholders(processed, dados));
   }, [selectedTemplate, dados]);
 
   // AI flow: add participant
@@ -639,12 +639,14 @@ const NovoContrato = () => {
       const editorContent = conteudoFinal || "";
       
       if (editorContent) {
-        fullContent = replacePlaceholders(editorContent, mergedDados);
+        const processed = preprocessTemplate(editorContent, mergedDados);
+        fullContent = replacePlaceholders(processed, mergedDados);
       } else if (templateBase) {
-        fullContent = replacePlaceholders(templateBase, mergedDados);
+        const processed = preprocessTemplate(templateBase, mergedDados);
+        fullContent = replacePlaceholders(processed, mergedDados);
       }
 
-      // Aviso de placeholders não resolvidos
+      // Aviso de placeholders não resolvidos (já roda sobre conteúdo pré-processado)
       const unresolved = getUnresolvedPlaceholders(fullContent, mergedDados);
       if (unresolved.length > 0) {
         toast({
@@ -886,7 +888,10 @@ const NovoContrato = () => {
   // Live unresolved placeholders (Lote D)
   const liveUnresolved = useMemo(() => {
     if (!conteudoFinal) return [];
-    return parseUnresolvedStrings(getUnresolvedPlaceholders(conteudoFinal, dados));
+    // conteudoFinal já vem de buildFinalContent (preprocessado), mas reaplicar
+    // o preprocess é idempotente e protege contra edição manual no editor.
+    const processed = preprocessTemplate(conteudoFinal, dados);
+    return parseUnresolvedStrings(getUnresolvedPlaceholders(processed, dados));
   }, [conteudoFinal, dados]);
 
 
