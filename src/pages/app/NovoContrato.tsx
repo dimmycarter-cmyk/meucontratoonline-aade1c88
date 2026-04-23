@@ -1203,8 +1203,34 @@ const NovoContrato = () => {
         <div className="space-y-6">
           <h2 className="font-display text-lg font-semibold text-foreground">Editor do Contrato</h2>
           <p className="text-sm text-muted-foreground">Revise e ajuste o conteúdo final do contrato.</p>
+
+          {liveUnresolved.length > 0 && (
+            <Alert className="border-warning/50 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle className="text-warning">
+                {liveUnresolved.length} campo{liveUnresolved.length > 1 ? "s" : ""} sem dados
+              </AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span className="text-sm">
+                  Existem placeholders não resolvidos no contrato. A exportação para PDF está bloqueada até que sejam corrigidos.
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setUnresolvedDialogMode("hard");
+                    pendingSoftActionRef.current = null;
+                    setUnresolvedDialogOpen(true);
+                  }}
+                >
+                  Ver pendências
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <RichTextEditor content={conteudoFinal} onChange={setConteudoFinal} placeholder="Conteúdo do contrato..." />
-          
+
           {selectedClauses.length > 0 && (
             <Card className="shadow-card">
               <CardHeader className="pb-2">
