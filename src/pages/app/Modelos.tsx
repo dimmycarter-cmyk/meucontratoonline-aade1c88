@@ -113,7 +113,12 @@ const Modelos = () => {
           <h1 className="font-display text-2xl font-bold text-foreground">Modelos de Contrato</h1>
           <p className="text-sm text-muted-foreground">{templates.length} modelos cadastrados</p>
         </div>
-        <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Modelo</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" /> Importar .docx
+          </Button>
+          <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Novo Modelo</Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -230,6 +235,8 @@ const Modelos = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ImportDocxDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
     </div>
   );
 };
