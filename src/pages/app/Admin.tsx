@@ -292,7 +292,7 @@ const Admin = () => {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="mb-8">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Shield className="h-5 w-5" />
@@ -302,6 +302,10 @@ const Admin = () => {
             <p className="text-sm text-muted-foreground">Gestão global de tenants e usuários (apenas super_admin)</p>
           </div>
         </div>
+        <Button onClick={handleSeedTemplatesLeva1} disabled={seeding} variant="outline" size="sm">
+          {seeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sprout className="mr-2 h-4 w-4" />}
+          Semear templates Leva 1
+        </Button>
       </div>
 
       {/* Confirmation AlertDialog */}
