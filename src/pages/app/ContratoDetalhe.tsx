@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Printer, Edit3, Save, FileText, File, Download, Pencil } from "lucide-react";
+import { ArrowLeft, Printer, Edit3, Save, FileText, File, Download, Pencil, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useContracts } from "@/hooks/useContracts";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import ContractDataDisplay from "@/components/contract/ContractDataDisplay";
+import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
+import { getUnresolvedPlaceholders } from "@/lib/placeholder";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 
