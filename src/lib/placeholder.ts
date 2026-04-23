@@ -240,8 +240,11 @@ export function stripConditionalBlocks(
   vars: Record<string, string>
 ): string {
   if (!text) return text;
-  const isTruthy = (key: string) =>
-    (vars[key] ?? "").toString().trim().toLowerCase() === "true";
+  const isTruthy = (key: string) => {
+    const v = (vars[key] ?? "").toString().trim().toLowerCase();
+    if (v === "" || v === "false" || v === "0" || v === "no" || v === "não") return false;
+    return true;
+  };
 
   const re = /\{\{#if\s+([\w]+)\}\}([\s\S]*?)\{\{\/if\}\}/g;
   let prev = "";
