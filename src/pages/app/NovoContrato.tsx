@@ -861,6 +861,13 @@ const NovoContrato = () => {
     return g;
   }, [templateVars]);
 
+  // Live unresolved placeholders (Lote D)
+  const liveUnresolved = useMemo(() => {
+    if (!conteudoFinal) return [];
+    return parseUnresolvedStrings(getUnresolvedPlaceholders(conteudoFinal, dados));
+  }, [conteudoFinal, dados]);
+
+
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8">
