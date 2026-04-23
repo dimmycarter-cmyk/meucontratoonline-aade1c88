@@ -10,6 +10,7 @@ const ROLE_LABELS: Record<ParticipantRole, string> = {
   comprador: "Comprador",
   vendedor: "Vendedor",
   conjuge: "Cônjuge",
+  anuente: "Anuente",
   fiador: "Fiador",
   testemunha: "Testemunha",
   procurador: "Procurador",
@@ -17,9 +18,9 @@ const ROLE_LABELS: Record<ParticipantRole, string> = {
   outro: "Outro",
 };
 
-// Smart ordering: Comprador → Cônjuge(s) → Vendedor → Cônjuge(s) → others
+// Smart ordering: Comprador → Cônjuge → Vendedor → Cônjuge → Anuente → others
 const ROLE_ORDER: ParticipantRole[] = [
-  "comprador", "vendedor", "conjuge", "fiador", "testemunha", "procurador", "interveniente", "outro",
+  "comprador", "vendedor", "conjuge", "anuente", "fiador", "testemunha", "procurador", "interveniente", "outro",
 ];
 
 function emptyFirst(arr: ManualParticipantData[]): ManualParticipantData[] {
