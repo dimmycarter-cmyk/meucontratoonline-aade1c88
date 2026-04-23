@@ -99,6 +99,7 @@ export type Database = {
           complemento: string | null
           conta: string | null
           created_at: string
+          creci: string | null
           email: string | null
           estado: string | null
           id: string
@@ -122,6 +123,7 @@ export type Database = {
           complemento?: string | null
           conta?: string | null
           created_at?: string
+          creci?: string | null
           email?: string | null
           estado?: string | null
           id?: string
@@ -145,6 +147,7 @@ export type Database = {
           complemento?: string | null
           conta?: string | null
           created_at?: string
+          creci?: string | null
           email?: string | null
           estado?: string | null
           id?: string

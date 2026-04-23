@@ -1,17 +1,96 @@
 /**
  * Motor unificado de placeholders
  * Suporta: {{key}}, {{ key }}, [LABEL LEGADO], [label]
+ *
+ * O dicionário LEGACY_BRACKET_MAP normaliza labels em colchetes (legado .docx)
+ * para chaves canônicas em snake_case. Aliases entre chaves canônicas
+ * (ex: empresa_* ↔ imobiliaria_*) são resolvidos pelo enrichDados.
  */
 
 export const LEGACY_BRACKET_MAP: Record<string, string> = {
+  // ===== Comprador (índice padrão) =====
   "NOME COMPLETO DO(A) COMPRADOR(A)": "comprador_nome",
   "NOME COMPLETO DO COMPRADOR": "comprador_nome",
   "COMPRADOR": "comprador_nome",
+  "PROMISSÁRIO(A) COMPRADOR(A)": "comprador_nome",
+  "CPF DO(A) COMPRADOR(A)": "comprador_cpf",
+  "CPF DO COMPRADOR": "comprador_cpf",
+  "RG DO(A) COMPRADOR(A)": "comprador_rg",
+  "RG DO COMPRADOR": "comprador_rg",
+  "ÓRGÃO EXPEDIDOR (COMPRADOR)": "comprador_orgao_expedidor",
+  "PROFISSÃO DO(A) COMPRADOR(A)": "comprador_profissao",
+  "ESTADO CIVIL DO(A) COMPRADOR(A)": "comprador_estado_civil",
+  "NACIONALIDADE DO(A) COMPRADOR(A)": "comprador_nacionalidade",
+  "ENDEREÇO DO(A) COMPRADOR(A)": "comprador_endereco",
+
+  // ===== Comprador 2 =====
+  "NOME COMPLETO DO(A) COMPRADOR(A) 2": "comprador2_nome",
+  "NOME DO COMPRADOR 2": "comprador2_nome",
+  "CPF DO(A) COMPRADOR(A) 2": "comprador2_cpf",
+  "RG DO(A) COMPRADOR(A) 2": "comprador2_rg",
+  "ÓRGÃO EXPEDIDOR (COMPRADOR 2)": "comprador2_orgao_expedidor",
+  "PROFISSÃO DO(A) COMPRADOR(A) 2": "comprador2_profissao",
+  "ESTADO CIVIL DO(A) COMPRADOR(A) 2": "comprador2_estado_civil",
+  "ENDEREÇO DO(A) COMPRADOR(A) 2": "comprador2_endereco",
+
+  // ===== Vendedor (índice padrão) =====
   "NOME COMPLETO DO(A) VENDEDOR(A)": "vendedor_nome",
   "NOME COMPLETO DO VENDEDOR": "vendedor_nome",
   "PROMITENTE VENDEDOR(A)": "vendedor_nome",
-  "PROMISSÁRIO(A) COMPRADOR(A)": "comprador_nome",
   "VENDEDOR": "vendedor_nome",
+  "CPF DO(A) VENDEDOR(A)": "vendedor_cpf",
+  "CPF DO VENDEDOR": "vendedor_cpf",
+  "RG DO(A) VENDEDOR(A)": "vendedor_rg",
+  "RG DO VENDEDOR": "vendedor_rg",
+  "ÓRGÃO EXPEDIDOR (VENDEDOR)": "vendedor_orgao_expedidor",
+  "ÓRGÃO EXPEDIDOR DO VENDEDOR": "vendedor_orgao_expedidor",
+  "PROFISSÃO DO(A) VENDEDOR(A)": "vendedor_profissao",
+  "ESTADO CIVIL DO(A) VENDEDOR(A)": "vendedor_estado_civil",
+  "NACIONALIDADE DO(A) VENDEDOR(A)": "vendedor_nacionalidade",
+  "ENDEREÇO DO(A) VENDEDOR(A)": "vendedor_endereco",
+  "BANCO DO(A) VENDEDOR(A)": "vendedor_banco",
+  "AGÊNCIA DO(A) VENDEDOR(A)": "vendedor_agencia",
+  "CONTA DO(A) VENDEDOR(A)": "vendedor_conta",
+  "PIX DO(A) VENDEDOR(A)": "vendedor_pix",
+
+  // ===== Vendedores 2..4 =====
+  "NOME DO VENDEDOR 2": "vendedor2_nome",
+  "CPF DO VENDEDOR 2": "vendedor2_cpf",
+  "RG DO VENDEDOR 2": "vendedor2_rg",
+  "PROFISSÃO DO VENDEDOR 2": "vendedor2_profissao",
+  "ESTADO CIVIL DO VENDEDOR 2": "vendedor2_estado_civil",
+  "ENDEREÇO DO VENDEDOR 2": "vendedor2_endereco",
+  "BANCO DO VENDEDOR 2": "vendedor2_banco",
+  "AGÊNCIA DO VENDEDOR 2": "vendedor2_agencia",
+  "CONTA DO VENDEDOR 2": "vendedor2_conta",
+  "PIX DO VENDEDOR 2": "vendedor2_pix",
+
+  "NOME DO VENDEDOR 3": "vendedor3_nome",
+  "CPF DO VENDEDOR 3": "vendedor3_cpf",
+  "RG DO VENDEDOR 3": "vendedor3_rg",
+  "ENDEREÇO DO VENDEDOR 3": "vendedor3_endereco",
+
+  "NOME DO VENDEDOR 4": "vendedor4_nome",
+  "CPF DO VENDEDOR 4": "vendedor4_cpf",
+  "RG DO VENDEDOR 4": "vendedor4_rg",
+  "ENDEREÇO DO VENDEDOR 4": "vendedor4_endereco",
+
+  // ===== Cônjuge =====
+  "NOME DO(A) CÔNJUGE": "conjuge_nome",
+  "CPF DO(A) CÔNJUGE": "conjuge_cpf",
+  "RG DO(A) CÔNJUGE": "conjuge_rg",
+  "PROFISSÃO DO(A) CÔNJUGE": "conjuge_profissao",
+  "NOME DO(A) CÔNJUGE 2": "conjuge2_nome",
+  "CPF DO(A) CÔNJUGE 2": "conjuge2_cpf",
+  "RG DO(A) CÔNJUGE 2": "conjuge2_rg",
+
+  // ===== Anuente =====
+  "NOME DO(A) ANUENTE": "anuente_nome",
+  "CPF DO(A) ANUENTE": "anuente_cpf",
+  "RG DO(A) ANUENTE": "anuente_rg",
+  "ENDEREÇO DO(A) ANUENTE": "anuente_endereco",
+
+  // ===== Genéricos sem qualificação (compatibilidade) =====
   "CPF": "comprador_cpf",
   "RG": "comprador_rg",
   "RG/ÓRGÃO EMISSOR": "comprador_rg",
@@ -20,33 +99,59 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
   "EMAIL": "comprador_email",
   "ENDEREÇO COMPLETO": "comprador_endereco",
   "ENDEREÇO": "comprador_endereco",
+
+  // ===== Imóvel =====
   "DESCRIÇÃO DO IMÓVEL": "imovel_descricao",
   "ENDEREÇO DO IMÓVEL": "imovel_endereco",
   "MATRÍCULA": "imovel_matricula",
+  "MATRÍCULA DO IMÓVEL": "imovel_matricula",
+  "CARTÓRIO": "imovel_cartorio",
   "ÁREA PRIVATIVA": "imovel_area_privativa",
   "ÁREA TOTAL": "imovel_area_total",
   "ÁREA ACESSÓRIA": "imovel_area_acessoria",
   "VAGAS DE GARAGEM": "imovel_vagas",
   "INSCRIÇÃO/ÍNDICE CADASTRAL": "imovel_indice_cadastral",
   "ÍNDICE CADASTRAL": "imovel_indice_cadastral",
+  "INSCRIÇÃO MUNICIPAL": "imovel_inscricao_municipal",
+
+  // ===== Financeiro =====
   "VALOR TOTAL": "valor_total",
+  "VALOR TOTAL POR EXTENSO": "valor_total_extenso",
   "VALOR DO SINAL": "valor_sinal",
   "VALOR REMANESCENTE": "valor_remanescente",
+  "VALOR DO FINANCIAMENTO": "valor_financiamento",
   "FORMA DE PAGAMENTO": "forma_pagamento",
+  "BANCO DO FINANCIAMENTO": "banco_financiamento",
+  "VALOR PARA O VENDEDOR": "valor_vendedor_sinal",
+
+  // ===== Imobiliária / Empresa =====
   "NOME DA AGÊNCIA": "empresa_nome",
+  "NOME DA IMOBILIÁRIA": "empresa_nome",
+  "CNPJ DA IMOBILIÁRIA": "empresa_cnpj",
+  "CRECI DA IMOBILIÁRIA": "empresa_creci",
+  "ENDEREÇO DA IMOBILIÁRIA": "empresa_endereco",
   "NOME DO BANCO": "empresa_banco",
   "NÚMERO DA CONTA": "empresa_conta",
   "NÚMERO DA AGÊNCIA": "empresa_agencia",
   "CNPJ": "empresa_cnpj",
   "CPF/CNPJ": "empresa_cnpj",
+
+  // ===== Intermediadoras =====
   "NOME DA INTERMEDIADORA I": "intermediadora1_nome",
+  "NOME DA INTERMEDIADORA 1": "intermediadora1_nome",
   "CNPJ/CPF 1": "intermediadora1_cnpj",
   "NOME DA INTERMEDIADORA 2": "intermediadora2_nome",
   "CNPJ/CPF 2": "intermediadora2_cnpj",
+
+  // ===== Contrato / Local =====
   "CIDADE/UF": "cidade_uf",
+  "CIDADE DO CONTRATO": "cidade_contrato",
+  "FORO": "foro",
   "DIA": "data_dia",
   "MÊS": "data_mes",
   "ANO": "data_ano",
+  "DATA DO CONTRATO": "data_contrato",
+  "DATA DO CONTRATO POR EXTENSO": "data_contrato_extenso",
 };
 
 export function replacePlaceholders(
@@ -103,9 +208,12 @@ export function getUnresolvedPlaceholders(
   }
   const bracketMatches = text.matchAll(/\[([^\]]+)\]/g);
   for (const m of bracketMatches) {
-    const key = LEGACY_BRACKET_MAP[m[1].trim().toUpperCase()];
+    const label = m[1].trim();
+    if (/^(art\.?|lei|inc(iso)?|§|par[áa]grafo)\b/i.test(label)) continue;
+    if (/^\d+([.,]\d+)?$/.test(label)) continue;
+    const key = LEGACY_BRACKET_MAP[label.toUpperCase()];
     if (!key || !vars[key] || vars[key].trim() === "") {
-      unresolved.push(`[${m[1]}]`);
+      unresolved.push(`[${label}]`);
     }
   }
   return [...new Set(unresolved)];

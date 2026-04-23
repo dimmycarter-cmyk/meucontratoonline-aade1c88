@@ -5,56 +5,115 @@ export interface TemplateVariable {
   category: string;
 }
 
+// Helper para gerar bloco de pessoa indexada (vendedor2, vendedor3...)
+function pessoa(prefix: string, label: string, category: string): TemplateVariable[] {
+  return [
+    { key: `${prefix}_nome`, label: `Nome (${label})`, category },
+    { key: `${prefix}_cpf`, label: `CPF (${label})`, category },
+    { key: `${prefix}_rg`, label: `RG (${label})`, category },
+    { key: `${prefix}_orgao_expedidor`, label: `Órgão Expedidor (${label})`, category },
+    { key: `${prefix}_profissao`, label: `Profissão (${label})`, category },
+    { key: `${prefix}_nacionalidade`, label: `Nacionalidade (${label})`, category },
+    { key: `${prefix}_estado_civil`, label: `Estado Civil (${label})`, category },
+    { key: `${prefix}_email`, label: `E-mail (${label})`, category },
+    { key: `${prefix}_whatsapp`, label: `WhatsApp (${label})`, category },
+    { key: `${prefix}_endereco`, label: `Endereço (${label})`, category },
+  ];
+}
+
+function dadosBancarios(prefix: string, label: string, category: string): TemplateVariable[] {
+  return [
+    { key: `${prefix}_banco`, label: `Banco (${label})`, category },
+    { key: `${prefix}_agencia`, label: `Agência (${label})`, category },
+    { key: `${prefix}_conta`, label: `Conta (${label})`, category },
+    { key: `${prefix}_pix`, label: `PIX (${label})`, category },
+  ];
+}
+
 export const TEMPLATE_VARIABLES: TemplateVariable[] = [
-  // Comprador
-  { key: "comprador_nome", label: "Nome do Comprador", category: "Comprador" },
-  { key: "comprador_cpf", label: "CPF do Comprador", category: "Comprador" },
-  { key: "comprador_rg", label: "RG do Comprador", category: "Comprador" },
-  { key: "comprador_orgao_expedidor", label: "Órgão Expedidor (Comprador)", category: "Comprador" },
-  { key: "comprador_profissao", label: "Profissão do Comprador", category: "Comprador" },
-  { key: "comprador_nacionalidade", label: "Nacionalidade do Comprador", category: "Comprador" },
-  { key: "comprador_estado_civil", label: "Estado Civil do Comprador", category: "Comprador" },
-  { key: "comprador_email", label: "E-mail do Comprador", category: "Comprador" },
-  { key: "comprador_whatsapp", label: "WhatsApp do Comprador", category: "Comprador" },
-  { key: "comprador_endereco", label: "Endereço do Comprador", category: "Comprador" },
+  // ===== Comprador =====
+  ...pessoa("comprador", "Comprador", "Comprador"),
+  ...pessoa("comprador2", "Comprador 2", "Comprador"),
 
-  // Vendedor
-  { key: "vendedor_nome", label: "Nome do Vendedor", category: "Vendedor" },
-  { key: "vendedor_cpf", label: "CPF do Vendedor", category: "Vendedor" },
-  { key: "vendedor_rg", label: "RG do Vendedor", category: "Vendedor" },
-  { key: "vendedor_orgao_expedidor", label: "Órgão Expedidor (Vendedor)", category: "Vendedor" },
-  { key: "vendedor_profissao", label: "Profissão do Vendedor", category: "Vendedor" },
-  { key: "vendedor_nacionalidade", label: "Nacionalidade do Vendedor", category: "Vendedor" },
-  { key: "vendedor_estado_civil", label: "Estado Civil do Vendedor", category: "Vendedor" },
-  { key: "vendedor_email", label: "E-mail do Vendedor", category: "Vendedor" },
-  { key: "vendedor_whatsapp", label: "WhatsApp do Vendedor", category: "Vendedor" },
-  { key: "vendedor_endereco", label: "Endereço do Vendedor", category: "Vendedor" },
+  // ===== Cônjuge do Comprador =====
+  ...pessoa("conjuge", "Cônjuge", "Cônjuge"),
+  ...pessoa("conjuge2", "Cônjuge 2", "Cônjuge"),
 
-  // Imóvel
+  // ===== Vendedor (até 4) =====
+  ...pessoa("vendedor", "Vendedor", "Vendedor"),
+  ...dadosBancarios("vendedor", "Vendedor", "Vendedor"),
+  ...pessoa("vendedor2", "Vendedor 2", "Vendedor"),
+  ...dadosBancarios("vendedor2", "Vendedor 2", "Vendedor"),
+  ...pessoa("vendedor3", "Vendedor 3", "Vendedor"),
+  ...dadosBancarios("vendedor3", "Vendedor 3", "Vendedor"),
+  ...pessoa("vendedor4", "Vendedor 4", "Vendedor"),
+  ...dadosBancarios("vendedor4", "Vendedor 4", "Vendedor"),
+
+  // ===== Anuente =====
+  ...pessoa("anuente", "Anuente", "Anuente"),
+
+  // ===== Imóvel =====
   { key: "imovel_endereco", label: "Endereço do Imóvel", category: "Imóvel" },
+  { key: "imovel_descricao", label: "Descrição do Imóvel", category: "Imóvel" },
   { key: "imovel_matricula", label: "Matrícula do Imóvel", category: "Imóvel" },
   { key: "imovel_cartorio", label: "Cartório", category: "Imóvel" },
   { key: "imovel_area", label: "Área do Imóvel", category: "Imóvel" },
+  { key: "imovel_area_privativa", label: "Área Privativa", category: "Imóvel" },
+  { key: "imovel_area_total", label: "Área Total", category: "Imóvel" },
+  { key: "imovel_area_acessoria", label: "Área Acessória", category: "Imóvel" },
+  { key: "imovel_vagas", label: "Vagas de Garagem", category: "Imóvel" },
   { key: "imovel_tipo", label: "Tipo do Imóvel", category: "Imóvel" },
   { key: "imovel_inscricao_municipal", label: "Inscrição Municipal", category: "Imóvel" },
+  { key: "imovel_indice_cadastral", label: "Índice Cadastral", category: "Imóvel" },
 
-  // Financeiro
+  // ===== Financeiro =====
   { key: "valor_total", label: "Valor Total", category: "Financeiro" },
-  { key: "valor_extenso", label: "Valor por Extenso", category: "Financeiro" },
+  { key: "valor_total_extenso", label: "Valor Total por Extenso", category: "Financeiro" },
   { key: "valor_sinal", label: "Valor do Sinal", category: "Financeiro" },
+  { key: "valor_sinal_extenso", label: "Valor do Sinal por Extenso", category: "Financeiro" },
+  { key: "valor_remanescente", label: "Valor Remanescente", category: "Financeiro" },
   { key: "valor_financiamento", label: "Valor do Financiamento", category: "Financeiro" },
+  { key: "valor_financiamento_extenso", label: "Valor do Financiamento por Extenso", category: "Financeiro" },
+  { key: "valor_vendedor_sinal", label: "Valor para o Vendedor (Sinal)", category: "Financeiro" },
   { key: "forma_pagamento", label: "Forma de Pagamento", category: "Financeiro" },
   { key: "banco_financiamento", label: "Banco do Financiamento", category: "Financeiro" },
 
-  // Empresa / Intermediadora
-  { key: "empresa_nome", label: "Nome da Empresa", category: "Empresa" },
-  { key: "empresa_cnpj", label: "CNPJ da Empresa", category: "Empresa" },
-  { key: "empresa_endereco", label: "Endereço da Empresa", category: "Empresa" },
-  { key: "empresa_creci", label: "CRECI da Empresa", category: "Empresa" },
+  // ===== Parcelas (até 12) =====
+  ...Array.from({ length: 12 }, (_, i): TemplateVariable[] => [
+    { key: `parcela${i + 1}_data`, label: `Data Parcela ${i + 1}`, category: "Parcelas" },
+    { key: `parcela${i + 1}_valor`, label: `Valor Parcela ${i + 1}`, category: "Parcelas" },
+    { key: `parcela${i + 1}_valor_extenso`, label: `Valor Parcela ${i + 1} por Extenso`, category: "Parcelas" },
+  ]).flat(),
 
-  // Contrato
+  // ===== Imobiliária (canônico empresa_*) =====
+  { key: "empresa_nome", label: "Nome da Imobiliária", category: "Imobiliária" },
+  { key: "empresa_razao_social", label: "Razão Social", category: "Imobiliária" },
+  { key: "empresa_cnpj", label: "CNPJ", category: "Imobiliária" },
+  { key: "empresa_creci", label: "CRECI", category: "Imobiliária" },
+  { key: "empresa_endereco", label: "Endereço", category: "Imobiliária" },
+  { key: "empresa_cidade", label: "Cidade", category: "Imobiliária" },
+  { key: "empresa_estado", label: "Estado", category: "Imobiliária" },
+  { key: "empresa_cep", label: "CEP", category: "Imobiliária" },
+  { key: "empresa_email", label: "E-mail", category: "Imobiliária" },
+  { key: "empresa_whatsapp", label: "WhatsApp", category: "Imobiliária" },
+  { key: "empresa_logo_url", label: "Logo (URL)", category: "Imobiliária" },
+  { key: "empresa_banco", label: "Banco", category: "Imobiliária" },
+  { key: "empresa_agencia", label: "Agência", category: "Imobiliária" },
+  { key: "empresa_conta", label: "Conta", category: "Imobiliária" },
+  { key: "empresa_pix", label: "PIX", category: "Imobiliária" },
+
+  // ===== Intermediadoras =====
+  { key: "intermediadora1_nome", label: "Intermediadora 1 - Nome", category: "Intermediadoras" },
+  { key: "intermediadora1_cnpj", label: "Intermediadora 1 - CNPJ/CPF", category: "Intermediadoras" },
+  { key: "intermediadora2_nome", label: "Intermediadora 2 - Nome", category: "Intermediadoras" },
+  { key: "intermediadora2_cnpj", label: "Intermediadora 2 - CNPJ/CPF", category: "Intermediadoras" },
+
+  // ===== Contrato =====
   { key: "data_contrato", label: "Data do Contrato", category: "Contrato" },
+  { key: "data_contrato_curta", label: "Data do Contrato (dd/mm/aaaa)", category: "Contrato" },
+  { key: "data_contrato_extenso", label: "Data do Contrato por Extenso", category: "Contrato" },
   { key: "cidade_contrato", label: "Cidade do Contrato", category: "Contrato" },
+  { key: "cidade_uf", label: "Cidade/UF", category: "Contrato" },
   { key: "prazo_escritura", label: "Prazo para Escritura", category: "Contrato" },
   { key: "multa_rescisao", label: "Multa por Rescisão", category: "Contrato" },
   { key: "foro", label: "Foro", category: "Contrato" },
