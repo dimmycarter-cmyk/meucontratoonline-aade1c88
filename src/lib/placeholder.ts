@@ -358,3 +358,131 @@ export function getUnresolvedPlaceholders(
   }
   return [...new Set(unresolved)];
 }
+
+// ============================================================================
+// resolveAmbiguousLabels — heurística do importador .docx (Leva 3 / G.2)
+// ============================================================================
+
+/**
+ * Label genérico em colchetes detectado no .docx importado, sem qualificação
+ * explícita do papel (ex: "[CPF]" em vez de "[CPF DO VENDEDOR]").
+ */
+export interface AmbiguousLabel {
+  /** ex: "[CPF]" */
+  raw: string;
+  /** Posição da n-ésima ocorrência DESSE label específico no texto (0-indexada). */
+  occurrenceIndex: number;
+  /** Snippet ~80 chars antes + ~30 depois, para inspeção heurística. */
+  context: string;
+}
+
+export interface ResolvedLabel extends AmbiguousLabel {
+  /** Melhor sugestão (vendedor_cpf, comprador_cpf, etc.) ou string vazia se nada conhecido. */
+  suggestedKey: string;
+  /** Lista ranqueada de candidatos (até 4). Vazia quando o label é desconhecido. */
+  suggestedKeys: string[];
+  /** "high" = contexto local explícito · "medium" = ordem com fallback razoável · "low" = pura ordem. */
+  confidence: "high" | "medium" | "low";
+}
+
+const ROLE_KEYWORDS: Array<{ role: string; rx: RegExp }> = [
+  { role: "vendedor", rx: /\bvendedor(?:a|es|as)?\b/i },
+  { role: "comprador", rx: /\bcomprador(?:a|es|as)?\b/i },
+  { role: "procurador", rx: /\bprocurador(?:a|es|as)?\b/i },
+  { role: "conjuge", rx: /\bc[ôo]njuges?\b/i },
+  { role: "anuente", rx: /\banuentes?\b/i },
+  { role: "testemunha", rx: /\btestemunhas?\b/i },
+];
+
+/** Ordem de fallback puro quando não há contexto: 1ª = vendedor, 2ª = comprador, 3ª = cônjuge. */
+const ORDER_FALLBACK = ["vendedor", "comprador", "conjuge", "anuente"];
+
+/**
+ * Mapeia o label genérico (sem qualificação) ao sufixo canônico.
+ * Ex: "CPF" → "cpf", "RG" → "rg", "PROFISSÃO" → "profissao".
+ * Retorna null se o label não é reconhecido como campo genérico.
+ */
+function genericLabelToFieldSuffix(rawLabel: string): string | null {
+  const upper = rawLabel.replace(/^\[|\]$/g, "").trim().toUpperCase();
+  const map: Record<string, string> = {
+    "CPF": "cpf",
+    "RG": "rg",
+    "RG/ÓRGÃO EMISSOR": "rg",
+    "ÓRGÃO EMISSOR": "orgao_expedidor",
+    "ÓRGÃO EXPEDIDOR": "orgao_expedidor",
+    "NOME": "nome",
+    "NOME COMPLETO": "nome",
+    "ENDEREÇO": "endereco",
+    "ENDEREÇO COMPLETO": "endereco",
+    "NACIONALIDADE": "nacionalidade",
+    "ESTADO CIVIL": "estado_civil",
+    "PROFISSÃO": "profissao",
+    "E-MAIL": "email",
+    "EMAIL": "email",
+    "TELEFONE": "telefone",
+  };
+  return map[upper] ?? null;
+}
+
+/**
+ * Heurística que sugere a chave canônica para labels genéricos detectados
+ * pelo importador .docx.
+ *
+ * 1. Se o contexto local contém uma palavra-chave de papel (vendedor, comprador,
+ *    procurador, etc.), gera `<role>_<suffix>` com confidence "high".
+ * 2. Caso contrário, usa ORDER_FALLBACK pela `occurrenceIndex` (low).
+ * 3. Sempre retorna até 4 candidatos ranqueados.
+ *
+ * Labels não reconhecidos como genéricos (ex: "[FOO]") retornam suggestedKeys: [].
+ */
+export function resolveAmbiguousLabels(
+  _text: string,
+  ambiguousLabels: AmbiguousLabel[]
+): ResolvedLabel[] {
+  return ambiguousLabels.map((al) => {
+    const suffix = genericLabelToFieldSuffix(al.raw);
+    if (!suffix) {
+      return {
+        ...al,
+        suggestedKey: "",
+        suggestedKeys: [],
+        confidence: "low" as const,
+      };
+    }
+
+    // 1. Contexto explícito
+    const ctx = al.context || "";
+    for (const { role, rx } of ROLE_KEYWORDS) {
+      if (rx.test(ctx)) {
+        const primary = `${role}_${suffix}`;
+        // Adiciona até 3 outros candidatos (ordem padrão) para override
+        const others = ORDER_FALLBACK
+          .filter((r) => r !== role)
+          .slice(0, 3)
+          .map((r) => `${r}_${suffix}`);
+        return {
+          ...al,
+          suggestedKey: primary,
+          suggestedKeys: [primary, ...others],
+          confidence: "high" as const,
+        };
+      }
+    }
+
+    // 2. Fallback por ordem de aparição
+    const idx = Math.max(0, al.occurrenceIndex);
+    const role = ORDER_FALLBACK[Math.min(idx, ORDER_FALLBACK.length - 1)];
+    const primary = `${role}_${suffix}`;
+    const others = ORDER_FALLBACK
+      .filter((r) => r !== role)
+      .slice(0, 3)
+      .map((r) => `${r}_${suffix}`);
+    return {
+      ...al,
+      suggestedKey: primary,
+      suggestedKeys: [primary, ...others],
+      confidence: "low" as const,
+    };
+  });
+}
+
