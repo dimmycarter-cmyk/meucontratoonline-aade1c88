@@ -38,6 +38,7 @@ const ContratoDetalhe = () => {
   const [editContent, setEditContent] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
+  const [unresolvedDialogOpen, setUnresolvedDialogOpen] = useState(false);
 
   // Fetch single contract
   const { data: contract, isLoading, refetch } = useQuery({
