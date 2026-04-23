@@ -32,6 +32,9 @@ import type { DocType, UploadedDoc } from "@/components/contract/DocumentUploade
 import MultipleParticipantsPanel from "@/components/contract/MultipleParticipantsPanel";
 import FixedDataFields from "@/components/contract/FixedDataFields";
 import ParcelasManager from "@/components/contract/ParcelasManager";
+import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
 import { emptyParticipant } from "@/components/contract/ManualParticipantCard";
 import ExtractionProgress from "@/components/contract/ExtractionProgress";
