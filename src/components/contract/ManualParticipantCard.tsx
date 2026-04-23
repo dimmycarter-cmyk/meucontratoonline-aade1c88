@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { maskCPF, maskPhone, maskCEP } from "@/lib/masks";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import type { Contact } from "@/hooks/useContacts";
@@ -108,9 +110,13 @@ const ManualParticipantCard = ({
   const [contactSearch, setContactSearch] = useState("");
   const [showContactPicker, setShowContactPicker] = useState(false);
 
-  const updateField = (field: keyof ManualParticipantData, value: string) => {
-    onUpdate({ ...participant, [field]: value });
+  const updateField = (field: keyof ManualParticipantData, value: string | boolean) => {
+    onUpdate({ ...participant, [field]: value as never });
   };
+
+  const isLawyer = /advogad/i.test(participant.profissao || "");
+  const isMarried = /casad|uni[ãa]o\s+est[áa]vel/i.test(participant.estado_civil || "");
+  const showBankBlock = participant.role === "vendedor" || participant.role === "procurador";
 
   const onCepResult = useCallback(
     (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
@@ -258,6 +264,17 @@ const ManualParticipantCard = ({
                   className="h-8 text-sm"
                 />
               </div>
+              {isLawyer && (
+                <div className="space-y-1">
+                  <Label className="text-xs">OAB</Label>
+                  <Input
+                    value={participant.oab || ""}
+                    onChange={(e) => updateField("oab", e.target.value)}
+                    placeholder="Ex.: OAB/MG 123.456"
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
               <div className="space-y-1">
                 <Label className="text-xs">WhatsApp</Label>
                 <Input
@@ -286,12 +303,43 @@ const ManualParticipantCard = ({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Estado Civil</Label>
-                <Input
-                  value={participant.estado_civil}
-                  onChange={(e) => updateField("estado_civil", e.target.value)}
-                  className="h-8 text-sm"
-                />
+                <Select
+                  value={participant.estado_civil || ""}
+                  onValueChange={(v) => updateField("estado_civil", v)}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
+                    <SelectItem value="Casado(a)">Casado(a)</SelectItem>
+                    <SelectItem value="União Estável">União Estável</SelectItem>
+                    <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
+                    <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
+                    <SelectItem value="Separado(a)">Separado(a)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+              {isMarried && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Regime de Bens</Label>
+                  <Select
+                    value={participant.regime_bens || ""}
+                    onValueChange={(v) => updateField("regime_bens", v)}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Comunhão Parcial de Bens">Comunhão Parcial de Bens</SelectItem>
+                      <SelectItem value="Comunhão Universal de Bens">Comunhão Universal de Bens</SelectItem>
+                      <SelectItem value="Separação Total de Bens">Separação Total de Bens</SelectItem>
+                      <SelectItem value="Separação Obrigatória de Bens">Separação Obrigatória de Bens</SelectItem>
+                      <SelectItem value="Participação Final nos Aquestos">Participação Final nos Aquestos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <h4 className="text-xs font-semibold text-foreground pt-1">Endereço</h4>
@@ -360,6 +408,58 @@ const ManualParticipantCard = ({
                 />
               </div>
             </div>
+
+            {showBankBlock && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1 px-2 -mx-2"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                    Dados Bancários (opcional)
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Banco</Label>
+                      <Input
+                        value={participant.banco || ""}
+                        onChange={(e) => updateField("banco", e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Agência</Label>
+                      <Input
+                        value={participant.agencia || ""}
+                        onChange={(e) => updateField("agencia", e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Conta</Label>
+                      <Input
+                        value={participant.conta || ""}
+                        onChange={(e) => updateField("conta", e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Chave PIX</Label>
+                      <Input
+                        value={participant.pix || ""}
+                        onChange={(e) => updateField("pix", e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         )}
       </CardContent>
