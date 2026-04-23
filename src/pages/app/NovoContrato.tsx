@@ -190,10 +190,8 @@ const NovoContrato = () => {
   // AI sub-step inside "review-data": extraction → review → data
   const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
 
-  // Unresolved placeholders dialog (Lote D)
+  // Unresolved placeholders dialog — hard block apenas em Exportar PDF (Leva 3: soft removido)
   const [unresolvedDialogOpen, setUnresolvedDialogOpen] = useState(false);
-  const [unresolvedDialogMode, setUnresolvedDialogMode] = useState<"hard" | "soft">("hard");
-  const pendingSoftActionRef = useRef<(() => void) | null>(null);
 
   // Build draft payload
   const buildDraftPayload = useCallback(() => ({
@@ -868,8 +866,6 @@ const NovoContrato = () => {
 
   const handlePrintClick = () => {
     if (liveUnresolved.length > 0) {
-      setUnresolvedDialogMode("hard");
-      pendingSoftActionRef.current = null;
       setUnresolvedDialogOpen(true);
       return;
     }
@@ -1257,11 +1253,7 @@ const NovoContrato = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    setUnresolvedDialogMode("hard");
-                    pendingSoftActionRef.current = null;
-                    setUnresolvedDialogOpen(true);
-                  }}
+                  onClick={() => setUnresolvedDialogOpen(true)}
                 >
                   Ver pendências
                 </Button>
@@ -1447,23 +1439,12 @@ const NovoContrato = () => {
         clausulas={selectedClauses.map((c) => ({ titulo: c.titulo, conteudo: c.conteudo }))}
       />
 
-      {/* Lote D: Unresolved placeholders dialog */}
+      {/* Hard block para Exportar PDF */}
       <UnresolvedPlaceholdersDialog
         open={unresolvedDialogOpen}
         onOpenChange={setUnresolvedDialogOpen}
         unresolved={liveUnresolved}
-        mode={unresolvedDialogMode}
         onGoBack={() => setUnresolvedDialogOpen(false)}
-        onContinueAnyway={
-          unresolvedDialogMode === "soft"
-            ? () => {
-                setUnresolvedDialogOpen(false);
-                const action = pendingSoftActionRef.current;
-                pendingSoftActionRef.current = null;
-                if (action) action();
-              }
-            : undefined
-        }
       />
     </div>
   );
