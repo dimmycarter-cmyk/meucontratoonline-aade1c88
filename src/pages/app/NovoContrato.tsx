@@ -32,6 +32,9 @@ import type { DocType, UploadedDoc } from "@/components/contract/DocumentUploade
 import MultipleParticipantsPanel from "@/components/contract/MultipleParticipantsPanel";
 import FixedDataFields from "@/components/contract/FixedDataFields";
 import ParcelasManager from "@/components/contract/ParcelasManager";
+import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
 import { emptyParticipant } from "@/components/contract/ManualParticipantCard";
 import ExtractionProgress from "@/components/contract/ExtractionProgress";
@@ -186,6 +189,11 @@ const NovoContrato = () => {
 
   // AI sub-step inside "review-data": extraction → review → data
   const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
+
+  // Unresolved placeholders dialog (Lote D)
+  const [unresolvedDialogOpen, setUnresolvedDialogOpen] = useState(false);
+  const [unresolvedDialogMode, setUnresolvedDialogMode] = useState<"hard" | "soft">("hard");
+  const pendingSoftActionRef = useRef<(() => void) | null>(null);
 
   // Build draft payload
   const buildDraftPayload = useCallback(() => ({
@@ -814,6 +822,28 @@ const NovoContrato = () => {
 
   const handlePrint = () => window.print();
 
+  // Lote D: handlers protegidos por validação de placeholders
+  const handleSaveClick = () => {
+    if (liveUnresolved.length > 0) {
+      setUnresolvedDialogMode("soft");
+      pendingSoftActionRef.current = () => { void handleSave(); };
+      setUnresolvedDialogOpen(true);
+      return;
+    }
+    void handleSave();
+  };
+
+  const handlePrintClick = () => {
+    if (liveUnresolved.length > 0) {
+      setUnresolvedDialogMode("hard");
+      pendingSoftActionRef.current = null;
+      setUnresolvedDialogOpen(true);
+      return;
+    }
+    handlePrint();
+  };
+
+
   const handleCreateTemplate = async () => {
     if (!newTemplateName.trim()) return;
     try {
@@ -852,6 +882,13 @@ const NovoContrato = () => {
     });
     return g;
   }, [templateVars]);
+
+  // Live unresolved placeholders (Lote D)
+  const liveUnresolved = useMemo(() => {
+    if (!conteudoFinal) return [];
+    return parseUnresolvedStrings(getUnresolvedPlaceholders(conteudoFinal, dados));
+  }, [conteudoFinal, dados]);
+
 
   return (
     <div className="p-6 lg:p-8">
@@ -1166,8 +1203,34 @@ const NovoContrato = () => {
         <div className="space-y-6">
           <h2 className="font-display text-lg font-semibold text-foreground">Editor do Contrato</h2>
           <p className="text-sm text-muted-foreground">Revise e ajuste o conteúdo final do contrato.</p>
+
+          {liveUnresolved.length > 0 && (
+            <Alert className="border-warning/50 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle className="text-warning">
+                {liveUnresolved.length} campo{liveUnresolved.length > 1 ? "s" : ""} sem dados
+              </AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span className="text-sm">
+                  Existem placeholders não resolvidos no contrato. A exportação para PDF está bloqueada até que sejam corrigidos.
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setUnresolvedDialogMode("hard");
+                    pendingSoftActionRef.current = null;
+                    setUnresolvedDialogOpen(true);
+                  }}
+                >
+                  Ver pendências
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <RichTextEditor content={conteudoFinal} onChange={setConteudoFinal} placeholder="Conteúdo do contrato..." />
-          
+
           {selectedClauses.length > 0 && (
             <Card className="shadow-card">
               <CardHeader className="pb-2">
@@ -1243,11 +1306,11 @@ const NovoContrato = () => {
           </Card>
 
           <div className="flex gap-3">
-            <Button onClick={handleSave} disabled={isCreating} className="gap-2">
+            <Button onClick={handleSaveClick} disabled={isCreating} className="gap-2">
               <Check className="h-4 w-4" />
               {isCreating ? "Salvando..." : "Salvar Contrato"}
             </Button>
-            <Button variant="outline" onClick={handlePrint} className="gap-2">
+            <Button variant="outline" onClick={handlePrintClick} className="gap-2">
               <Printer className="h-4 w-4" />
               Exportar PDF
             </Button>
@@ -1335,6 +1398,25 @@ const NovoContrato = () => {
         nome={nomeContrato || `Contrato - ${comprador?.nome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || ""}`}
         conteudo={conteudoFinal}
         clausulas={selectedClauses.map((c) => ({ titulo: c.titulo, conteudo: c.conteudo }))}
+      />
+
+      {/* Lote D: Unresolved placeholders dialog */}
+      <UnresolvedPlaceholdersDialog
+        open={unresolvedDialogOpen}
+        onOpenChange={setUnresolvedDialogOpen}
+        unresolved={liveUnresolved}
+        mode={unresolvedDialogMode}
+        onGoBack={() => setUnresolvedDialogOpen(false)}
+        onContinueAnyway={
+          unresolvedDialogMode === "soft"
+            ? () => {
+                setUnresolvedDialogOpen(false);
+                const action = pendingSoftActionRef.current;
+                pendingSoftActionRef.current = null;
+                if (action) action();
+              }
+            : undefined
+        }
       />
     </div>
   );

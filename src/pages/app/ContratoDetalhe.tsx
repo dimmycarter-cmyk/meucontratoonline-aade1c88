@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Printer, Edit3, Save, FileText, File, Download, Pencil } from "lucide-react";
+import { ArrowLeft, Printer, Edit3, Save, FileText, File, Download, Pencil, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useContracts } from "@/hooks/useContracts";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import ContractDataDisplay from "@/components/contract/ContractDataDisplay";
+import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
+import { getUnresolvedPlaceholders } from "@/lib/placeholder";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 
@@ -35,6 +38,7 @@ const ContratoDetalhe = () => {
   const [editContent, setEditContent] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
+  const [unresolvedDialogOpen, setUnresolvedDialogOpen] = useState(false);
 
   // Fetch single contract
   const { data: contract, isLoading, refetch } = useQuery({
@@ -138,6 +142,22 @@ const ContratoDetalhe = () => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
   };
 
+  // Lote D: live unresolved placeholders no contrato salvo
+  const liveUnresolved = useMemo(() => {
+    const text = editing ? editContent : (contract?.conteudo_final ?? "");
+    const dados = (contract?.dados ?? {}) as Record<string, string>;
+    if (!text) return [];
+    return parseUnresolvedStrings(getUnresolvedPlaceholders(text, dados));
+  }, [editing, editContent, contract?.conteudo_final, contract?.dados]);
+
+  const handlePrintClick = () => {
+    if (liveUnresolved.length > 0) {
+      setUnresolvedDialogOpen(true);
+      return;
+    }
+    window.print();
+  };
+
   if (isLoading) return <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>;
   if (!contract) return <div className="p-8 text-center text-sm text-muted-foreground">Contrato não encontrado.</div>;
 
@@ -181,7 +201,7 @@ const ContratoDetalhe = () => {
               <Edit3 className="h-4 w-4" /> Editar
             </Button>
           )}
-          <Button variant="outline" onClick={() => window.print()} className="gap-2">
+          <Button variant="outline" onClick={handlePrintClick} className="gap-2">
             <Printer className="h-4 w-4" /> Imprimir
           </Button>
         </div>
@@ -253,7 +273,23 @@ const ContratoDetalhe = () => {
         </div>
 
         {/* Content */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
+          {liveUnresolved.length > 0 && (
+            <Alert className="border-warning/50 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle className="text-warning">
+                {liveUnresolved.length} campo{liveUnresolved.length > 1 ? "s" : ""} sem dados
+              </AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span className="text-sm">
+                  Há placeholders não resolvidos no contrato. A impressão/exportação está bloqueada.
+                </span>
+                <Button size="sm" variant="outline" onClick={() => setUnresolvedDialogOpen(true)}>
+                  Ver pendências
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           <Card className="shadow-card">
             <CardContent className="pt-6">
               {editing ? (
@@ -270,6 +306,15 @@ const ContratoDetalhe = () => {
       <div className="hidden print:block">
         <ContractPrintView ref={printRef} conteudo={contract.conteudo_final} nome={contract.nome} clausulas={[]} />
       </div>
+
+      {/* Lote D: Unresolved placeholders dialog (hard block) */}
+      <UnresolvedPlaceholdersDialog
+        open={unresolvedDialogOpen}
+        onOpenChange={setUnresolvedDialogOpen}
+        unresolved={liveUnresolved}
+        mode="hard"
+        onGoBack={() => setUnresolvedDialogOpen(false)}
+      />
     </div>
   );
 };
