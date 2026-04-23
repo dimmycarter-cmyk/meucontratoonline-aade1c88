@@ -227,6 +227,11 @@ export const LEGACY_BRACKET_MAP: Record<string, string> = {
  * Quando a flag é truthy: as tags são removidas, o conteúdo interno permanece.
  * Quando é falsy/ausente: o bloco inteiro é removido (incluindo conteúdo).
  *
+ * Falsy = "" | "false" | "0" | "no" | "não"  (case-insensitive, trim).
+ * Qualquer outro valor preenchido é truthy — isso permite usar tanto flags
+ * boolean ("true"/"false") quanto blocos condicionados à presença de um
+ * campo (ex: {{#if procurador_oab}}…{{/if}} fica visível só se o OAB existir).
+ *
  * Suporta blocos aninhados via execução iterativa até estabilizar — o
  * padrão non-greedy `[\s\S]*?` casa o `{{/if}}` mais próximo, então a cada
  * iteração resolvemos os blocos mais internos primeiro.

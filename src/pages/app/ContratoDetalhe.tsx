@@ -14,7 +14,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import ContractDataDisplay from "@/components/contract/ContractDataDisplay";
 import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
-import { getUnresolvedPlaceholders } from "@/lib/placeholder";
+import { getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 
