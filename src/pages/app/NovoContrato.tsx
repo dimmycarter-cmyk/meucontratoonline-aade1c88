@@ -822,6 +822,28 @@ const NovoContrato = () => {
 
   const handlePrint = () => window.print();
 
+  // Lote D: handlers protegidos por validação de placeholders
+  const handleSaveClick = () => {
+    if (liveUnresolved.length > 0) {
+      setUnresolvedDialogMode("soft");
+      pendingSoftActionRef.current = () => { void handleSave(); };
+      setUnresolvedDialogOpen(true);
+      return;
+    }
+    void handleSave();
+  };
+
+  const handlePrintClick = () => {
+    if (liveUnresolved.length > 0) {
+      setUnresolvedDialogMode("hard");
+      pendingSoftActionRef.current = null;
+      setUnresolvedDialogOpen(true);
+      return;
+    }
+    handlePrint();
+  };
+
+
   const handleCreateTemplate = async () => {
     if (!newTemplateName.trim()) return;
     try {
