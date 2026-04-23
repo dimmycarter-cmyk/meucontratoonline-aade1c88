@@ -190,8 +190,25 @@ Deno.serve(async (req: Request) => {
     if (/<img/i.test(html) || mammothMessages.some((m) => /image/i.test(m))) {
       warnings.push("Imagens detectadas — serão descartadas na importação.");
     }
+    // Filtra ruído interno do mammoth — só repassa avisos que afetam o resultado.
+    const IGNORED_PATTERNS: RegExp[] = [
+      /unrecognised paragraph style/i,
+      /unrecognised run style/i,
+      /unrecognised numbering/i,
+      /no style mapping/i,
+      /default style/i,
+    ];
+    const RELEVANT_PATTERNS: RegExp[] = [
+      /image/i,
+      /merged cell/i,
+      /table/i,
+      /unsupported/i,
+    ];
     for (const msg of mammothMessages) {
-      if (/warning|error/i.test(msg)) warnings.push(`mammoth: ${msg}`);
+      if (IGNORED_PATTERNS.some((re) => re.test(msg))) continue;
+      if (RELEVANT_PATTERNS.some((re) => re.test(msg))) {
+        warnings.push(`mammoth: ${msg}`);
+      }
     }
 
     return new Response(
