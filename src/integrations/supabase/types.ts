@@ -472,6 +472,39 @@ export type Database = {
           },
         ]
       }
+      contract_test_fixtures: {
+        Row: {
+          conteudo_original: string
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          pii_detected: Json
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          conteudo_original: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          pii_detected?: Json
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          conteudo_original?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          pii_detected?: Json
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contracts: {
         Row: {
           clausulas_ids: Json
