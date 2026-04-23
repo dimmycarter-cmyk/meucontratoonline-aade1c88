@@ -251,14 +251,33 @@ export function stripConditionalBlocks(
     return true;
   };
 
-  const re = /\{\{#if\s+([\w]+)\}\}([\s\S]*?)\{\{\/if\}\}/g;
-  let prev = "";
+  // Parser balanceado: a cada iteração, encontra o bloco MAIS INTERNO
+  // (último `{{#if X}}` antes do primeiro `{{/if}}` que o segue) e o resolve.
+  // Isso evita que o regex non-greedy case `{{/if}}` interno como fim do externo.
+  const openRe = /\{\{#if\s+([\w]+)\}\}/g;
+  const closeStr = "{{/if}}";
+
   let curr = text;
   let safety = 0;
-  while (prev !== curr && safety < 20) {
-    prev = curr;
-    curr = curr.replace(re, (_m, flag, body) => (isTruthy(flag) ? body : ""));
+  while (safety < 50) {
     safety++;
+    const closeIdx = curr.indexOf(closeStr);
+    if (closeIdx === -1) break;
+
+    // Encontra o último `{{#if ...}}` antes desse `{{/if}}`
+    openRe.lastIndex = 0;
+    let lastOpen: { idx: number; len: number; flag: string } | null = null;
+    let m: RegExpExecArray | null;
+    while ((m = openRe.exec(curr)) !== null) {
+      if (m.index >= closeIdx) break;
+      lastOpen = { idx: m.index, len: m[0].length, flag: m[1] };
+    }
+    if (!lastOpen) break; // `{{/if}}` órfão — para evitar loop, sai
+
+    const innerStart = lastOpen.idx + lastOpen.len;
+    const inner = curr.slice(innerStart, closeIdx);
+    const replacement = isTruthy(lastOpen.flag) ? inner : "";
+    curr = curr.slice(0, lastOpen.idx) + replacement + curr.slice(closeIdx + closeStr.length);
   }
   return curr;
 }
