@@ -38,11 +38,9 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
 };
 
 function categorizeKey(key: string): { category: string; label: string } {
-  // Procura primeiro em TEMPLATE_VARIABLES
   const tv = TEMPLATE_VARIABLES.find((v) => v.key === key);
   if (tv) return { category: tv.category, label: tv.label };
 
-  // Heurística por prefixo/raiz
   if (/^comprador/.test(key)) return { category: "Comprador", label: key };
   if (/^vendedor/.test(key)) return { category: "Vendedor", label: key };
   if (/^conjuge/.test(key)) return { category: "Cônjuge", label: key };
@@ -62,24 +60,19 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   unresolved: UnresolvedItem[];
-  /**
-   * "hard" — bloqueia exportação. Único CTA: "Voltar para corrigir".
-   * "soft" — permite continuar (ex: salvar como rascunho). Mostra ambos os CTAs.
-   */
-  mode: "hard" | "soft";
-  onContinueAnyway?: () => void;
   onGoBack: () => void;
 }
 
+/**
+ * Hard block exclusivo para Exportar PDF / Imprimir.
+ * O modo "soft" foi removido na Leva 3 (Salvar nunca bloqueia).
+ */
 export default function UnresolvedPlaceholdersDialog({
   open,
   onOpenChange,
   unresolved,
-  mode,
-  onContinueAnyway,
   onGoBack,
 }: Props) {
-  // Agrupa por categoria
   const groups = new Map<string, CategoryGroup>();
   for (const item of unresolved) {
     const { category, label } = categorizeKey(item.key);
@@ -102,20 +95,11 @@ export default function UnresolvedPlaceholdersDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-warning" />
-            {mode === "hard" ? "Não é possível exportar" : "Campos não preenchidos"}
+            Não é possível exportar
           </DialogTitle>
           <DialogDescription>
-            {mode === "hard" ? (
-              <>
-                Existem <strong>{total}</strong> placeholder{total > 1 ? "s" : ""} sem dados no contrato.
-                Preencha-os antes de exportar o PDF para evitar contratos com campos órfãos.
-              </>
-            ) : (
-              <>
-                Foram detectados <strong>{total}</strong> campo{total > 1 ? "s" : ""} ainda sem dados.
-                O contrato será salvo como <strong>rascunho</strong> automaticamente.
-              </>
-            )}
+            Existem <strong>{total}</strong> placeholder{total > 1 ? "s" : ""} sem dados no contrato.
+            Preencha-os antes de exportar o PDF para evitar contratos com campos órfãos.
           </DialogDescription>
         </DialogHeader>
 
@@ -149,22 +133,9 @@ export default function UnresolvedPlaceholdersDialog({
         </ScrollArea>
 
         <DialogFooter>
-          {mode === "hard" ? (
-            <Button onClick={onGoBack} className="gap-2">
-              Voltar para corrigir
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={onGoBack}>
-                Voltar para corrigir
-              </Button>
-              {onContinueAnyway && (
-                <Button onClick={onContinueAnyway}>
-                  Salvar como rascunho mesmo assim
-                </Button>
-              )}
-            </>
-          )}
+          <Button onClick={onGoBack} className="gap-2">
+            Voltar para corrigir
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
