@@ -264,6 +264,24 @@ const Admin = () => {
     await logAction({ user_id: user!.id, action: "update_subscription", target_type: "subscription", target_id: id, details: { status } });
   };
 
+  const [seeding, setSeeding] = useState(false);
+  const handleSeedTemplatesLeva1 = async () => {
+    setSeeding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("seed-templates-leva1", { body: {} });
+      if (error) throw error;
+      toast({
+        title: "Templates Leva 1 inseridos",
+        description: `${data?.templates_inserted ?? 0} templates globais e ${data?.fixtures_inserted ?? 0} fixtures.`,
+      });
+      await logAction({ user_id: user!.id, action: "seed_templates_leva1", target_type: "system", target_id: "leva1", details: data ?? {} });
+    } catch (e: any) {
+      toast({ title: "Erro ao semear templates", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   // Dashboard metrics cards
   const metricsCards = [
     { label: "Total de Empresas", value: metrics?.total_tenants ?? 0, icon: Building2, color: "text-primary" },
