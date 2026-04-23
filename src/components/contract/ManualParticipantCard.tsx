@@ -260,6 +260,17 @@ const ManualParticipantCard = ({
                   className="h-8 text-sm"
                 />
               </div>
+              {isLawyer && (
+                <div className="space-y-1">
+                  <Label className="text-xs">OAB</Label>
+                  <Input
+                    value={participant.oab || ""}
+                    onChange={(e) => updateField("oab", e.target.value)}
+                    placeholder="Ex.: OAB/MG 123.456"
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
               <div className="space-y-1">
                 <Label className="text-xs">WhatsApp</Label>
                 <Input
@@ -288,12 +299,43 @@ const ManualParticipantCard = ({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Estado Civil</Label>
-                <Input
-                  value={participant.estado_civil}
-                  onChange={(e) => updateField("estado_civil", e.target.value)}
-                  className="h-8 text-sm"
-                />
+                <Select
+                  value={participant.estado_civil || ""}
+                  onValueChange={(v) => updateField("estado_civil", v)}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
+                    <SelectItem value="Casado(a)">Casado(a)</SelectItem>
+                    <SelectItem value="União Estável">União Estável</SelectItem>
+                    <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
+                    <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
+                    <SelectItem value="Separado(a)">Separado(a)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+              {isMarried && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Regime de Bens</Label>
+                  <Select
+                    value={participant.regime_bens || ""}
+                    onValueChange={(v) => updateField("regime_bens", v)}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Comunhão Parcial de Bens">Comunhão Parcial de Bens</SelectItem>
+                      <SelectItem value="Comunhão Universal de Bens">Comunhão Universal de Bens</SelectItem>
+                      <SelectItem value="Separação Total de Bens">Separação Total de Bens</SelectItem>
+                      <SelectItem value="Separação Obrigatória de Bens">Separação Obrigatória de Bens</SelectItem>
+                      <SelectItem value="Participação Final nos Aquestos">Participação Final nos Aquestos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <h4 className="text-xs font-semibold text-foreground pt-1">Endereço</h4>
