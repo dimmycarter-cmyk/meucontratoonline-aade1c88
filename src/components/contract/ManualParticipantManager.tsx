@@ -20,7 +20,7 @@ const ROLE_LABELS: Record<ParticipantRole, string> = {
 
 // Smart ordering: Comprador → Cônjuge → Vendedor → Cônjuge → Anuente → others
 const ROLE_ORDER: ParticipantRole[] = [
-  "comprador", "vendedor", "conjuge", "anuente", "fiador", "testemunha", "procurador", "interveniente", "outro",
+  "vendedor", "comprador", "conjuge", "anuente", "fiador", "testemunha", "procurador", "interveniente", "outro",
 ];
 
 function emptyFirst(arr: ManualParticipantData[]): ManualParticipantData[] {
@@ -40,10 +40,10 @@ function smartSort(participants: ManualParticipantData[]): ManualParticipantData
   const conjugesVendedor = emptyFirst(conjuges.slice(compradores.length > 0 ? halfConjuges : 0));
 
   return [
-    ...compradores,
-    ...conjugesComprador,
     ...vendedores,
     ...conjugesVendedor,
+    ...compradores,
+    ...conjugesComprador,
     ...others,
   ];
 }
@@ -59,7 +59,7 @@ const ManualParticipantManager = ({
   onChange,
   contacts,
 }: ManualParticipantManagerProps) => {
-  const [newRole, setNewRole] = useState<ParticipantRole>("comprador");
+  const [newRole, setNewRole] = useState<ParticipantRole>("vendedor");
 
   const handleAdd = () => {
     const updated = [emptyParticipant(newRole), ...participants];
@@ -117,7 +117,7 @@ const ManualParticipantManager = ({
       {grouped.length === 0 ? (
         <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Adicione pelo menos um comprador e um vendedor para continuar
+            Adicione pelo menos um vendedor e um comprador para continuar
           </p>
         </div>
       ) : (
