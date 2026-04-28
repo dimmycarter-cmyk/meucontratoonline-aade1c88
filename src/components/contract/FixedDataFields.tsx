@@ -187,15 +187,34 @@ const FixedDataFields = ({ dados, onChange, manualParticipants }: FixedDataField
           <div className="sm:col-span-2">
             <Field label="Descrição do Imóvel" k="imovel_descricao" dados={dados} onChange={onChange} textarea />
           </div>
-          <Field label="Tipo (apartamento, casa…)" k="imovel_tipo" dados={dados} onChange={onChange} />
-          <Field label="Matrícula" k="imovel_matricula" dados={dados} onChange={onChange} />
-          <Field label="Cartório" k="imovel_cartorio" dados={dados} onChange={onChange} />
-          <Field label="Inscrição Municipal" k="imovel_inscricao_municipal" dados={dados} onChange={onChange} />
-          <Field label="Índice Cadastral" k="imovel_indice_cadastral" dados={dados} onChange={onChange} />
-          <Field label="Área Total" k="imovel_area_total" dados={dados} onChange={onChange} />
-          <Field label="Área Privativa" k="imovel_area_privativa" dados={dados} onChange={onChange} />
-          <Field label="Área Acessória" k="imovel_area_acessoria" dados={dados} onChange={onChange} />
-          <Field label="Vagas de Garagem" k="imovel_vagas" dados={dados} onChange={onChange} />
+          <div className="sm:col-span-2">
+            <input
+              ref={matriculaInputRef}
+              type="file"
+              accept="application/pdf,image/jpeg,image/png"
+              hidden
+              onChange={handleMatriculaFile}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isExtractingMatricula}
+              onClick={() => matriculaInputRef.current?.click()}
+            >
+              {isExtractingMatricula ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Extraindo dados da matrícula...
+                </>
+              ) : (
+                <>
+                  <Paperclip className="h-4 w-4 mr-2" />
+                  Anexar Matrícula
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </Section>
 
