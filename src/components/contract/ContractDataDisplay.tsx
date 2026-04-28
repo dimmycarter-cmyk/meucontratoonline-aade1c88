@@ -61,8 +61,8 @@ const PARTICIPANT_LABELS: Record<string, string> = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  comprador: "Comprador",
   vendedor: "Vendedor",
+  comprador: "Comprador",
   conjuge: "Cônjuge",
   fiador: "Fiador",
   testemunha: "Testemunha",
