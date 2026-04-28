@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { useNavigate, useBlocker } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
   ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
@@ -262,18 +262,24 @@ const NovoContrato = () => {
   }, [profile?.tenant_id, user?.id]);
 
   // ===== Salvar como Rascunho ao sair =====
+  // Cálculo defensivo de isDirty (try/catch para não quebrar render)
   const isDirty = useMemo(() => {
-    return (
-      flowMode !== null ||
-      !!selectedTemplateId ||
-      Object.keys(dados).length > 0 ||
-      selectedClauseIds.length > 0 ||
-      (typeof conteudoFinal === "string" && conteudoFinal.trim().length > 0) ||
-      (typeof nomeContrato === "string" && nomeContrato.trim().length > 0) ||
-      manualParticipants.length > 0 ||
-      participants.length > 0 ||
-      uploadedFiles.length > 0
-    );
+    try {
+      return (
+        flowMode !== null ||
+        !!selectedTemplateId ||
+        (dados && Object.keys(dados).length > 0) ||
+        (Array.isArray(selectedClauseIds) && selectedClauseIds.length > 0) ||
+        (typeof conteudoFinal === "string" && conteudoFinal.trim().length > 0) ||
+        (typeof nomeContrato === "string" && nomeContrato.trim().length > 0) ||
+        (Array.isArray(manualParticipants) && manualParticipants.length > 0) ||
+        (Array.isArray(participants) && participants.length > 0) ||
+        (Array.isArray(uploadedFiles) && uploadedFiles.length > 0)
+      );
+    } catch (err) {
+      console.warn("[NovoContrato] Erro ao calcular isDirty:", err);
+      return false;
+    }
   }, [
     flowMode, selectedTemplateId, dados, selectedClauseIds, conteudoFinal,
     nomeContrato, manualParticipants, participants, uploadedFiles,
@@ -282,20 +288,7 @@ const NovoContrato = () => {
   const [draftModalOpen, setDraftModalOpen] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const allowExitRef = useRef(false);
-
-  // Intercepta navegação interna (sidebar, links) quando há mudanças não salvas
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      isDirty &&
-      !allowExitRef.current &&
-      currentLocation.pathname !== nextLocation.pathname
-  );
-
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setDraftModalOpen(true);
-    }
-  }, [blocker.state]);
+  const pendingNavRef = useRef<string | number | null>(null);
 
   // Aviso nativo ao fechar/recarregar a aba
   useEffect(() => {
@@ -309,16 +302,47 @@ const NovoContrato = () => {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [isDirty]);
 
+  // Intercepta cliques em links internos (sidebar/menu) quando o form está sujo.
+  // Substitui useBlocker (não suportado em <BrowserRouter> legacy).
+  useEffect(() => {
+    if (!isDirty) return;
+    const onClickCapture = (e: MouseEvent) => {
+      if (allowExitRef.current) return;
+      if (e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("http") || href.startsWith("#") || anchor.target === "_blank") return;
+      // Mesmo destino, ignora
+      if (href === window.location.pathname) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pendingNavRef.current = href;
+      setDraftModalOpen(true);
+    };
+    document.addEventListener("click", onClickCapture, true);
+    return () => document.removeEventListener("click", onClickCapture, true);
+  }, [isDirty]);
+
+  const proceedPendingNav = useCallback(() => {
+    const dest = pendingNavRef.current;
+    pendingNavRef.current = null;
+    if (typeof dest === "string") navigate(dest);
+    else if (typeof dest === "number") navigate(dest);
+  }, [navigate]);
+
   const handleDiscardDraft = useCallback(() => {
     setDraftModalOpen(false);
     allowExitRef.current = true;
     clearDraft(profile?.tenant_id, user?.id);
-    if (blocker.state === "blocked") {
-      blocker.proceed();
+    if (pendingNavRef.current !== null) {
+      proceedPendingNav();
     } else {
       navigate(-1);
     }
-  }, [blocker, profile?.tenant_id, user?.id, navigate]);
+  }, [profile?.tenant_id, user?.id, navigate, proceedPendingNav]);
 
   const handleSaveDraftFromModal = useCallback(async (contractName: string) => {
     if (!profile?.tenant_id) {
@@ -345,8 +369,8 @@ const NovoContrato = () => {
       setDraftModalOpen(false);
       allowExitRef.current = true;
 
-      if (blocker.state === "blocked") {
-        blocker.proceed();
+      if (pendingNavRef.current !== null) {
+        proceedPendingNav();
       } else {
         navigate("/app/contratos");
       }
