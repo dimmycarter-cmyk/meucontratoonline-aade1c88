@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useBlocker } from "react-router-dom";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
   ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
@@ -42,6 +42,7 @@ import { emptyParticipant } from "@/components/contract/ManualParticipantCard";
 import ExtractionProgress from "@/components/contract/ExtractionProgress";
 import ExtractedDataReview from "@/components/contract/ExtractedDataReview";
 import { useDocumentExtraction } from "@/hooks/useDocumentExtraction";
+import SaveDraftModal from "@/components/contract/SaveDraftModal";
 
 type UploadedFile = {
   name: string;
