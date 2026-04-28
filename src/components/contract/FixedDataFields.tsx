@@ -1,12 +1,29 @@
-import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, AlertTriangle, Paperclip, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { formatBRL, valorPorExtenso } from "@/lib/contract-formatters";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { ManualParticipantData } from "./ManualParticipantCard";
+
+const MAX_MATRICULA_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_MATRICULA_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1] || "";
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 
 type Dados = Record<string, string>;
 
