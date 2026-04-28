@@ -14,8 +14,8 @@ export interface Participant {
 }
 
 const ROLE_LABELS: Record<ParticipantRole, string> = {
-  comprador: "Comprador",
   vendedor: "Vendedor",
+  comprador: "Comprador",
   conjuge: "Cônjuge",
   anuente: "Anuente",
   fiador: "Fiador",
