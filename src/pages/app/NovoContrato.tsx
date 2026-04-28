@@ -387,7 +387,7 @@ const NovoContrato = () => {
   }, [
     profile?.tenant_id, user?.id, createContract, selectedTemplateId, dados,
     selectedClauseIds, conteudoFinal, compradorId, vendedorId, empresaId,
-    blocker, navigate, toast,
+    proceedPendingNav, navigate, toast,
   ]);
 
   const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
