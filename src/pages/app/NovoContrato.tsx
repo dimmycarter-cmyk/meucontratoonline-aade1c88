@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useBlocker } from "react-router-dom";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
   ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
@@ -42,6 +42,7 @@ import { emptyParticipant } from "@/components/contract/ManualParticipantCard";
 import ExtractionProgress from "@/components/contract/ExtractionProgress";
 import ExtractedDataReview from "@/components/contract/ExtractedDataReview";
 import { useDocumentExtraction } from "@/hooks/useDocumentExtraction";
+import SaveDraftModal from "@/components/contract/SaveDraftModal";
 
 type UploadedFile = {
   name: string;
@@ -259,6 +260,111 @@ const NovoContrato = () => {
       window.removeEventListener("pagehide", flush);
     };
   }, [profile?.tenant_id, user?.id]);
+
+  // ===== Salvar como Rascunho ao sair =====
+  const isDirty = useMemo(() => {
+    return (
+      flowMode !== null ||
+      !!selectedTemplateId ||
+      Object.keys(dados).length > 0 ||
+      selectedClauseIds.length > 0 ||
+      (typeof conteudoFinal === "string" && conteudoFinal.trim().length > 0) ||
+      (typeof nomeContrato === "string" && nomeContrato.trim().length > 0) ||
+      manualParticipants.length > 0 ||
+      participants.length > 0 ||
+      uploadedFiles.length > 0
+    );
+  }, [
+    flowMode, selectedTemplateId, dados, selectedClauseIds, conteudoFinal,
+    nomeContrato, manualParticipants, participants, uploadedFiles,
+  ]);
+
+  const [draftModalOpen, setDraftModalOpen] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const allowExitRef = useRef(false);
+
+  // Intercepta navegação interna (sidebar, links) quando há mudanças não salvas
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      isDirty &&
+      !allowExitRef.current &&
+      currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      setDraftModalOpen(true);
+    }
+  }, [blocker.state]);
+
+  // Aviso nativo ao fechar/recarregar a aba
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty && !allowExitRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
+
+  const handleDiscardDraft = useCallback(() => {
+    setDraftModalOpen(false);
+    allowExitRef.current = true;
+    clearDraft(profile?.tenant_id, user?.id);
+    if (blocker.state === "blocked") {
+      blocker.proceed();
+    } else {
+      navigate(-1);
+    }
+  }, [blocker, profile?.tenant_id, user?.id, navigate]);
+
+  const handleSaveDraftFromModal = useCallback(async (contractName: string) => {
+    if (!profile?.tenant_id) {
+      toast({ title: "Erro", description: "Tenant não identificado.", variant: "destructive" });
+      return;
+    }
+    setIsSavingDraft(true);
+    try {
+      await createContract({
+        nome: contractName,
+        status: "rascunho",
+        template_id: selectedTemplateId ?? null,
+        dados,
+        clausulas_ids: selectedClauseIds,
+        conteudo_final: conteudoFinal || "",
+        comprador_id: compradorId ?? null,
+        vendedor_id: vendedorId ?? null,
+        empresa_id: empresaId ?? null,
+      } as any);
+
+      // Limpa o autosave local ANTES de navegar
+      clearDraft(profile.tenant_id, user?.id);
+      setNomeContrato(contractName);
+      setDraftModalOpen(false);
+      allowExitRef.current = true;
+
+      if (blocker.state === "blocked") {
+        blocker.proceed();
+      } else {
+        navigate("/app/contratos");
+      }
+    } catch (e: any) {
+      console.error("[NovoContrato] Erro ao salvar rascunho:", e);
+      toast({
+        title: "Erro ao salvar rascunho",
+        description: e?.message || "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }, [
+    profile?.tenant_id, user?.id, createContract, selectedTemplateId, dados,
+    selectedClauseIds, conteudoFinal, compradorId, vendedorId, empresaId,
+    blocker, navigate, toast,
+  ]);
 
   const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
   const currentStep = steps[currentStepIndex];
@@ -851,6 +957,7 @@ const NovoContrato = () => {
       }
 
       clearDraft(profile?.tenant_id, user?.id);
+      allowExitRef.current = true;
       navigate("/app/contratos");
     } catch (e: any) {
       console.error("[NovoContrato] Erro ao salvar contrato:", e);
@@ -1339,6 +1446,15 @@ const NovoContrato = () => {
         onOpenChange={setUnresolvedDialogOpen}
         unresolved={liveUnresolved}
         onGoBack={() => setUnresolvedDialogOpen(false)}
+      />
+
+      {/* Modal de Salvar Rascunho ao sair com formulário sujo */}
+      <SaveDraftModal
+        open={draftModalOpen}
+        initialName={nomeContrato}
+        isSaving={isSavingDraft}
+        onSaveDraft={handleSaveDraftFromModal}
+        onDiscard={handleDiscardDraft}
       />
     </div>
   );
