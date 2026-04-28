@@ -1,12 +1,29 @@
-import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, AlertTriangle, Paperclip, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { formatBRL, valorPorExtenso } from "@/lib/contract-formatters";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { ManualParticipantData } from "./ManualParticipantCard";
+
+const MAX_MATRICULA_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_MATRICULA_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1] || "";
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 
 type Dados = Record<string, string>;
 
@@ -88,6 +105,46 @@ const Section = ({
 };
 
 const FixedDataFields = ({ dados, onChange, manualParticipants }: FixedDataFieldsProps) => {
+  const matriculaInputRef = useRef<HTMLInputElement>(null);
+  const [isExtractingMatricula, setIsExtractingMatricula] = useState(false);
+
+  const handleMatriculaFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_MATRICULA_TYPES.includes(file.type)) {
+      toast.error("Formato inválido. Envie PDF, JPG ou PNG.");
+      if (matriculaInputRef.current) matriculaInputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_MATRICULA_SIZE) {
+      toast.error("Arquivo muito grande. Máximo 10MB.");
+      if (matriculaInputRef.current) matriculaInputRef.current.value = "";
+      return;
+    }
+
+    setIsExtractingMatricula(true);
+    try {
+      const fileBase64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke("extract-matricula", {
+        body: { fileBase64, mimeType: file.type },
+      });
+
+      if (error || !data?.success || !data?.descricao) {
+        throw new Error(data?.error || error?.message || "extraction_failed");
+      }
+
+      onChange({ ...dados, imovel_descricao: data.descricao });
+      toast.success("Descrição extraída da matrícula");
+    } catch (err) {
+      console.error("extract-matricula failed:", err);
+      toast.error("Não foi possível extrair. Preencha manualmente.");
+    } finally {
+      setIsExtractingMatricula(false);
+      if (matriculaInputRef.current) matriculaInputRef.current.value = "";
+    }
+  };
+
   // Format BRL on blur
   const formatBRLBlur = (key: string) => () => {
     const raw = dados[key];
@@ -130,15 +187,34 @@ const FixedDataFields = ({ dados, onChange, manualParticipants }: FixedDataField
           <div className="sm:col-span-2">
             <Field label="Descrição do Imóvel" k="imovel_descricao" dados={dados} onChange={onChange} textarea />
           </div>
-          <Field label="Tipo (apartamento, casa…)" k="imovel_tipo" dados={dados} onChange={onChange} />
-          <Field label="Matrícula" k="imovel_matricula" dados={dados} onChange={onChange} />
-          <Field label="Cartório" k="imovel_cartorio" dados={dados} onChange={onChange} />
-          <Field label="Inscrição Municipal" k="imovel_inscricao_municipal" dados={dados} onChange={onChange} />
-          <Field label="Índice Cadastral" k="imovel_indice_cadastral" dados={dados} onChange={onChange} />
-          <Field label="Área Total" k="imovel_area_total" dados={dados} onChange={onChange} />
-          <Field label="Área Privativa" k="imovel_area_privativa" dados={dados} onChange={onChange} />
-          <Field label="Área Acessória" k="imovel_area_acessoria" dados={dados} onChange={onChange} />
-          <Field label="Vagas de Garagem" k="imovel_vagas" dados={dados} onChange={onChange} />
+          <div className="sm:col-span-2">
+            <input
+              ref={matriculaInputRef}
+              type="file"
+              accept="application/pdf,image/jpeg,image/png"
+              hidden
+              onChange={handleMatriculaFile}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isExtractingMatricula}
+              onClick={() => matriculaInputRef.current?.click()}
+            >
+              {isExtractingMatricula ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Extraindo dados da matrícula...
+                </>
+              ) : (
+                <>
+                  <Paperclip className="h-4 w-4 mr-2" />
+                  Anexar Matrícula
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </Section>
 
