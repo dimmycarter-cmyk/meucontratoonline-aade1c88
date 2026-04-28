@@ -1446,6 +1446,15 @@ const NovoContrato = () => {
         unresolved={liveUnresolved}
         onGoBack={() => setUnresolvedDialogOpen(false)}
       />
+
+      {/* Modal de Salvar Rascunho ao sair com formulário sujo */}
+      <SaveDraftModal
+        open={draftModalOpen}
+        initialName={nomeContrato}
+        isSaving={isSavingDraft}
+        onSaveDraft={handleSaveDraftFromModal}
+        onDiscard={handleDiscardDraft}
+      />
     </div>
   );
 };
