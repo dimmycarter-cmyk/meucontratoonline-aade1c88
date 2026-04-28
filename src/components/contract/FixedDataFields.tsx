@@ -105,6 +105,46 @@ const Section = ({
 };
 
 const FixedDataFields = ({ dados, onChange, manualParticipants }: FixedDataFieldsProps) => {
+  const matriculaInputRef = useRef<HTMLInputElement>(null);
+  const [isExtractingMatricula, setIsExtractingMatricula] = useState(false);
+
+  const handleMatriculaFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_MATRICULA_TYPES.includes(file.type)) {
+      toast.error("Formato inválido. Envie PDF, JPG ou PNG.");
+      if (matriculaInputRef.current) matriculaInputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_MATRICULA_SIZE) {
+      toast.error("Arquivo muito grande. Máximo 10MB.");
+      if (matriculaInputRef.current) matriculaInputRef.current.value = "";
+      return;
+    }
+
+    setIsExtractingMatricula(true);
+    try {
+      const fileBase64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke("extract-matricula", {
+        body: { fileBase64, mimeType: file.type },
+      });
+
+      if (error || !data?.success || !data?.descricao) {
+        throw new Error(data?.error || error?.message || "extraction_failed");
+      }
+
+      onChange({ ...dados, imovel_descricao: data.descricao });
+      toast.success("Descrição extraída da matrícula");
+    } catch (err) {
+      console.error("extract-matricula failed:", err);
+      toast.error("Não foi possível extrair. Preencha manualmente.");
+    } finally {
+      setIsExtractingMatricula(false);
+      if (matriculaInputRef.current) matriculaInputRef.current.value = "";
+    }
+  };
+
   // Format BRL on blur
   const formatBRLBlur = (key: string) => () => {
     const raw = dados[key];
