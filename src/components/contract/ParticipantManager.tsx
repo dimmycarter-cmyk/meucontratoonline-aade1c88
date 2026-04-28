@@ -26,7 +26,7 @@ const ParticipantManager = ({
   onChangeDocType,
   uploadingIndex,
 }: ParticipantManagerProps) => {
-  const [newRole, setNewRole] = useState<ParticipantRole>("comprador");
+  const [newRole, setNewRole] = useState<ParticipantRole>("vendedor");
 
   // Group participants by role
   const roles = Object.keys(ROLE_LABELS) as ParticipantRole[];
@@ -73,7 +73,7 @@ const ParticipantManager = ({
       {grouped.length === 0 ? (
         <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Adicione pelo menos um comprador e um vendedor para continuar
+            Adicione pelo menos um vendedor e um comprador para continuar
           </p>
         </div>
       ) : (

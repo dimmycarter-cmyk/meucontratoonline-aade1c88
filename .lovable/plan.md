@@ -1,45 +1,36 @@
-# Inverter ordem dos participantes — Vendedor antes de Comprador
+## Inverter ordem Vendedor → Comprador no fluxo IA/Upload
 
-## Objetivo
-Na etapa "Participantes" do wizard de Novo Contrato, exibir o bloco **Vendedor** acima do bloco **Comprador** (e ajustar a ordenação interna correspondente, incluindo cônjuges).
+A inversão anterior cobriu apenas `ManualParticipantManager.tsx`. O componente exibido no print é o `ParticipantManager.tsx` (modo IA/upload de docs), que ainda lista Comprador antes de Vendedor porque a ordem dos grupos vem das chaves de `ROLE_LABELS` em `ParticipantCard.tsx`.
 
-## Escopo
-Alteração isolada em `src/components/contract/ManualParticipantManager.tsx`. Nenhuma mudança em dados, placeholders, persistência ou auto-fill — a ordem é puramente visual/organizacional dos cards no wizard.
+### Mudanças
 
-## Mudanças
+**1. `src/components/contract/ParticipantCard.tsx` (linha 16-26)**
+Reordenar `ROLE_LABELS` colocando `vendedor` antes de `comprador`. Como `ParticipantManager` usa `Object.keys(ROLE_LABELS)` para definir a ordem dos grupos, isso já inverte a exibição dos blocos e a ordem das opções no select "Tipo de participante".
 
-### 1. `ROLE_ORDER` (linha 22-24)
-Trocar a ordem dos dois primeiros itens:
 ```ts
-const ROLE_ORDER: ParticipantRole[] = [
-  "vendedor", "comprador", "conjuge", "anuente", "fiador", "testemunha", "procurador", "interveniente", "outro",
-];
+const ROLE_LABELS: Record<ParticipantRole, string> = {
+  vendedor: "Vendedor",
+  comprador: "Comprador",
+  conjuge: "Cônjuge",
+  anuente: "Anuente",
+  fiador: "Fiador",
+  testemunha: "Testemunha",
+  procurador: "Procurador",
+  interveniente: "Interveniente",
+  outro: "Outro",
+};
 ```
 
-### 2. `smartSort` (linhas 30-49)
-Inverter a montagem final para Vendedor + cônjuges do vendedor primeiro, depois Comprador + cônjuges do comprador:
-```ts
-return [
-  ...vendedores,
-  ...conjugesVendedor,
-  ...compradores,
-  ...conjugesComprador,
-  ...others,
-];
-```
-A lógica de divisão dos cônjuges entre comprador/vendedor permanece igual — apenas a ordem de concatenação muda.
+**2. `src/components/contract/ParticipantManager.tsx`**
+- Linha 29: trocar default `useState<ParticipantRole>("comprador")` para `"vendedor"`.
+- Linha 76: atualizar texto vazio para *"Adicione pelo menos um vendedor e um comprador para continuar"*.
 
-### 3. Default do select "Tipo de participante" (linha 62)
-Trocar default de `"comprador"` para `"vendedor"` para refletir a nova ordem natural.
+### Fora do escopo
+- Não mexer no tipo `ParticipantRole` (a ordem dele é só tipagem, não afeta UI).
+- Não alterar `auto-fill-dados.ts` nem placeholders — ordem é puramente visual.
+- `ManualParticipantManager.tsx` já está correto da task anterior.
 
-### 4. Texto vazio (linha 120)
-Atualizar para *"Adicione pelo menos um vendedor e um comprador para continuar"*.
-
-## Fora do escopo
-- `ParticipantManager.tsx` (modo IA/upload de docs) — confirmar com o usuário se também deve ser invertido. Por padrão, **não** alterar nesta task; o print mostra apenas o modo manual.
-- Ordem dos slots em `auto-fill-dados.ts` (`comprador`, `comprador2`, `vendedor`, `vendedor2`...) permanece intacta — placeholders continuam funcionando como antes.
-
-## Validação
-- Abrir `/app/novo-contrato` → etapa Participantes: blocos devem aparecer na ordem Vendedor → Comprador.
-- Adicionar 1 vendedor + 1 comprador + 1 cônjuge: cônjuge deve continuar agrupado corretamente após o respectivo titular.
-- Rodar `bunx vitest run` para garantir que nenhum teste de auto-fill quebra (não deve, pois só mexe em UI).
+### Validação
+- Abrir wizard no modo IA/upload → grupo Vendedor aparece antes de Comprador.
+- Select "Tipo de participante" abre com Vendedor selecionado.
+- Rodar `bunx vitest run` para confirmar que nada quebrou.
