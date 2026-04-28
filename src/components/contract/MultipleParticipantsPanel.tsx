@@ -20,8 +20,8 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { role: "comprador", label: "Comprador", max: 2, allowSpouse: true },
   { role: "vendedor", label: "Vendedor", max: 5, allowSpouse: true },
+  { role: "comprador", label: "Comprador", max: 2, allowSpouse: true },
   { role: "anuente", label: "Anuente", max: 1 },
   { role: "procurador", label: "Procurador", max: 1, hideUnlessFlag: "tem_procurador" },
   { role: "fiador", label: "Fiador", max: 2 },

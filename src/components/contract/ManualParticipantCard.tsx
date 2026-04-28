@@ -13,8 +13,8 @@ import type { Contact } from "@/hooks/useContacts";
 import type { ParticipantRole } from "./ParticipantCard";
 
 const ROLE_LABELS: Record<ParticipantRole, string> = {
-  comprador: "Comprador",
   vendedor: "Vendedor",
+  comprador: "Comprador",
   conjuge: "Cônjuge",
   anuente: "Anuente",
   fiador: "Fiador",
