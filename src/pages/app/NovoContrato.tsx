@@ -957,6 +957,7 @@ const NovoContrato = () => {
       }
 
       clearDraft(profile?.tenant_id, user?.id);
+      allowExitRef.current = true;
       navigate("/app/contratos");
     } catch (e: any) {
       console.error("[NovoContrato] Erro ao salvar contrato:", e);
