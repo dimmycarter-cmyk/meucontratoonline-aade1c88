@@ -185,7 +185,14 @@ const FixedDataFields = ({ dados, onChange, manualParticipants }: FixedDataField
             <Field label="Endereço do Imóvel" k="imovel_endereco" dados={dados} onChange={onChange} />
           </div>
           <div className="sm:col-span-2">
-            <Field label="Descrição do Imóvel" k="imovel_descricao" dados={dados} onChange={onChange} textarea />
+            <Label className="mb-1 text-xs text-muted-foreground">Descrição do Imóvel</Label>
+            <Textarea
+              value={dados.imovel_descricao || ""}
+              onChange={(e) => setField(dados, onChange, "imovel_descricao", e.target.value)}
+              placeholder="Descrição do Imóvel"
+              rows={4}
+              className="min-h-[160px]"
+            />
           </div>
           <div className="sm:col-span-2">
             <input
