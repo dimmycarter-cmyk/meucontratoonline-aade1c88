@@ -87,6 +87,13 @@ const documentChecklist = [
 const STORAGE_KEY_PREFIX = "novo-contrato-draft:v2";
 const OLD_STORAGE_KEY = "novo-contrato-draft";
 
+// Mapeia o id do step interno do wizard para o valor aceito pelo CHECK do banco.
+function mapStepIdToCurrentStep(stepId: string | undefined): string {
+  if (!stepId) return "template";
+  if (stepId === "selection") return "template";
+  return stepId;
+}
+
 function getDraftKey(tenantId?: string, userId?: string) {
   if (tenantId && userId) return `${STORAGE_KEY_PREFIX}:${tenantId}:${userId}`;
   return STORAGE_KEY_PREFIX;
@@ -354,6 +361,7 @@ const NovoContrato = () => {
       await createContract({
         nome: contractName,
         status: "rascunho",
+        current_step: mapStepIdToCurrentStep(steps[currentStepIndex]?.id),
         template_id: selectedTemplateId ?? null,
         dados,
         clausulas_ids: selectedClauseIds,
@@ -854,10 +862,11 @@ const NovoContrato = () => {
         conteudo_final: fullContent,
         clausulas_ids: selectedClauseIds as any,
         status: "rascunho",
+        current_step: "concluido",
         valor_total: mergedDados.valor_total ? parseFloat(mergedDados.valor_total.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
         valor_sinal: mergedDados.valor_sinal ? parseFloat(mergedDados.valor_sinal.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
         valor_financiamento: mergedDados.valor_financiamento ? parseFloat(mergedDados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
-      });
+      } as any);
 
       if (!contract?.id) {
         toast({ title: "Erro", description: "Não foi possível criar o contrato.", variant: "destructive" });
