@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useContracts } from "@/hooks/useContracts";
+import { useAuth } from "@/contexts/AuthContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { getContractStatusMeta } from "@/lib/contract-status";
@@ -13,6 +14,8 @@ import { getContractStatusMeta } from "@/lib/contract-status";
 const Contratos = () => {
   const navigate = useNavigate();
   const { contracts, isLoading, deleteContract } = useContracts();
+  const { hasRole } = useAuth();
+  const canDelete = hasRole("admin_empresa") || hasRole("super_admin");
   const [search, setSearch] = useState("");
 
   const filtered = contracts.filter((c) => {
@@ -110,12 +113,14 @@ const Contratos = () => {
                             <DropdownMenuItem onClick={() => navigate(`/app/contratos/${contrato.id}`)}>
                               <Eye className="mr-2 h-4 w-4" /> Visualizar
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => deleteContract(contrato.id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
-                            </DropdownMenuItem>
+                            {canDelete && (
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => deleteContract(contrato.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>

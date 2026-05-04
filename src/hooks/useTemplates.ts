@@ -111,6 +111,19 @@ export const useTemplates = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const { count, error: checkError } = await supabase
+        .from("contracts")
+        .select("id", { count: "exact", head: true })
+        .eq("template_id", id);
+
+      if (checkError) throw checkError;
+
+      if (count && count > 0) {
+        throw new Error(
+          `Este modelo está em uso em ${count} contrato${count > 1 ? "s" : ""}. Desvincule antes de excluir.`
+        );
+      }
+
       const { error } = await supabase.from("contract_templates").delete().eq("id", id);
       if (error) throw error;
     },
