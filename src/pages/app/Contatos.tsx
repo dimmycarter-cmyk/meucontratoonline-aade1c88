@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Plus, Search, MoreHorizontal, Mail, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
