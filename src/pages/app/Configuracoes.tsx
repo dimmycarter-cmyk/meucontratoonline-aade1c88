@@ -1,10 +1,16 @@
-import { User, Building2, Shield, Bell, CreditCard } from "lucide-react";
+import { User, Building2, Shield, Bell, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Configuracoes = () => {
+  const navigate = useNavigate();
+  const { roles, isSuperAdmin } = useAuth();
+  const canViewAudit = isSuperAdmin || roles.includes("admin_empresa");
+
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8">
