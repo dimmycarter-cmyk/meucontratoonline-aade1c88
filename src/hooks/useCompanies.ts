@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 export interface Company {
   id: string;
   tenant_id: string;
@@ -71,8 +72,8 @@ export const useCompanies = () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
       toast({ title: "Empresa criada com sucesso" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao criar empresa", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao criar empresa", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -91,8 +92,8 @@ export const useCompanies = () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
       toast({ title: "Empresa atualizada" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao atualizar empresa", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao atualizar empresa", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -105,8 +106,8 @@ export const useCompanies = () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
       toast({ title: "Empresa removida" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao remover empresa", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao remover empresa", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 
 export interface AdminTenant {
   id: string;
@@ -43,8 +44,8 @@ export const useAdminTenants = () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] });
       toast({ title: "Tenant atualizado" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao atualizar tenant", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao atualizar tenant", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 

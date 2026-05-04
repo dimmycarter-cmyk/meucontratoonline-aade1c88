@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -83,8 +84,8 @@ export const useAdminUsers = () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       toast({ title: "Usuário atualizado" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao atualizar usuário", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao atualizar usuário", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -97,8 +98,8 @@ export const useAdminUsers = () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       toast({ title: "Role adicionada" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao adicionar role", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao adicionar role", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -111,8 +112,8 @@ export const useAdminUsers = () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       toast({ title: "Role removida" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao remover role", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao remover role", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
