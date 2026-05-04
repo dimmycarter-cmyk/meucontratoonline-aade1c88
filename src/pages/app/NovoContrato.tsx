@@ -974,6 +974,13 @@ const NovoContrato = () => {
             if (partError) {
               console.error("[NovoContrato] Erro ao salvar participante manual:", partError);
               toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
+            } else {
+              logAction({
+                tenantId: profile.tenant_id,
+                action: "participant.created",
+                entityType: "participant",
+                metadata: { contract_id: contract.id, role: mp.role, source: "manual" },
+              });
             }
           }
         }
