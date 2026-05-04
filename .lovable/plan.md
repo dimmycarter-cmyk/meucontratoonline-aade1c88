@@ -1,113 +1,119 @@
-## Objetivo
+# Plano — Prompt B: `internal_code` automático (formato `SLUG-ANO-SEQUENCIA`)
 
-Duas melhorias cirúrgicas em `contracts` (apenas `ALTER TABLE`) + integração com o wizard atual e os badges da listagem. Sem recriar tabela, sem mexer em RLS, sem tocar em outras tabelas.
+## 1. Migration SQL (uma só, via tool de migration)
 
-## 1. Migration — apenas ALTER TABLE
+Executa exatamente o que você definiu, com pequenos ajustes de robustez:
 
-Ajuste decidido com você: o `CHECK` de `current_step` vai refletir os steps reais do wizard (não os 6 valores genéricos do prompt original), porque o fluxo atual tem modos AI/Manual com nomes próprios.
-
+### 1.1 Tabela de sequência por tenant/ano
 ```sql
--- 1. current_step (reflete os steps reais do wizard atual)
-ALTER TABLE public.contracts
-  ADD COLUMN IF NOT EXISTS current_step TEXT NOT NULL DEFAULT 'template'
-  CHECK (current_step IN (
-    'template',         -- escolha de template / modo
-    'parties-docs',     -- partes + documentos (manual)
-    'participants',     -- participantes (AI)
-    'review-data',      -- extração + revisão (AI)
-    'data-clauses',     -- dados + cláusulas
-    'editor-finish',    -- editor / revisão final
-    'concluido'         -- finalizado
-  ));
+CREATE TABLE IF NOT EXISTS public.contract_sequences (
+  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  ano INTEGER NOT NULL,
+  ultimo_seq INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (tenant_id, ano)
+);
 
--- 2. internal_code (será preenchido no Prompt B; aqui só cria a coluna)
-ALTER TABLE public.contracts
-  ADD COLUMN IF NOT EXISTS internal_code TEXT;
+ALTER TABLE public.contract_sequences ENABLE ROW LEVEL SECURITY;
 
--- 3. Status expandido
-ALTER TABLE public.contracts DROP CONSTRAINT IF EXISTS contracts_status_check;
-ALTER TABLE public.contracts
-  ADD CONSTRAINT contracts_status_check
-  CHECK (status IN (
-    'rascunho','partes_pendentes','dados_pendentes',
-    'revisao_juridica','aguardando_assinatura',
-    'concluido','arquivado','cancelado'
-  ));
-
--- 4. Migra status legado
-UPDATE public.contracts SET status = 'concluido' WHERE status = 'ativo';
-
--- 5. Índices
-CREATE INDEX IF NOT EXISTS idx_contracts_tenant_status
-  ON public.contracts(tenant_id, status);
-CREATE INDEX IF NOT EXISTS idx_contracts_tenant_step
-  ON public.contracts(tenant_id, current_step);
+CREATE POLICY "Members can view own sequences"
+  ON public.contract_sequences FOR SELECT TO authenticated
+  USING (tenant_id = public.get_user_tenant_id(auth.uid()));
+-- Sem políticas de INSERT/UPDATE para usuários: a tabela só é escrita
+-- pela função SECURITY DEFINER `generate_internal_code`.
 ```
 
-Nada de DROP, nada de recriar, RLS intacta, default `'rascunho'` mantido.
-
-## 2. Frontend — `src/pages/app/NovoContrato.tsx`
-
-Estratégia (decidida com você): **localStorage como cache, banco como fonte da verdade** para `current_step`.
-
-- Ao abrir `/contratos/:id`:
-  - SELECT em `contracts` para ler `current_step`.
-  - Se `null`/inexistente → inicializar em `'template'`.
-  - Resolver o índice via lookup no array de steps do modo ativo (`aiSteps` ou `manualSteps`); se não bater (ex.: contrato salvo num modo, aberto noutro), cair em `0`.
-  - LocalStorage continua sendo usado para os dados do wizard (cache rápido), mas o ponteiro do step vem do banco.
-- Ao avançar/voltar de step (`handleNext`, `handleBack`, `setCurrentStepIndex`):
-  - Disparar `UPDATE contracts SET current_step = '<id do step>' WHERE id = :id` (fire-and-forget, sem bloquear UI).
-  - Continuar atualizando o estado local normalmente.
-- Ao concluir o wizard: `current_step = 'concluido'` + `status` apropriado (sem alterar a lógica de status existente).
-
-Sem novas dependências, sem refatorar o wizard.
-
-## 3. Listagem — badges de status
-
-Em `src/pages/app/Contratos.tsx` (e/ou helper compartilhado de status badge), atualizar o mapa:
-
-```ts
-const STATUS_LABELS = {
-  rascunho:               { label: "Rascunho",               tone: "gray" },
-  partes_pendentes:       { label: "Partes pendentes",       tone: "yellow" },
-  dados_pendentes:        { label: "Dados pendentes",        tone: "orange" },
-  revisao_juridica:       { label: "Em revisão",             tone: "blue" },
-  aguardando_assinatura:  { label: "Aguardando assinatura",  tone: "purple" },
-  concluido:              { label: "Concluído",              tone: "green" },
-  arquivado:              { label: "Arquivado",              tone: "gray-dark" },
-  cancelado:              { label: "Cancelado",              tone: "red" },
-};
+Super admin já tem acesso global por padrão? Não — então adiciono também:
+```sql
+CREATE POLICY "Super admin can view all sequences"
+  ON public.contract_sequences FOR SELECT TO authenticated
+  USING (has_role(auth.uid(), 'super_admin'::app_role));
 ```
 
-Cores aplicadas via tokens semânticos do design system (sem classes brutas tipo `bg-yellow-500`). Se não houver token para "gray escuro" ou "purple", crio variantes em `index.css` + `tailwind.config.ts`.
+### 1.2 Função `generate_internal_code(tenant_id)`
+Igual ao seu draft. Pontos:
+- Usa `slug` do tenant em UPPER; se vazio/null, fallback para `LEFT(id::text, 6)` em UPPER.
+- `EXTRACT(YEAR FROM now())`.
+- `INSERT ... ON CONFLICT DO UPDATE SET ultimo_seq = ultimo_seq + 1 RETURNING ultimo_seq` — atômico, seguro contra concorrência (linha bloqueada pelo UPSERT).
+- Retorna `UPPER(slug) || '-' || ano || '-' || lpad(seq, 4, '0')`.
+- `SECURITY DEFINER` + `SET search_path = public`.
 
-## 4. Tipos TypeScript
+### 1.3 Trigger `BEFORE INSERT` em `contracts`
+```sql
+CREATE OR REPLACE FUNCTION public.set_internal_code() ...
+-- Se NEW.internal_code IS NULL OR '' → preenche via generate_internal_code(NEW.tenant_id)
 
-Após a migration, o `src/integrations/supabase/types.ts` é regenerado automaticamente. Vou apenas:
+DROP TRIGGER IF EXISTS trg_set_internal_code ON public.contracts;
+CREATE TRIGGER trg_set_internal_code
+  BEFORE INSERT ON public.contracts
+  FOR EACH ROW EXECUTE FUNCTION public.set_internal_code();
+```
 
-- Atualizar (se existir) tipo manual `ContractStatus`/`ContractStep` em `src/types/` ou inline para incluir os novos valores.
-- Garantir que comparações de status no app não quebrem com os novos valores (busca por `'ativo'`, `status ===` etc.).
+### 1.4 Backfill retroativo (antes do NOT NULL)
+`DO $$ ... $$` percorrendo `contracts WHERE internal_code IS NULL OR internal_code = ''` ordenado por `created_at ASC` e chamando `generate_internal_code(r.tenant_id)`. Isso garante numeração cronológica por tenant/ano.
 
-## Regras duras respeitadas
+### 1.5 NOT NULL + UNIQUE por tenant
+```sql
+ALTER TABLE public.contracts ALTER COLUMN internal_code SET NOT NULL;
 
-- ✅ Nada de recriar `contracts`
-- ✅ Não toco em `contract_templates`, `contract_participants`, `clauses`, `tenants`, `profiles`
-- ✅ `dados jsonb` preservado
-- ✅ RLS de `contracts` intacta
-- ✅ Default `'rascunho'` mantido
-- ✅ Apenas `ADD COLUMN IF NOT EXISTS`, `DROP CONSTRAINT IF EXISTS` + novo `CHECK`, `UPDATE` de migração de dado legado, `CREATE INDEX IF NOT EXISTS`
+-- Postgres não aceita IF NOT EXISTS em ADD CONSTRAINT;
+-- uso DO block para idempotência:
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'contracts_internal_code_tenant_unique'
+  ) THEN
+    ALTER TABLE public.contracts
+      ADD CONSTRAINT contracts_internal_code_tenant_unique
+      UNIQUE (tenant_id, internal_code);
+  END IF;
+END $$;
+```
 
-## Arquivos que serão tocados
+> Observação: o draft original tem `ADD CONSTRAINT IF NOT EXISTS`, que **não é sintaxe válida em Postgres**. Vou trocar por esse DO block. Resultado idêntico, sem erro.
 
-- Migration SQL (via tool de migration)
-- `src/pages/app/NovoContrato.tsx` — leitura inicial do step + UPDATE ao avançar
-- `src/pages/app/Contratos.tsx` (e/ou componente de badge de status) — novo mapeamento
-- Possível: `src/types/contract.ts` (ou similar) — union types atualizados
-- Possível: `index.css` / `tailwind.config.ts` — tokens de cor faltantes para badges
+## 2. Frontend
 
-## Validação após implementar
+### 2.1 Tipo `Contract` (`src/hooks/useContracts.ts`)
+- Adicionar `internal_code: string;` à interface.
+- `src/integrations/supabase/types.ts` será regenerado automaticamente pela migration; não toco nele.
 
-1. Build limpo.
-2. Abrir um contrato existente: deve cair em `'template'` (current_step null) sem erro.
-3. Avançar um step → recarregar página → deve abrir no step correto.
-4. Listagem mostra os 8 status com cores distintas.
+### 2.2 Listagem `src/pages/app/Contratos.tsx`
+- Nova primeira coluna **"Código"** com `font-mono text-sm` em destaque, antes da coluna "Contrato".
+- Filtro de busca passa a casar também `internal_code` (`includes` case-insensitive no array `filtered`).
+- Placeholder do input atualizado: `"Buscar por código ou nome..."`.
+
+### 2.3 Detalhe `src/pages/app/ContratoDetalhe.tsx`
+- No header, renderizar o `internal_code` ao lado do título do contrato como badge/chip discreto (`font-mono`, `text-xs`, `text-muted-foreground`, fundo sutil). Não interfere com edição inline do nome.
+
+### 2.4 Wizard `src/pages/app/NovoContrato.tsx`
+- Sem campo de código. Onde fizer sentido (ex.: tela de revisão final ou modal de "Salvar rascunho"), adicionar texto auxiliar discreto: *"Código gerado automaticamente ao salvar"*.
+- Não preciso enviar `internal_code` no `INSERT` — a trigger preenche.
+
+## 3. Regras duras respeitadas
+
+- ✅ Só altera `contracts` (constraint+NOT NULL) e cria `contract_sequences` + 2 funções + 1 trigger.
+- ✅ Não recria `contracts`. Coluna `internal_code` já existe — só recebe NOT NULL e UNIQUE.
+- ✅ Backfill roda **antes** do `SET NOT NULL`.
+- ✅ Fallback de 6 chars do `id` quando `slug` vazio/null.
+- ✅ RLS habilitada em `contract_sequences` (SELECT só para o próprio tenant + super_admin; sem INSERT/UPDATE público — escrita só via `SECURITY DEFINER`).
+- ✅ RLS de `contracts` intacta. `dados`, `current_step`, status, default `'rascunho'` — todos preservados.
+
+## 4. Arquivos tocados
+
+- Migration SQL (via supabase--migration)
+- `src/hooks/useContracts.ts` — campo `internal_code` no tipo
+- `src/pages/app/Contratos.tsx` — coluna + filtro
+- `src/pages/app/ContratoDetalhe.tsx` — exibição no header
+- `src/pages/app/NovoContrato.tsx` — texto auxiliar (mudança mínima)
+
+## 5. Validação após executar
+
+1. Build limpo, sem erros de tipo.
+2. `SELECT count(*) FROM contracts WHERE internal_code IS NULL OR internal_code = ''` → `0`.
+3. Criar contrato novo → trigger gera código no formato `SLUG-2026-0001`, sequência incrementa por tenant/ano.
+4. Listagem mostra coluna Código em mono; busca por trecho do código filtra corretamente.
+5. Tela de detalhe exibe o código ao lado do título.
+6. Tentar inserir 2 contratos com mesmo `(tenant_id, internal_code)` manualmente → erro de unique (constraint funciona).
+
+Aguardando aprovação para executar a migration e aplicar as mudanças de UI.
