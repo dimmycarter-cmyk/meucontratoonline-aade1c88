@@ -862,10 +862,11 @@ const NovoContrato = () => {
         conteudo_final: fullContent,
         clausulas_ids: selectedClauseIds as any,
         status: "rascunho",
+        current_step: "concluido",
         valor_total: mergedDados.valor_total ? parseFloat(mergedDados.valor_total.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
         valor_sinal: mergedDados.valor_sinal ? parseFloat(mergedDados.valor_sinal.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
         valor_financiamento: mergedDados.valor_financiamento ? parseFloat(mergedDados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
-      });
+      } as any);
 
       if (!contract?.id) {
         toast({ title: "Erro", description: "Não foi possível criar o contrato.", variant: "destructive" });
