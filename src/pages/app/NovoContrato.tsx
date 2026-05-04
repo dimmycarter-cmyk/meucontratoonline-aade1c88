@@ -1,7 +1,6 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useWizardAutosave } from "@/hooks/useWizardAutosave";
-import { supabase } from "@/integrations/supabase/client";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
   ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
