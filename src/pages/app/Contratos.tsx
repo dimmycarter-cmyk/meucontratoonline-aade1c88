@@ -8,15 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useContracts } from "@/hooks/useContracts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-
-const statusColors: Record<string, string> = {
-  rascunho: "bg-muted text-muted-foreground",
-  "em preenchimento": "bg-info/10 text-info",
-  "aguardando revisão": "bg-warning/10 text-warning",
-  pronto: "bg-success/10 text-success",
-  exportado: "bg-primary/10 text-primary",
-  cancelado: "bg-destructive/10 text-destructive",
-};
+import { getContractStatusMeta } from "@/lib/contract-status";
 
 const Contratos = () => {
   const navigate = useNavigate();
