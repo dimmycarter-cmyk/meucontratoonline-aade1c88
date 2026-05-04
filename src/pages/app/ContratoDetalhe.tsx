@@ -32,7 +32,9 @@ const statusColors: Record<string, string> = {
 const ContratoDetalhe = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, hasRole } = useAuth();
+  const isCorretorBloqueado = (status: string | undefined) =>
+    hasRole("corretor") && status !== "rascunho";
   const { updateContract, isSaving } = useContracts();
   const printRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
@@ -185,8 +187,16 @@ const ContratoDetalhe = () => {
   if (isLoading) return <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>;
   if (!contract) return <div className="p-8 text-center text-sm text-muted-foreground">Contrato não encontrado.</div>;
 
+  const bloqueadoParaCorretor = isCorretorBloqueado(contract.status);
+
   return (
     <div className="p-6 lg:p-8">
+      {bloqueadoParaCorretor && (
+        <div className="mb-4 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          Este contrato está em status <strong>{contract.status}</strong> e não pode ser editado.
+          Contate o administrador para solicitar alterações.
+        </div>
+      )}
       <div className="mb-6 flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/app/contratos")}>
           <ArrowLeft className="h-4 w-4" />
@@ -228,7 +238,13 @@ const ContratoDetalhe = () => {
               <Save className="h-4 w-4" /> Salvar
             </Button>
           ) : (
-            <Button variant="outline" onClick={() => setEditing(true)} className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditing(true)}
+              disabled={bloqueadoParaCorretor}
+              title={bloqueadoParaCorretor ? "Contrato finalizado — somente administradores podem editar" : undefined}
+              className="gap-2"
+            >
               <Edit3 className="h-4 w-4" /> Editar
             </Button>
           )}
@@ -248,8 +264,15 @@ const ContratoDetalhe = () => {
             <CardContent className="space-y-3 text-sm">
               <div>
                 <span className="text-muted-foreground">Status</span>
-                <Select value={contract.status} onValueChange={handleStatusChange}>
-                  <SelectTrigger className="mt-1">
+                <Select
+                  value={contract.status}
+                  onValueChange={handleStatusChange}
+                  disabled={bloqueadoParaCorretor}
+                >
+                  <SelectTrigger
+                    className="mt-1"
+                    title={bloqueadoParaCorretor ? "Contrato finalizado — somente administradores podem alterar o status" : undefined}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
