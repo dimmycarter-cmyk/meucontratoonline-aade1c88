@@ -110,6 +110,7 @@ const ManualParticipantCard = ({
   const [expanded, setExpanded] = useState(true);
   const [contactSearch, setContactSearch] = useState("");
   const [showContactPicker, setShowContactPicker] = useState(false);
+  const [cpfError, setCpfError] = useState("");
 
   const updateField = (field: keyof ManualParticipantData, value: string | boolean) => {
     onUpdate({ ...participant, [field]: value as never });
