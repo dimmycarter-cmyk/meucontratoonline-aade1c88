@@ -234,7 +234,7 @@ const Empresas = () => {
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
-            <div className="py-12 text-center text-sm text-muted-foreground">Nenhuma empresa encontrada.</div>
+            <EmptyState title="Nenhuma empresa encontrada." />
           )}
         </CardContent>
       </Card>

@@ -251,7 +251,7 @@ const Contatos = () => {
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
-            <div className="py-12 text-center text-sm text-muted-foreground">Nenhum contato encontrado.</div>
+            <EmptyState title="Nenhum contato encontrado." />
           )}
         </CardContent>
       </Card>

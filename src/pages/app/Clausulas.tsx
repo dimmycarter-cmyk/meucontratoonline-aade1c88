@@ -122,7 +122,7 @@ const Clausulas = () => {
             </Card>
           ))}
           {filtered.length === 0 && (
-            <div className="py-12 text-center text-sm text-muted-foreground">Nenhuma cláusula encontrada.</div>
+            <EmptyState title="Nenhuma cláusula encontrada." />
           )}
         </div>
       )}
