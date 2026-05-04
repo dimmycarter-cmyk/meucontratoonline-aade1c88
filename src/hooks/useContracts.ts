@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantLimits } from "@/hooks/useTenantLimits";
+import { logAction } from "@/lib/audit";
 
 export interface Contract {
   id: string;
