@@ -24,6 +24,7 @@ import Modelos from "./pages/app/Modelos";
 import Clausulas from "./pages/app/Clausulas";
 import AgenteIA from "./pages/app/AgenteIA";
 import Configuracoes from "./pages/app/Configuracoes";
+import Auditoria from "./pages/app/Auditoria";
 import Admin from "./pages/app/Admin";
 import NotFound from "./pages/NotFound";
 
