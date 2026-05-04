@@ -74,9 +74,14 @@ const Contratos = () => {
                         </div>
                       </td>
                       <td className="py-3">
-                        <Badge className={(statusColors[contrato.status] || statusColors.rascunho) + " text-xs font-medium"}>
-                          {contrato.status}
-                        </Badge>
+                        {(() => {
+                          const meta = getContractStatusMeta(contrato.status);
+                          return (
+                            <Badge className={meta.className + " text-xs font-medium"}>
+                              {meta.label}
+                            </Badge>
+                          );
+                        })()}
                       </td>
                       <td className="hidden py-3 text-sm font-medium text-foreground lg:table-cell">
                         {formatCurrency(contrato.valor_total)}
