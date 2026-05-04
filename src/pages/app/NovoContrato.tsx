@@ -361,6 +361,7 @@ const NovoContrato = () => {
       await createContract({
         nome: contractName,
         status: "rascunho",
+        current_step: mapStepIdToCurrentStep(steps[currentStepIndex]?.id),
         template_id: selectedTemplateId ?? null,
         dados,
         clausulas_ids: selectedClauseIds,
