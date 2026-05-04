@@ -10,6 +10,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { maskCNPJ, maskPhone, maskCEP } from "@/lib/masks";
+import { cnpjSchema } from "@/lib/validators";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { useNavigate } from "react-router-dom";
 
@@ -23,6 +24,7 @@ const Empresas = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyCompany);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [cnpjError, setCnpjError] = useState("");
   const { companies, isLoading, createCompany, updateCompany, deleteCompany, isCreating } = useCompanies();
   const { isSuperAdmin, setImpersonatedTenant } = useAuth();
   const navigate = useNavigate();
@@ -63,12 +65,14 @@ const Empresas = () => {
       cidade: company.cidade || "", estado: company.estado || "",
     });
     setEditingId(company.id);
+    setCnpjError("");
     setDialogOpen(true);
   };
 
   const handleNew = () => {
     setForm(emptyCompany);
     setEditingId(null);
+    setCnpjError("");
     setDialogOpen(true);
   };
 
@@ -99,7 +103,17 @@ const Empresas = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>CNPJ</Label>
-                  <Input value={form.cnpj} onChange={(e) => updateField("cnpj", maskCNPJ(e.target.value))} placeholder="00.000.000/0001-00" />
+                  <Input
+                    value={form.cnpj}
+                    onChange={(e) => updateField("cnpj", maskCNPJ(e.target.value))}
+                    onBlur={(e) => {
+                      if (!e.target.value) { setCnpjError(""); return; }
+                      const result = cnpjSchema.safeParse(e.target.value);
+                      setCnpjError(result.success ? "" : result.error.issues[0].message);
+                    }}
+                    placeholder="00.000.000/0001-00"
+                  />
+                  {cnpjError && <p className="text-xs text-destructive">{cnpjError}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>WhatsApp</Label>

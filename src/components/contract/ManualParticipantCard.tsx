@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { maskCPF, maskPhone, maskCEP } from "@/lib/masks";
+import { cpfSchema } from "@/lib/validators";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import type { Contact } from "@/hooks/useContacts";
 import type { ParticipantRole } from "./ParticipantCard";
@@ -109,6 +110,7 @@ const ManualParticipantCard = ({
   const [expanded, setExpanded] = useState(true);
   const [contactSearch, setContactSearch] = useState("");
   const [showContactPicker, setShowContactPicker] = useState(false);
+  const [cpfError, setCpfError] = useState("");
 
   const updateField = (field: keyof ManualParticipantData, value: string | boolean) => {
     onUpdate({ ...participant, [field]: value as never });
@@ -236,9 +238,15 @@ const ManualParticipantCard = ({
                 <Input
                   value={participant.cpf}
                   onChange={(e) => updateField("cpf", maskCPF(e.target.value))}
+                  onBlur={(e) => {
+                    if (!e.target.value) { setCpfError(""); return; }
+                    const result = cpfSchema.safeParse(e.target.value);
+                    setCpfError(result.success ? "" : result.error.issues[0].message);
+                  }}
                   placeholder="000.000.000-00"
                   className="h-8 text-sm"
                 />
+                {cpfError && <p className="text-xs text-destructive">{cpfError}</p>}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">RG</Label>
