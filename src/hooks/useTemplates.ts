@@ -92,9 +92,16 @@ export const useTemplates = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any, variables) => {
       queryClient.invalidateQueries({ queryKey: ["contract_templates"] });
       toast({ title: "Modelo salvo" });
+      logAction({
+        tenantId: data?.tenant_id,
+        action: "template.updated",
+        entityType: "template",
+        entityId: data?.id ?? variables.id,
+        metadata: { fields: Object.keys(variables).filter((k) => k !== "id") },
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao salvar modelo", description: error.message, variant: "destructive" });
