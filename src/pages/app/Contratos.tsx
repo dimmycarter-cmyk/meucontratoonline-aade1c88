@@ -136,12 +136,11 @@ const Contratos = () => {
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-sm text-muted-foreground">Nenhum contrato encontrado.</p>
-              <Button variant="outline" className="mt-4" onClick={() => navigate("/app/novo-contrato")}>
-                Criar primeiro contrato
-              </Button>
-            </div>
+            <EmptyState
+              title="Nenhum contrato encontrado."
+              actionLabel="Criar primeiro contrato"
+              onAction={() => navigate("/app/novo-contrato")}
+            />
           )}
         </CardContent>
       </Card>
