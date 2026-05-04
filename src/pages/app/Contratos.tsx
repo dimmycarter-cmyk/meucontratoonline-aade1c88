@@ -57,6 +57,7 @@ const Contratos = () => {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border text-left">
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Código</th>
                     <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contrato</th>
                     <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
                     <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">Valor</th>
