@@ -139,7 +139,7 @@ const ContratoDetalhe = () => {
     refetch();
   };
 
-  const handleDownloadDoc = async (filePath: string, fileName: string) => {
+  const handleDownloadDoc = async (filePath: string, fileName: string, docId?: string) => {
     const { data } = await supabase.storage.from("contract-documents").download(filePath);
     if (data) {
       const url = URL.createObjectURL(data);
@@ -148,6 +148,15 @@ const ContratoDetalhe = () => {
       a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
+      if (contract?.tenant_id) {
+        logAction({
+          tenantId: contract.tenant_id,
+          action: "document.viewed",
+          entityType: "document",
+          entityId: docId,
+          metadata: { contract_id: contract.id, file_name: fileName },
+        });
+      }
     }
   };
 
