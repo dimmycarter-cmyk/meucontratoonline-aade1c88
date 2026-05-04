@@ -422,6 +422,32 @@ export type Database = {
           },
         ]
       }
+      contract_sequences: {
+        Row: {
+          ano: number
+          tenant_id: string
+          ultimo_seq: number
+        }
+        Insert: {
+          ano: number
+          tenant_id: string
+          ultimo_seq?: number
+        }
+        Update: {
+          ano?: number
+          tenant_id?: string
+          ultimo_seq?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_sequences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_templates: {
         Row: {
           conteudo: string
@@ -515,7 +541,7 @@ export type Database = {
           dados: Json
           empresa_id: string | null
           id: string
-          internal_code: string | null
+          internal_code: string
           nome: string
           status: string
           template_id: string | null
@@ -535,7 +561,7 @@ export type Database = {
           dados?: Json
           empresa_id?: string | null
           id?: string
-          internal_code?: string | null
+          internal_code: string
           nome?: string
           status?: string
           template_id?: string | null
@@ -555,7 +581,7 @@ export type Database = {
           dados?: Json
           empresa_id?: string | null
           id?: string
-          internal_code?: string | null
+          internal_code?: string
           nome?: string
           status?: string
           template_id?: string | null
@@ -993,6 +1019,7 @@ export type Database = {
             }
             Returns: undefined
           }
+      generate_internal_code: { Args: { _tenant_id: string }; Returns: string }
       get_admin_metrics: { Args: never; Returns: Json }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {

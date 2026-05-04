@@ -15,9 +15,13 @@ const Contratos = () => {
   const { contracts, isLoading, deleteContract } = useContracts();
   const [search, setSearch] = useState("");
 
-  const filtered = contracts.filter((c) =>
-    c.nome.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = contracts.filter((c) => {
+    const term = search.toLowerCase();
+    return (
+      c.nome.toLowerCase().includes(term) ||
+      (c.internal_code ?? "").toLowerCase().includes(term)
+    );
+  });
 
   const formatCurrency = (value: number | null) => {
     if (!value) return "—";
@@ -41,7 +45,7 @@ const Contratos = () => {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar contratos..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input placeholder="Buscar por código ou nome..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
         </CardHeader>
@@ -53,6 +57,7 @@ const Contratos = () => {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border text-left">
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Código</th>
                     <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contrato</th>
                     <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
                     <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">Valor</th>
@@ -63,6 +68,11 @@ const Contratos = () => {
                 <tbody className="divide-y divide-border">
                   {filtered.map((contrato) => (
                     <tr key={contrato.id} className="transition-colors hover:bg-muted/50">
+                      <td className="py-3">
+                        <span className="font-mono text-sm font-medium text-foreground">
+                          {contrato.internal_code ?? "—"}
+                        </span>
+                      </td>
                       <td className="py-3">
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
