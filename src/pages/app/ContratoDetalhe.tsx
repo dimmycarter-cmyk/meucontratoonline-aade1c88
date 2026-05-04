@@ -17,6 +17,7 @@ import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/componen
 import { getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
+import { logAction } from "@/lib/audit";
 
 const statusOptions = ["rascunho", "em preenchimento", "aguardando revisão", "pronto", "exportado", "cancelado"];
 const statusColors: Record<string, string> = {
@@ -102,6 +103,19 @@ const ContratoDetalhe = () => {
     }
   }, [contract]);
 
+  // Audit: registrar visualização uma vez por id
+  useEffect(() => {
+    if (contract?.id && contract?.tenant_id) {
+      logAction({
+        tenantId: contract.tenant_id,
+        action: "contract.viewed",
+        entityType: "contract",
+        entityId: contract.id,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract?.id]);
+
   const handleSaveTitle = async () => {
     if (!id || titleValue.trim() === contract?.nome) {
       setEditingTitle(false);
@@ -125,7 +139,7 @@ const ContratoDetalhe = () => {
     refetch();
   };
 
-  const handleDownloadDoc = async (filePath: string, fileName: string) => {
+  const handleDownloadDoc = async (filePath: string, fileName: string, docId?: string) => {
     const { data } = await supabase.storage.from("contract-documents").download(filePath);
     if (data) {
       const url = URL.createObjectURL(data);
@@ -134,6 +148,15 @@ const ContratoDetalhe = () => {
       a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
+      if (contract?.tenant_id) {
+        logAction({
+          tenantId: contract.tenant_id,
+          action: "document.viewed",
+          entityType: "document",
+          entityId: docId,
+          metadata: { contract_id: contract.id, file_name: fileName },
+        });
+      }
     }
   };
 

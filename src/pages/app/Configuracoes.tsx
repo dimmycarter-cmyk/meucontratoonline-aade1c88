@@ -1,10 +1,16 @@
-import { User, Building2, Shield, Bell, CreditCard } from "lucide-react";
+import { User, Building2, Shield, Bell, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Configuracoes = () => {
+  const navigate = useNavigate();
+  const { roles, isSuperAdmin } = useAuth();
+  const canViewAudit = isSuperAdmin || roles.includes("admin_empresa");
+
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8">
@@ -104,6 +110,27 @@ const Configuracoes = () => {
             </div>
           </CardContent>
         </Card>
+
+        {canViewAudit && (
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldCheck className="h-5 w-5 text-primary" /> Auditoria
+              </CardTitle>
+              <CardDescription>Registros imutáveis das ações dos usuários (LGPD)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/app/configuracoes/auditoria")}
+                className="w-full justify-between"
+              >
+                Ver registros de auditoria
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

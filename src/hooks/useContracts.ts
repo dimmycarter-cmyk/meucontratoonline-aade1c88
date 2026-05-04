@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantLimits } from "@/hooks/useTenantLimits";
+import { logAction } from "@/lib/audit";
 
 export interface Contract {
   id: string;
@@ -60,10 +61,17 @@ export const useContracts = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["tenant-limits"] });
       toast({ title: "Contrato salvo com sucesso" });
+      logAction({
+        tenantId: effectiveTenantId,
+        action: "contract.created",
+        entityType: "contract",
+        entityId: data?.id,
+        metadata: { internal_code: data?.internal_code, status: data?.status },
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao salvar contrato", description: error.message, variant: "destructive" });
@@ -72,6 +80,15 @@ export const useContracts = () => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Contract> & { id: string }) => {
+      let previousStatus: string | null = null;
+      if (updates.status !== undefined) {
+        const { data: prev } = await supabase
+          .from("contracts")
+          .select("status")
+          .eq("id", id)
+          .maybeSingle();
+        previousStatus = (prev as any)?.status ?? null;
+      }
       const { data, error } = await supabase
         .from("contracts")
         .update({ ...updates, updated_at: new Date().toISOString() } as any)
@@ -79,6 +96,25 @@ export const useContracts = () => {
         .select()
         .single();
       if (error) throw error;
+
+      const changedFields = Object.keys(updates);
+      if (updates.status !== undefined && previousStatus !== updates.status) {
+        logAction({
+          tenantId: effectiveTenantId,
+          action: "contract.status_changed",
+          entityType: "contract",
+          entityId: id,
+          metadata: { from: previousStatus, to: updates.status },
+        });
+      } else {
+        logAction({
+          tenantId: effectiveTenantId,
+          action: "contract.updated",
+          entityType: "contract",
+          entityId: id,
+          metadata: { fields: changedFields },
+        });
+      }
       return data;
     },
     onSuccess: () => {
@@ -94,10 +130,17 @@ export const useContracts = () => {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("contracts").delete().eq("id", id);
       if (error) throw error;
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id: string) => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       toast({ title: "Contrato removido" });
+      logAction({
+        tenantId: effectiveTenantId,
+        action: "contract.deleted",
+        entityType: "contract",
+        entityId: id,
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao remover contrato", description: error.message, variant: "destructive" });

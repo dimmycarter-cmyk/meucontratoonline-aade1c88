@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Participant } from "@/components/contract/ParticipantCard";
 import type { DocType, UploadedDoc } from "@/components/contract/DocumentUploader";
 import type { ParticipantExtractedData, ExtractedField } from "@/components/contract/ExtractedDataReview";
+import { logAction } from "@/lib/audit";
 
 const EXTRACTION_MESSAGES = [
   "Lendo documentos...",
@@ -36,6 +37,18 @@ export const useDocumentExtraction = (initialExtractedData?: ParticipantExtracte
         toast({ title: "Erro ao enviar arquivo", description: error.message, variant: "destructive" });
         return null;
       }
+
+      logAction({
+        tenantId: profile.tenant_id,
+        action: "document.uploaded",
+        entityType: "document",
+        metadata: {
+          participant_id: participantId,
+          document_type: docType,
+          file_size: file.size,
+          mime_type: file.type,
+        },
+      });
 
       return {
         file,

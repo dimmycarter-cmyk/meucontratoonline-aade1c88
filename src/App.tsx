@@ -24,6 +24,7 @@ import Modelos from "./pages/app/Modelos";
 import Clausulas from "./pages/app/Clausulas";
 import AgenteIA from "./pages/app/AgenteIA";
 import Configuracoes from "./pages/app/Configuracoes";
+import Auditoria from "./pages/app/Auditoria";
 import Admin from "./pages/app/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="clausulas" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><Clausulas /></RoleRoute>} />
               <Route path="agente-ia" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><AgenteIA /></RoleRoute>} />
               <Route path="configuracoes" element={<Configuracoes />} />
+              <Route path="configuracoes/auditoria" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><Auditoria /></RoleRoute>} />
               <Route
                 path="admin"
                 element={

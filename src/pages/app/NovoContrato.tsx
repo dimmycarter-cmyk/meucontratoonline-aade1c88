@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
 import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
+import { logAction } from "@/lib/audit";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import { useToast } from "@/hooks/use-toast";
@@ -934,6 +935,13 @@ const NovoContrato = () => {
             if (partError) {
               console.error("[NovoContrato] Erro ao salvar participante:", partError);
               toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
+            } else {
+              logAction({
+                tenantId: profile.tenant_id,
+                action: "participant.created",
+                entityType: "participant",
+                metadata: { contract_id: contract.id, role: p.role, source: "ai" },
+              });
             }
           }
         } else if (flowMode === "manual") {
@@ -966,6 +974,13 @@ const NovoContrato = () => {
             if (partError) {
               console.error("[NovoContrato] Erro ao salvar participante manual:", partError);
               toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
+            } else {
+              logAction({
+                tenantId: profile.tenant_id,
+                action: "participant.created",
+                entityType: "participant",
+                metadata: { contract_id: contract.id, role: mp.role, source: "manual" },
+              });
             }
           }
         }
