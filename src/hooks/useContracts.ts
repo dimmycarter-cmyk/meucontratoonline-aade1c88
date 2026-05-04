@@ -9,6 +9,7 @@ export interface Contract {
   tenant_id: string;
   template_id: string | null;
   nome: string;
+  internal_code: string;
   status: string;
   comprador_id: string | null;
   vendedor_id: string | null;
