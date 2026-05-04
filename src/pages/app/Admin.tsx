@@ -14,16 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Pagination,
@@ -308,26 +299,16 @@ const Admin = () => {
         </Button>
       </div>
 
-      {/* Confirmation AlertDialog */}
-      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirmAction?.title}</AlertDialogTitle>
-            <AlertDialogDescription>{confirmAction?.description}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                await confirmAction?.onConfirm();
-                setConfirmAction(null);
-              }}
-            >
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title={confirmAction?.title ?? ""}
+        description={confirmAction?.description}
+        onConfirm={async () => {
+          await confirmAction?.onConfirm();
+          setConfirmAction(null);
+        }}
+      />
 
       <Card className="shadow-card">
         <Tabs defaultValue="dashboard">

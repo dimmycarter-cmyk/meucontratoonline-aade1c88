@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Plus, Search, ScrollText, Trash2, Pencil, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,7 +123,7 @@ const Clausulas = () => {
             </Card>
           ))}
           {filtered.length === 0 && (
-            <div className="py-12 text-center text-sm text-muted-foreground">Nenhuma cláusula encontrada.</div>
+            <EmptyState title="Nenhuma cláusula encontrada." />
           )}
         </div>
       )}

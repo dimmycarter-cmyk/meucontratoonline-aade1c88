@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Plus, Search, MoreHorizontal, Mail, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -251,7 +252,7 @@ const Contatos = () => {
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
-            <div className="py-12 text-center text-sm text-muted-foreground">Nenhum contato encontrado.</div>
+            <EmptyState title="Nenhum contato encontrado." />
           )}
         </CardContent>
       </Card>

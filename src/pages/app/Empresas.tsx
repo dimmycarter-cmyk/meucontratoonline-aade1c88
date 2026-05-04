@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Plus, Search, MoreHorizontal, Building2, Trash2, Pencil, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -234,7 +235,7 @@ const Empresas = () => {
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
-            <div className="py-12 text-center text-sm text-muted-foreground">Nenhuma empresa encontrada.</div>
+            <EmptyState title="Nenhuma empresa encontrada." />
           )}
         </CardContent>
       </Card>

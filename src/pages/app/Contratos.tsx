@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { getContractStatusMeta } from "@/lib/contract-status";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const Contratos = () => {
   const navigate = useNavigate();
@@ -136,12 +137,11 @@ const Contratos = () => {
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-sm text-muted-foreground">Nenhum contrato encontrado.</p>
-              <Button variant="outline" className="mt-4" onClick={() => navigate("/app/novo-contrato")}>
-                Criar primeiro contrato
-              </Button>
-            </div>
+            <EmptyState
+              title="Nenhum contrato encontrado."
+              actionLabel="Criar primeiro contrato"
+              onAction={() => navigate("/app/novo-contrato")}
+            />
           )}
         </CardContent>
       </Card>
