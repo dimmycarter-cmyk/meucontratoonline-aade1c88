@@ -65,12 +65,14 @@ const Empresas = () => {
       cidade: company.cidade || "", estado: company.estado || "",
     });
     setEditingId(company.id);
+    setCnpjError("");
     setDialogOpen(true);
   };
 
   const handleNew = () => {
     setForm(emptyCompany);
     setEditingId(null);
+    setCnpjError("");
     setDialogOpen(true);
   };
 
