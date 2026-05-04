@@ -64,7 +64,7 @@ const App = () => (
               <Route path="empresas" element={<RoleRoute allowedRoles={["super_admin"]}><Empresas /></RoleRoute>} />
               <Route path="contratos" element={<Contratos />} />
               <Route path="contratos/:id" element={<ContratoDetalhe />} />
-              <Route path="novo-contrato" element={<NovoContrato />} />
+              <Route path="novo-contrato/:id?" element={<NovoContrato />} />
               <Route path="modelos" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><Modelos /></RoleRoute>} />
               <Route path="clausulas" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><Clausulas /></RoleRoute>} />
               <Route path="agente-ia" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><AgenteIA /></RoleRoute>} />

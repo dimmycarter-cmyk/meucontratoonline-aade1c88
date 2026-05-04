@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Download, MoreHorizontal, FileText, Eye, Plus, Trash2, Printer } from "lucide-react";
+import { Search, Filter, Download, MoreHorizontal, FileText, Eye, Plus, Trash2, Printer, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -113,6 +113,11 @@ const Contratos = () => {
                             <DropdownMenuItem onClick={() => navigate(`/app/contratos/${contrato.id}`)}>
                               <Eye className="mr-2 h-4 w-4" /> Visualizar
                             </DropdownMenuItem>
+                            {contrato.status === "rascunho" && (
+                              <DropdownMenuItem onClick={() => navigate(`/app/novo-contrato/${contrato.id}`)}>
+                                <Edit3 className="mr-2 h-4 w-4" /> Retomar
+                              </DropdownMenuItem>
+                            )}
                             {canDelete && (
                               <DropdownMenuItem
                                 className="text-destructive"
