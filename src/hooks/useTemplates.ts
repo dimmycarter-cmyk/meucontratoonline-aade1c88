@@ -65,9 +65,16 @@ export const useTemplates = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["contract_templates"] });
       toast({ title: "Modelo criado com sucesso" });
+      logAction({
+        tenantId: data?.tenant_id,
+        action: "template.created",
+        entityType: "template",
+        entityId: data?.id,
+        metadata: { nome: data?.nome, tipo: data?.tipo, is_global: data?.is_global },
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao criar modelo", description: error.message, variant: "destructive" });
