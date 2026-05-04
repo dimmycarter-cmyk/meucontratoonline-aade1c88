@@ -15,9 +15,13 @@ const Contratos = () => {
   const { contracts, isLoading, deleteContract } = useContracts();
   const [search, setSearch] = useState("");
 
-  const filtered = contracts.filter((c) =>
-    c.nome.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = contracts.filter((c) => {
+    const term = search.toLowerCase();
+    return (
+      c.nome.toLowerCase().includes(term) ||
+      (c.internal_code ?? "").toLowerCase().includes(term)
+    );
+  });
 
   const formatCurrency = (value: number | null) => {
     if (!value) return "—";
