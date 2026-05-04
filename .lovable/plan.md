@@ -1,119 +1,148 @@
-# Plano — Prompt B: `internal_code` automático (formato `SLUG-ANO-SEQUENCIA`)
+# Plano — Prompt C: `audit_logs` genérica para LGPD
 
-## 1. Migration SQL (uma só, via tool de migration)
+## 1. Migration (via supabase--migration)
 
-Executa exatamente o que você definiu, com pequenos ajustes de robustez:
+Tabela append-only separada da `admin_audit_logs` existente:
 
-### 1.1 Tabela de sequência por tenant/ano
 ```sql
-CREATE TABLE IF NOT EXISTS public.contract_sequences (
-  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  ano INTEGER NOT NULL,
-  ultimo_seq INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (tenant_id, ano)
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES public.tenants(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id UUID,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ip_address TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.contract_sequences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Members can view own sequences"
-  ON public.contract_sequences FOR SELECT TO authenticated
-  USING (tenant_id = public.get_user_tenant_id(auth.uid()));
--- Sem políticas de INSERT/UPDATE para usuários: a tabela só é escrita
--- pela função SECURITY DEFINER `generate_internal_code`.
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_created ON public.audit_logs(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity         ON public.audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user           ON public.audit_logs(user_id, created_at DESC);
 ```
 
-Super admin já tem acesso global por padrão? Não — então adiciono também:
-```sql
-CREATE POLICY "Super admin can view all sequences"
-  ON public.contract_sequences FOR SELECT TO authenticated
-  USING (has_role(auth.uid(), 'super_admin'::app_role));
+### RLS — append-only por design
+
+- **INSERT** `Members can insert audit logs`: `tenant_id = get_user_tenant_id(auth.uid()) AND user_id = auth.uid()` (forço também `user_id = auth.uid()` no WITH CHECK pra evitar spoof de autoria entre colegas do mesmo tenant).
+- **SELECT** `Admins can view tenant audit logs`: tenant do usuário + `has_role('admin_empresa')`.
+- **SELECT** `Super admin can view all audit logs`: `has_role('super_admin')`.
+- **Sem policies de UPDATE / DELETE** — registros imutáveis.
+
+> Reforço de segurança: também `REVOKE UPDATE, DELETE ON public.audit_logs FROM authenticated, anon;` para garantir que nem por engano alguém edite (RLS sem policy já bloqueia, mas o REVOKE é cinto-e-suspensório).
+
+## 2. Helper `src/lib/audit.ts`
+
+Novo arquivo. Exporta:
+
+```ts
+export type AuditAction =
+  | 'contract.created' | 'contract.updated' | 'contract.status_changed'
+  | 'contract.deleted' | 'contract.viewed'
+  | 'participant.created' | 'participant.updated' | 'participant.deleted'
+  | 'document.uploaded' | 'document.viewed' | 'document.deleted'
+  | 'template.created' | 'template.updated';
+
+export type AuditEntityType = 'contract' | 'participant' | 'document' | 'template';
+
+export async function logAction({ tenantId, action, entityType, entityId, metadata }): Promise<void>
 ```
 
-### 1.2 Função `generate_internal_code(tenant_id)`
-Igual ao seu draft. Pontos:
-- Usa `slug` do tenant em UPPER; se vazio/null, fallback para `LEFT(id::text, 6)` em UPPER.
-- `EXTRACT(YEAR FROM now())`.
-- `INSERT ... ON CONFLICT DO UPDATE SET ultimo_seq = ultimo_seq + 1 RETURNING ultimo_seq` — atômico, seguro contra concorrência (linha bloqueada pelo UPSERT).
-- Retorna `UPPER(slug) || '-' || ano || '-' || lpad(seq, 4, '0')`.
-- `SECURITY DEFINER` + `SET search_path = public`.
+Detalhes:
+- Usa `import { supabase } from "@/integrations/supabase/client"` (caminho real do projeto).
+- Lê `auth.uid()` via `supabase.auth.getUser()` e popula `user_id` no insert (preenche o WITH CHECK).
+- `try/catch` silencioso com `console.error("[audit] ...")` — nunca lança, nunca bloqueia UI.
+- Sem `ip_address` por enquanto (front não tem acesso confiável; coluna fica null e pode ser preenchida depois por edge function se quiser).
 
-### 1.3 Trigger `BEFORE INSERT` em `contracts`
-```sql
-CREATE OR REPLACE FUNCTION public.set_internal_code() ...
--- Se NEW.internal_code IS NULL OR '' → preenche via generate_internal_code(NEW.tenant_id)
+## 3. Instrumentação dos pontos críticos
 
-DROP TRIGGER IF EXISTS trg_set_internal_code ON public.contracts;
-CREATE TRIGGER trg_set_internal_code
-  BEFORE INSERT ON public.contracts
-  FOR EACH ROW EXECUTE FUNCTION public.set_internal_code();
+Mudanças mínimas, sem refatorar fluxos:
+
+### `src/hooks/useContracts.ts`
+- `createMutation.onSuccess(data)` → `logAction('contract.created', 'contract', data.id, { nome: data.nome, internal_code: data.internal_code })`.
+- `updateMutation.mutationFn` → comparar `updates.status` com valor atual: se mudou, logar `contract.status_changed` com `metadata: { from, to }`. Caso contrário, `contract.updated` com a lista de campos alterados (chaves do `updates`, sem valores PII).
+- `deleteMutation.onSuccess` → `contract.deleted` com `entity_id` deletado.
+
+### `src/pages/app/ContratoDetalhe.tsx`
+- `useEffect` ao carregar `contract` (uma vez por id) → `contract.viewed`.
+
+### `src/hooks/useDocumentExtraction.ts`
+- Após upload bem-sucedido em `uploadDocument` → `document.uploaded` com `metadata: { participant_id, document_type, file_size }`.
+
+### Visualização de documento (signed URL)
+- Buscar onde existe `createSignedUrl` (não apareceu na grep — provavelmente em `ContratoDetalhe` ao baixar/abrir doc, ou inexistente). Se existir, instrumentar com `document.viewed`. Se ainda não existir um helper único, registro só nos pontos onde signed URL já é gerada hoje. (Vou inspecionar antes de tocar — mudança pequena.)
+
+### Participantes
+- Hook/componente que faz `from("contract_participants").insert/update/delete` (provavelmente em `ManualParticipantManager` / `ParticipantManager`). Adicionar `participant.created/updated/deleted` no `onSuccess`. Não adicionar PII no metadata — só `{ role, contract_id }`.
+
+### Templates
+- `useTemplates` → instrumentar `created` e `updated` no sucesso das mutations.
+
+> Princípio: **nunca colocar dado pessoal em `metadata`** — apenas IDs, tipo de campo alterado, status from/to, internal_code, contagens. Conformidade LGPD.
+
+## 4. Hook + Página `/app/configuracoes/auditoria`
+
+### Hook `src/hooks/useAuditLogs.ts` (novo, separado do `useAuditLog` existente que é do super_admin)
+```ts
+useAuditLogs({ page, pageSize=20, action?, dateFrom?, dateTo? })
 ```
+- Query no `audit_logs` filtrada por `tenant_id` (RLS já filtra; explicitar pra index hit).
+- Join leve com `profiles` por `user_id` para mostrar nome/email do autor.
+- `range((page-1)*pageSize, page*pageSize - 1)` + `count: 'exact'` para total.
 
-### 1.4 Backfill retroativo (antes do NOT NULL)
-`DO $$ ... $$` percorrendo `contracts WHERE internal_code IS NULL OR internal_code = ''` ordenado por `created_at ASC` e chamando `generate_internal_code(r.tenant_id)`. Isso garante numeração cronológica por tenant/ano.
+### Página `src/pages/app/Auditoria.tsx`
+- Header: "Auditoria — registros imutáveis (LGPD)".
+- Filtros (toolbar):
+  - Select de ação (todas as `AuditAction` + "Todas").
+  - Date range picker (shadcn Calendar com `mode="range"`, `pointer-events-auto`).
+- Tabela: Data/hora · Usuário (nome/email) · Ação (badge) · Entidade (`entity_type` + `entity_id` curto/mono) · Detalhes (resumo do `metadata` em `<code>` truncado, com tooltip do JSON completo).
+- Paginação: 20/página, controles Prev/Next + indicador "X–Y de Z".
+- **Sem ações destrutivas, sem export por enquanto, sem drawer de edição.**
 
-### 1.5 NOT NULL + UNIQUE por tenant
-```sql
-ALTER TABLE public.contracts ALTER COLUMN internal_code SET NOT NULL;
+### Roteamento
+- `src/App.tsx`: nova rota `configuracoes/auditoria` dentro do shell `/app`, protegida por `RoleRoute` aceitando `admin_empresa` e `super_admin` (já existe esse componente — confirmar API antes de usar).
 
--- Postgres não aceita IF NOT EXISTS em ADD CONSTRAINT;
--- uso DO block para idempotência:
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'contracts_internal_code_tenant_unique'
-  ) THEN
-    ALTER TABLE public.contracts
-      ADD CONSTRAINT contracts_internal_code_tenant_unique
-      UNIQUE (tenant_id, internal_code);
-  END IF;
-END $$;
-```
+### Acesso na UI
+- `Configuracoes.tsx`: adicionar um Card "Auditoria" com link para `/app/configuracoes/auditoria` — visível só se `has_role('admin_empresa') || super_admin`.
+- **Não** vou poluir a sidebar principal com novo item — fica como sub-página de Configurações, alinhado com a arquitetura atual (Configurações já é a entrada única no bottom da sidebar).
 
-> Observação: o draft original tem `ADD CONSTRAINT IF NOT EXISTS`, que **não é sintaxe válida em Postgres**. Vou trocar por esse DO block. Resultado idêntico, sem erro.
+> Se você preferir um item separado "Auditoria" na sidebar mesmo, me avisa que troco — o brief diz "link Auditoria na sidebar em Configurações", interpretei como dentro de Configurações.
 
-## 2. Frontend
+## 5. Regras duras respeitadas
 
-### 2.1 Tipo `Contract` (`src/hooks/useContracts.ts`)
-- Adicionar `internal_code: string;` à interface.
-- `src/integrations/supabase/types.ts` será regenerado automaticamente pela migration; não toco nele.
+- ✅ Nenhuma tabela existente é alterada.
+- ✅ Sem policy de UPDATE/DELETE em `audit_logs` + REVOKE explícito.
+- ✅ `logAction()` com try/catch silencioso, jamais quebra UI.
+- ✅ Inserção via cliente anon respeitando RLS — sem service_role no front.
+- ✅ Tela de auditoria 100% read-only.
+- ✅ `audit_logs` é tabela nova, separada de `admin_audit_logs`.
+- ✅ Nenhum PII no metadata (CPF/RG/email não vão pro log).
 
-### 2.2 Listagem `src/pages/app/Contratos.tsx`
-- Nova primeira coluna **"Código"** com `font-mono text-sm` em destaque, antes da coluna "Contrato".
-- Filtro de busca passa a casar também `internal_code` (`includes` case-insensitive no array `filtered`).
-- Placeholder do input atualizado: `"Buscar por código ou nome..."`.
+## 6. Arquivos tocados
 
-### 2.3 Detalhe `src/pages/app/ContratoDetalhe.tsx`
-- No header, renderizar o `internal_code` ao lado do título do contrato como badge/chip discreto (`font-mono`, `text-xs`, `text-muted-foreground`, fundo sutil). Não interfere com edição inline do nome.
+- Migration SQL (supabase--migration)
+- `src/lib/audit.ts` (novo)
+- `src/hooks/useContracts.ts` — log nos 3 mutations
+- `src/hooks/useDocumentExtraction.ts` — log no upload
+- `src/hooks/useTemplates.ts` — log create/update
+- `src/pages/app/ContratoDetalhe.tsx` — log view + log de status na troca
+- `src/pages/app/Contratos.tsx` — (delete já é via hook, sem mudança extra)
+- Componente(s) de participante (a confirmar) — log create/update/delete
+- `src/hooks/useAuditLogs.ts` (novo, plural, evita choque com `useAuditLog`)
+- `src/pages/app/Auditoria.tsx` (novo)
+- `src/App.tsx` — rota nova
+- `src/pages/app/Configuracoes.tsx` — link/atalho para auditoria (gated por role)
 
-### 2.4 Wizard `src/pages/app/NovoContrato.tsx`
-- Sem campo de código. Onde fizer sentido (ex.: tela de revisão final ou modal de "Salvar rascunho"), adicionar texto auxiliar discreto: *"Código gerado automaticamente ao salvar"*.
-- Não preciso enviar `internal_code` no `INSERT` — a trigger preenche.
+## 7. Validação após implementar
 
-## 3. Regras duras respeitadas
+1. Build limpo.
+2. Criar contrato → aparece linha `contract.created` em `/app/configuracoes/auditoria` (logado como admin).
+3. Mudar status do contrato → `contract.status_changed` com `from/to` corretos.
+4. Upload de documento → `document.uploaded`.
+5. Logar como `corretor` → não consegue acessar a página de auditoria (RLS retorna vazio + RoleRoute bloqueia rota).
+6. Tentar `UPDATE`/`DELETE` direto via SQL como usuário comum → negado.
+7. Filtros de ação + período funcionam, paginação correta.
 
-- ✅ Só altera `contracts` (constraint+NOT NULL) e cria `contract_sequences` + 2 funções + 1 trigger.
-- ✅ Não recria `contracts`. Coluna `internal_code` já existe — só recebe NOT NULL e UNIQUE.
-- ✅ Backfill roda **antes** do `SET NOT NULL`.
-- ✅ Fallback de 6 chars do `id` quando `slug` vazio/null.
-- ✅ RLS habilitada em `contract_sequences` (SELECT só para o próprio tenant + super_admin; sem INSERT/UPDATE público — escrita só via `SECURITY DEFINER`).
-- ✅ RLS de `contracts` intacta. `dados`, `current_step`, status, default `'rascunho'` — todos preservados.
-
-## 4. Arquivos tocados
-
-- Migration SQL (via supabase--migration)
-- `src/hooks/useContracts.ts` — campo `internal_code` no tipo
-- `src/pages/app/Contratos.tsx` — coluna + filtro
-- `src/pages/app/ContratoDetalhe.tsx` — exibição no header
-- `src/pages/app/NovoContrato.tsx` — texto auxiliar (mudança mínima)
-
-## 5. Validação após executar
-
-1. Build limpo, sem erros de tipo.
-2. `SELECT count(*) FROM contracts WHERE internal_code IS NULL OR internal_code = ''` → `0`.
-3. Criar contrato novo → trigger gera código no formato `SLUG-2026-0001`, sequência incrementa por tenant/ano.
-4. Listagem mostra coluna Código em mono; busca por trecho do código filtra corretamente.
-5. Tela de detalhe exibe o código ao lado do título.
-6. Tentar inserir 2 contratos com mesmo `(tenant_id, internal_code)` manualmente → erro de unique (constraint funciona).
-
-Aguardando aprovação para executar a migration e aplicar as mudanças de UI.
+Aguardando aprovação para executar a migration e implementar.
