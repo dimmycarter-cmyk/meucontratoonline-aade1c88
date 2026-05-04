@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { maskCPF, maskPhone, maskCEP } from "@/lib/masks";
+import { cpfSchema } from "@/lib/validators";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import type { Contact } from "@/hooks/useContacts";
 import type { ParticipantRole } from "./ParticipantCard";
