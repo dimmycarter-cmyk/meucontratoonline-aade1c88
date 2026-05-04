@@ -10,6 +10,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { maskCNPJ, maskPhone, maskCEP } from "@/lib/masks";
+import { cnpjSchema } from "@/lib/validators";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { useNavigate } from "react-router-dom";
 
