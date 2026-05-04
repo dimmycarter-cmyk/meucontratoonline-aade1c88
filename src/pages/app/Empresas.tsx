@@ -103,7 +103,17 @@ const Empresas = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>CNPJ</Label>
-                  <Input value={form.cnpj} onChange={(e) => updateField("cnpj", maskCNPJ(e.target.value))} placeholder="00.000.000/0001-00" />
+                  <Input
+                    value={form.cnpj}
+                    onChange={(e) => updateField("cnpj", maskCNPJ(e.target.value))}
+                    onBlur={(e) => {
+                      if (!e.target.value) { setCnpjError(""); return; }
+                      const result = cnpjSchema.safeParse(e.target.value);
+                      setCnpjError(result.success ? "" : result.error.issues[0].message);
+                    }}
+                    placeholder="00.000.000/0001-00"
+                  />
+                  {cnpjError && <p className="text-xs text-destructive">{cnpjError}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>WhatsApp</Label>
