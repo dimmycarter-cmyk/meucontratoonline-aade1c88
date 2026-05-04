@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { getContractStatusMeta } from "@/lib/contract-status";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const Contratos = () => {
   const navigate = useNavigate();
