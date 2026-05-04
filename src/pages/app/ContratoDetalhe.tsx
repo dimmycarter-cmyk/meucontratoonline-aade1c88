@@ -17,6 +17,7 @@ import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/componen
 import { getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
+import { logAction } from "@/lib/audit";
 
 const statusOptions = ["rascunho", "em preenchimento", "aguardando revisão", "pronto", "exportado", "cancelado"];
 const statusColors: Record<string, string> = {
