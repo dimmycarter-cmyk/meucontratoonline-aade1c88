@@ -110,6 +110,27 @@ const Configuracoes = () => {
             </div>
           </CardContent>
         </Card>
+
+        {canViewAudit && (
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldCheck className="h-5 w-5 text-primary" /> Auditoria
+              </CardTitle>
+              <CardDescription>Registros imutáveis das ações dos usuários (LGPD)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/app/configuracoes/auditoria")}
+                className="w-full justify-between"
+              >
+                Ver registros de auditoria
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
