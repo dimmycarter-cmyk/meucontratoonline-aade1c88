@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 
 export interface Subscription {
   id: string;
@@ -59,8 +60,8 @@ export const useSubscriptions = () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "subscriptions"] });
       toast({ title: "Assinatura atualizada" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao atualizar assinatura", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao atualizar assinatura", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 

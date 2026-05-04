@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantLimits } from "@/hooks/useTenantLimits";
 import { logAction } from "@/lib/audit";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 
 export interface Contract {
   id: string;
@@ -73,8 +74,8 @@ export const useContracts = () => {
         metadata: { internal_code: data?.internal_code, status: data?.status },
       });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao salvar contrato", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao salvar contrato", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -121,8 +122,8 @@ export const useContracts = () => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       toast({ title: "Contrato atualizado" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao atualizar contrato", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao atualizar contrato", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -142,8 +143,8 @@ export const useContracts = () => {
         entityId: id,
       });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao remover contrato", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao remover contrato", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 

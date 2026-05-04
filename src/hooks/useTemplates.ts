@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { logAction } from "@/lib/audit";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 
 export interface ContractTemplate {
   id: string;
@@ -76,8 +77,8 @@ export const useTemplates = () => {
         metadata: { nome: data?.nome, tipo: data?.tipo, is_global: data?.is_global },
       });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao criar modelo", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao criar modelo", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -103,8 +104,8 @@ export const useTemplates = () => {
         metadata: { fields: Object.keys(variables).filter((k) => k !== "id") },
       });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao salvar modelo", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao salvar modelo", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -117,8 +118,8 @@ export const useTemplates = () => {
       queryClient.invalidateQueries({ queryKey: ["contract_templates"] });
       toast({ title: "Modelo removido" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao remover modelo", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao remover modelo", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 

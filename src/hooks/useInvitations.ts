@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 
 export interface Invitation {
   id: string;
@@ -48,8 +49,8 @@ export const useInvitations = () => {
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
       toast({ title: "Convite enviado com sucesso!" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao enviar convite", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao enviar convite", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -62,8 +63,8 @@ export const useInvitations = () => {
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
       toast({ title: "Convite excluído com sucesso!" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao excluir convite", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao excluir convite", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 

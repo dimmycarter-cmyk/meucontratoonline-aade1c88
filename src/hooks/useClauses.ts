@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 
 export interface Clause {
   id: string;
@@ -47,8 +48,8 @@ export const useClauses = () => {
       queryClient.invalidateQueries({ queryKey: ["clauses"] });
       toast({ title: "Cláusula criada com sucesso" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao criar cláusula", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao criar cláusula", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -66,8 +67,8 @@ export const useClauses = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clauses"] });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao atualizar cláusula", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao atualizar cláusula", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -80,8 +81,8 @@ export const useClauses = () => {
       queryClient.invalidateQueries({ queryKey: ["clauses"] });
       toast({ title: "Cláusula removida" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao remover cláusula", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao remover cláusula", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 

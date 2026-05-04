@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { parseSupabaseError } from "@/lib/supabase-errors";
 
 export interface Contact {
   id: string;
@@ -66,8 +67,8 @@ export const useContacts = () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       toast({ title: "Contato criado com sucesso" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao criar contato", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao criar contato", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -86,8 +87,8 @@ export const useContacts = () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       toast({ title: "Contato atualizado" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao atualizar contato", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao atualizar contato", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
@@ -100,8 +101,8 @@ export const useContacts = () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       toast({ title: "Contato removido" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao remover contato", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Erro ao remover contato", description: parseSupabaseError(error), variant: "destructive" });
     },
   });
 
