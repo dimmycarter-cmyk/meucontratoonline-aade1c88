@@ -182,13 +182,20 @@ const ContratoDetalhe = () => {
               className="font-display text-2xl font-bold h-auto py-0 px-1"
             />
           ) : (
-            <h1
-              className="font-display text-2xl font-bold text-foreground cursor-pointer group flex items-center gap-2"
-              onClick={() => setEditingTitle(true)}
-            >
-              {contract.nome || "Sem nome"}
-              <Pencil className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1
+                className="font-display text-2xl font-bold text-foreground cursor-pointer group flex items-center gap-2"
+                onClick={() => setEditingTitle(true)}
+              >
+                {contract.nome || "Sem nome"}
+                <Pencil className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </h1>
+              {contract.internal_code && (
+                <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                  {contract.internal_code}
+                </span>
+              )}
+            </div>
           )}
           <p className="text-sm text-muted-foreground">Criado em {format(new Date(contract.created_at), "dd/MM/yyyy HH:mm")}</p>
         </div>
