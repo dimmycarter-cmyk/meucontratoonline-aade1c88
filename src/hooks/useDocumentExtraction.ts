@@ -38,6 +38,18 @@ export const useDocumentExtraction = (initialExtractedData?: ParticipantExtracte
         return null;
       }
 
+      logAction({
+        tenantId: profile.tenant_id,
+        action: "document.uploaded",
+        entityType: "document",
+        metadata: {
+          participant_id: participantId,
+          document_type: docType,
+          file_size: file.size,
+          mime_type: file.type,
+        },
+      });
+
       return {
         file,
         name: file.name,
