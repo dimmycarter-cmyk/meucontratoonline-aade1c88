@@ -87,6 +87,13 @@ const documentChecklist = [
 const STORAGE_KEY_PREFIX = "novo-contrato-draft:v2";
 const OLD_STORAGE_KEY = "novo-contrato-draft";
 
+// Mapeia o id do step interno do wizard para o valor aceito pelo CHECK do banco.
+function mapStepIdToCurrentStep(stepId: string | undefined): string {
+  if (!stepId) return "template";
+  if (stepId === "selection") return "template";
+  return stepId;
+}
+
 function getDraftKey(tenantId?: string, userId?: string) {
   if (tenantId && userId) return `${STORAGE_KEY_PREFIX}:${tenantId}:${userId}`;
   return STORAGE_KEY_PREFIX;
