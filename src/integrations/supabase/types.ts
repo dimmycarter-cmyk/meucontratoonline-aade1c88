@@ -511,9 +511,11 @@ export type Database = {
           comprador_id: string | null
           conteudo_final: string
           created_at: string
+          current_step: string
           dados: Json
           empresa_id: string | null
           id: string
+          internal_code: string | null
           nome: string
           status: string
           template_id: string | null
@@ -529,9 +531,11 @@ export type Database = {
           comprador_id?: string | null
           conteudo_final?: string
           created_at?: string
+          current_step?: string
           dados?: Json
           empresa_id?: string | null
           id?: string
+          internal_code?: string | null
           nome?: string
           status?: string
           template_id?: string | null
@@ -547,9 +551,11 @@ export type Database = {
           comprador_id?: string | null
           conteudo_final?: string
           created_at?: string
+          current_step?: string
           dados?: Json
           empresa_id?: string | null
           id?: string
+          internal_code?: string | null
           nome?: string
           status?: string
           template_id?: string | null
