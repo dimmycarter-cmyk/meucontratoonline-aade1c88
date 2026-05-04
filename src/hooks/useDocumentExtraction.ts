@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Participant } from "@/components/contract/ParticipantCard";
 import type { DocType, UploadedDoc } from "@/components/contract/DocumentUploader";
 import type { ParticipantExtractedData, ExtractedField } from "@/components/contract/ExtractedDataReview";
+import { logAction } from "@/lib/audit";
 
 const EXTRACTION_MESSAGES = [
   "Lendo documentos...",
