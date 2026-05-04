@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useWizardAutosave } from "@/hooks/useWizardAutosave";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
   ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
@@ -203,6 +204,83 @@ const NovoContrato = () => {
 
   // Unresolved placeholders dialog — hard block apenas em Exportar PDF (Leva 3: soft removido)
   const [unresolvedDialogOpen, setUnresolvedDialogOpen] = useState(false);
+
+  // ===== Autosave + Retomada por :id =====
+  const { id: contratoIdParam } = useParams<{ id?: string }>();
+  const [loadedContract, setLoadedContract] = useState<any>(null);
+
+  const autosavePayload = useMemo(
+    () => ({
+      flowMode,
+      currentStepIndex,
+      selectedTemplateId,
+      dados,
+      selectedClauseIds,
+      conteudoFinal,
+      nomeContrato,
+      compradorId,
+      vendedorId,
+      empresaId,
+      compradorNome,
+      vendedorNome,
+      checkedDocs,
+      manualParticipants,
+      participants,
+      aiReviewSubStep,
+    }),
+    [
+      flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
+      conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
+      compradorNome, vendedorNome, checkedDocs, manualParticipants, participants,
+      aiReviewSubStep,
+    ]
+  );
+
+  const stepsForAutosave = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
+  const { saveNow } = useWizardAutosave({
+    contratoId: contratoIdParam ?? null,
+    dados: autosavePayload,
+    currentStep: mapStepIdToCurrentStep(stepsForAutosave[currentStepIndex]?.id),
+    enabled: !!contratoIdParam && loadedContract?.status === "rascunho",
+  });
+
+  useEffect(() => {
+    if (!contratoIdParam) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("contracts")
+        .select("*")
+        .eq("id", contratoIdParam)
+        .eq("status", "rascunho")
+        .maybeSingle();
+
+      if (error || !data) {
+        toast({ title: "Rascunho não encontrado", variant: "destructive" });
+        navigate("/app/contratos");
+        return;
+      }
+
+      setLoadedContract(data);
+      const snap = (data.dados ?? {}) as Record<string, any>;
+      if (snap.flowMode) setFlowMode(snap.flowMode);
+      if (typeof snap.currentStepIndex === "number") setCurrentStepIndex(snap.currentStepIndex);
+      if (snap.selectedTemplateId) setSelectedTemplateId(snap.selectedTemplateId);
+      if (snap.dados) setDados(snap.dados);
+      if (snap.selectedClauseIds) setSelectedClauseIds(snap.selectedClauseIds);
+      if (snap.conteudoFinal) setConteudoFinal(snap.conteudoFinal);
+      if (snap.nomeContrato) setNomeContrato(snap.nomeContrato);
+      if (snap.compradorId) setCompradorId(snap.compradorId);
+      if (snap.vendedorId) setVendedorId(snap.vendedorId);
+      if (snap.empresaId) setEmpresaId(snap.empresaId);
+      if (snap.compradorNome) setCompradorNome(snap.compradorNome);
+      if (snap.vendedorNome) setVendedorNome(snap.vendedorNome);
+      if (snap.checkedDocs) setCheckedDocs(snap.checkedDocs);
+      if (snap.manualParticipants) setManualParticipants(snap.manualParticipants);
+      if (snap.participants) setParticipants(snap.participants);
+      if (snap.aiReviewSubStep) setAiReviewSubStep(snap.aiReviewSubStep);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contratoIdParam]);
 
   // Build draft payload
   const buildDraftPayload = useCallback(() => ({
@@ -543,7 +621,8 @@ const NovoContrato = () => {
     setCurrentStepIndex(1); // Move to step 2 (index 1) of the mode-specific steps
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (contratoIdParam) await saveNow();
     // NÃO validar placeholders aqui — só em handlePrintClick (hard block PDF).
     // Navegação entre etapas do wizard deve ser sempre livre.
     const stepId = currentStep?.id;
@@ -585,7 +664,8 @@ const NovoContrato = () => {
     setCurrentStepIndex((s) => Math.min(s + 1, steps.length - 1));
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
+    if (contratoIdParam) await saveNow();
     const stepId = currentStep?.id;
 
     // AI: handle sub-steps going back
