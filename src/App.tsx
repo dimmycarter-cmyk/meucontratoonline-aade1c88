@@ -69,6 +69,7 @@ const App = () => (
               <Route path="clausulas" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><Clausulas /></RoleRoute>} />
               <Route path="agente-ia" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><AgenteIA /></RoleRoute>} />
               <Route path="configuracoes" element={<Configuracoes />} />
+              <Route path="configuracoes/auditoria" element={<RoleRoute allowedRoles={["admin_empresa", "super_admin"]}><Auditoria /></RoleRoute>} />
               <Route
                 path="admin"
                 element={
