@@ -24,6 +24,7 @@ const Empresas = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyCompany);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [cnpjError, setCnpjError] = useState("");
   const { companies, isLoading, createCompany, updateCompany, deleteCompany, isCreating } = useCompanies();
   const { isSuperAdmin, setImpersonatedTenant } = useAuth();
   const navigate = useNavigate();
