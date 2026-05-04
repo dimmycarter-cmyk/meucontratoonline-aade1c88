@@ -103,6 +103,19 @@ const ContratoDetalhe = () => {
     }
   }, [contract]);
 
+  // Audit: registrar visualização uma vez por id
+  useEffect(() => {
+    if (contract?.id && contract?.tenant_id) {
+      logAction({
+        tenantId: contract.tenant_id,
+        action: "contract.viewed",
+        entityType: "contract",
+        entityId: contract.id,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract?.id]);
+
   const handleSaveTitle = async () => {
     if (!id || titleValue.trim() === contract?.nome) {
       setEditingTitle(false);
