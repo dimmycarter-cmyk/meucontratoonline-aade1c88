@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Trash2, User, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { maskCPF, maskPhone, maskCEP } from "@/lib/masks";
+import { AddressForm, AddressData } from "@/components/ui/AddressForm";
+import { maskCPF, maskPhone } from "@/lib/masks";
 import { cpfSchema } from "@/lib/validators";
-import { useCepLookup } from "@/hooks/useCepLookup";
 import type { Contact } from "@/hooks/useContacts";
 import type { ParticipantRole } from "./ParticipantCard";
 
@@ -120,13 +120,9 @@ const ManualParticipantCard = ({
   const isMarried = /casad|uni[ãa]o\s+est[áa]vel/i.test(participant.estado_civil || "");
   const showBankBlock = participant.role === "vendedor" || participant.role === "procurador";
 
-  const onCepResult = useCallback(
-    (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
-      onUpdate({ ...participant, rua: data.rua, bairro: data.bairro, cidade: data.cidade, estado: data.estado });
-    },
-    [participant, onUpdate]
-  );
-  const { lookup: lookupCep } = useCepLookup(onCepResult);
+  const handleAddressChange = (field: keyof AddressData, value: string) => {
+    onUpdate({ ...participant, [field]: value });
+  };
 
   const fillFromContact = (contact: Contact) => {
     onUpdate({
@@ -351,71 +347,18 @@ const ManualParticipantCard = ({
             </div>
 
             <h4 className="text-xs font-semibold text-foreground pt-1">Endereço</h4>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label className="text-xs">CEP</Label>
-                <Input
-                  value={participant.cep}
-                  onChange={(e) => {
-                    const masked = maskCEP(e.target.value);
-                    updateField("cep", masked);
-                    lookupCep(masked);
-                  }}
-                  placeholder="00000-000"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div />
-              <div className="space-y-1 sm:col-span-2">
-                <Label className="text-xs">Rua / Avenida</Label>
-                <Input
-                  value={participant.rua}
-                  onChange={(e) => updateField("rua", e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Número</Label>
-                <Input
-                  value={participant.numero}
-                  onChange={(e) => updateField("numero", e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Complemento</Label>
-                <Input
-                  value={participant.complemento}
-                  onChange={(e) => updateField("complemento", e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Bairro</Label>
-                <Input
-                  value={participant.bairro}
-                  onChange={(e) => updateField("bairro", e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Cidade</Label>
-                <Input
-                  value={participant.cidade}
-                  onChange={(e) => updateField("cidade", e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">UF</Label>
-                <Input
-                  value={participant.estado}
-                  onChange={(e) => updateField("estado", e.target.value)}
-                  maxLength={2}
-                  className="h-8 text-sm"
-                />
-              </div>
-            </div>
+            <AddressForm
+              value={{
+                cep: participant.cep,
+                rua: participant.rua,
+                numero: participant.numero,
+                complemento: participant.complemento,
+                bairro: participant.bairro,
+                cidade: participant.cidade,
+                estado: participant.estado,
+              }}
+              onChange={handleAddressChange}
+            />
 
             {showBankBlock && (
               <Collapsible>

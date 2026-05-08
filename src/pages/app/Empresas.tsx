@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { AddressForm, AddressData } from "@/components/ui/AddressForm";
 import { Plus, Search, MoreHorizontal, Building2, Trash2, Pencil, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +11,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useCompanies } from "@/hooks/useCompanies";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { maskCNPJ, maskPhone, maskCEP } from "@/lib/masks";
+import { maskCNPJ, maskPhone } from "@/lib/masks";
 import { cnpjSchema } from "@/lib/validators";
-import { useCepLookup } from "@/hooks/useCepLookup";
 import { useNavigate } from "react-router-dom";
 
 const emptyCompany = {
@@ -37,13 +37,8 @@ const Empresas = () => {
 
   const updateField = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
 
-  const onCepResult = useCallback(
-    (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
-      setForm((prev) => ({ ...prev, rua: data.rua, bairro: data.bairro, cidade: data.cidade, estado: data.estado }));
-    },
-    []
-  );
-  const { lookup: lookupCep } = useCepLookup(onCepResult);
+  const handleAddressChange = (field: keyof AddressData, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,45 +121,18 @@ const Empresas = () => {
                 </div>
               </div>
               <h3 className="pt-2 text-sm font-semibold text-foreground">Endereço</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>CEP</Label>
-                  <Input
-                    value={form.cep}
-                    onChange={(e) => {
-                      const masked = maskCEP(e.target.value);
-                      updateField("cep", masked);
-                      lookupCep(masked);
-                    }}
-                    placeholder="00000-000"
-                  />
-                </div>
-                <div />
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Rua / Avenida</Label>
-                  <Input value={form.rua} onChange={(e) => updateField("rua", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Número</Label>
-                  <Input value={form.numero} onChange={(e) => updateField("numero", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Complemento</Label>
-                  <Input value={form.complemento} onChange={(e) => updateField("complemento", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bairro</Label>
-                  <Input value={form.bairro} onChange={(e) => updateField("bairro", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cidade</Label>
-                  <Input value={form.cidade} onChange={(e) => updateField("cidade", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>UF</Label>
-                  <Input value={form.estado} onChange={(e) => updateField("estado", e.target.value)} maxLength={2} />
-                </div>
-              </div>
+              <AddressForm
+                value={{
+                  cep: form.cep,
+                  rua: form.rua,
+                  numero: form.numero,
+                  complemento: form.complemento,
+                  bairro: form.bairro,
+                  cidade: form.cidade,
+                  estado: form.estado,
+                }}
+                onChange={handleAddressChange}
+              />
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                 <Button type="submit" disabled={isCreating}>{editingId ? "Salvar" : "Criar Empresa"}</Button>
