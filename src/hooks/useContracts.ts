@@ -96,24 +96,15 @@ export const useContracts = () => {
         updates.status === STATUS_CONCLUIDO &&
         previousStatus !== STATUS_CONCLUIDO
       ) {
-        const conteudoAtual =
-          (updates as any).conteudo_final !== undefined
-            ? {
-                conteudo_final: (updates as any).conteudo_final,
-                conteudo_final_snapshot: null as string | null,
-              }
-            : await supabase
-                .from("contracts")
-                .select("conteudo_final, conteudo_final_snapshot")
-                .eq("id", id)
-                .single()
-                .then(({ data }) => data as any);
-
-        if (
-          conteudoAtual?.conteudo_final &&
-          !conteudoAtual?.conteudo_final_snapshot
-        ) {
-          (updates as any).conteudo_final_snapshot = conteudoAtual.conteudo_final;
+        const { data: existing } = await supabase
+          .from("contracts")
+          .select("conteudo_final, conteudo_final_snapshot")
+          .eq("id", id)
+          .maybeSingle();
+        const conteudoFinal =
+          (updates as any).conteudo_final ?? (existing as any)?.conteudo_final;
+        if (conteudoFinal && !(existing as any)?.conteudo_final_snapshot) {
+          (updates as any).conteudo_final_snapshot = conteudoFinal;
           (updates as any).snapshot_saved_at = new Date().toISOString();
         }
       }
