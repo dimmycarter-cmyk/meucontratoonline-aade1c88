@@ -58,18 +58,6 @@ const Onboarding = () => {
     defaultValues: { cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "" },
   });
 
-  const onCepResult = useCallback(
-    (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
-      form2.setValue("rua", data.rua);
-      form2.setValue("bairro", data.bairro);
-      form2.setValue("cidade", data.cidade);
-      form2.setValue("estado", data.estado);
-    },
-    [form2]
-  );
-
-  const { lookup: lookupCep } = useCepLookup(onCepResult);
-
   const handleStep1Submit = (data: Step1Data) => {
     setStep1Data(data);
     setStep(2);
