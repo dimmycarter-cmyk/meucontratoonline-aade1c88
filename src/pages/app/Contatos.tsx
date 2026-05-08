@@ -168,8 +168,29 @@ const Contatos = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome</th>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CPF</th>
+                    <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">Contato</th>
+                    <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">Cidade</th>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="py-3"><Skeleton className="h-4 w-40 rounded" /></td>
+                      <td className="py-3"><Skeleton className="h-4 w-28 rounded" /></td>
+                      <td className="hidden py-3 md:table-cell"><Skeleton className="h-4 w-44 rounded" /></td>
+                      <td className="hidden py-3 lg:table-cell"><Skeleton className="h-4 w-24 rounded" /></td>
+                      <td className="py-3 text-right"><Skeleton className="ml-auto h-8 w-8 rounded" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="overflow-x-auto">

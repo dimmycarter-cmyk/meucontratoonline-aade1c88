@@ -74,7 +74,7 @@ const Clausulas = () => {
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[72px] w-full rounded-lg" />)}
         </div>
       ) : filtered.length === 0 && clauses.length === 0 ? (
         <Card className="shadow-card">
