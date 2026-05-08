@@ -1,69 +1,51 @@
-# PROMPT E — Permissões granulares + Proteção de delete de template
+## Comparativo: Prompt I vs. estado atual do código
 
-## Arquivos a modificar (3)
+Inspecionei os 4 arquivos. Resumo do que encontrei e o que recomendo ajustar no Prompt I antes de executar.
 
-1. `src/pages/app/Contratos.tsx`
-2. `src/pages/app/ContratoDetalhe.tsx`
-3. `src/hooks/useTemplates.ts`
+### 1. `src/pages/app/Empresas.tsx` ✅ substituível
+- Estado único: `form` com `setForm` / `updateField("campo", v)`.
+- Tem todos os 7 campos (`cep`, `rua`, `numero`, `complemento`, `bairro`, `cidade`, `estado`).
+- Já usa `useCepLookup` no próprio arquivo — vai ficar **duplicado** (o `AddressForm` traz seu próprio lookup). Precisa **remover** o `useCepLookup`, `onCepResult` e import do `maskCEP` deste arquivo após a troca.
 
-Zero migrations. Zero alterações em RLS. Sem novo hook de role (usa `useAuth().hasRole`).
+### 2. `src/pages/app/Contatos.tsx` ✅ substituível
+- Mesma estrutura de Empresas (`form` + `updateField`). Todos os 7 campos presentes.
+- Mesma observação: remover `useCepLookup`/`onCepResult`/`maskCEP` locais após a troca.
 
-## Tarefa 1 — Ocultar "Excluir" para corretor (`Contratos.tsx`)
+### 3. `src/components/contract/ManualParticipantCard.tsx` ✅ substituível
+- Estado é o objeto `participant` atualizado via `updateField("campo", v)` (que internamente chama `onUpdate`). Todos os 7 campos presentes.
+- Mesma observação de limpeza (`useCepLookup`/`onCepResult`).
+- Labels atuais usam `text-xs` — o `AddressForm` usa `Label` padrão. **Pequena mudança visual** (labels ficam maiores neste card). Vale confirmar.
 
-- Adicionar import: `import { useAuth } from "@/contexts/AuthContext";`
-- No componente: `const { hasRole } = useAuth();` e `const canDelete = hasRole("admin_empresa") || hasRole("super_admin");`
-- Envolver o `<DropdownMenuItem>` de Excluir (linhas 113-118) com `{canDelete && (...)}`. Item interno inalterado.
+### 4. `src/pages/Onboarding.tsx` ⚠️ **NÃO substituir**
+- Usa `react-hook-form` + `zod` + `<FormField>` + `<FormMessage>` com **validação obrigatória** por campo (`cep`, `rua`, `numero`, `bairro`, `cidade`, `estado` são `required` com mensagens).
+- O `AddressForm` é controlado por `value`/`onChange` simples e **não renderiza `<FormMessage>`**. Substituir aqui **quebra a exibição dos erros do zod** e o asterisco `*` dos labels obrigatórios.
+- Recomendo **excluir Onboarding deste prompt**. Para integrá-lo seria preciso uma variante `AddressFormRHF` (próximo prompt, opcional).
 
-## Tarefa 2 (adaptada) — Desabilitar Editar e Select de status para corretor em status ≠ "rascunho" (`ContratoDetalhe.tsx`)
+### Outras observações
+- O Prompt I não menciona a **limpeza dos imports** (`useCepLookup`, `maskCEP`, `onCepResult`) que ficarão órfãos nos 3 arquivos substituídos. Deixar dead code geraria warning no lint. Incluir essa limpeza no escopo.
+- Os labels do `AddressForm` (`Rua / Avenida`, `UF`, sem `*`) batem com Empresas/Contatos atuais. No `ManualParticipantCard` haverá leve aumento de tamanho de fonte dos labels de endereço.
 
-- Trocar `const { profile } = useAuth();` por `const { profile, hasRole } = useAuth();`
-- Adicionar helper local: `const isCorretorBloqueado = (status) => hasRole("corretor") && status !== "rascunho";`
-- Após o early-return de `!contract`, calcular `const bloqueadoParaCorretor = isCorretorBloqueado(contract.status);`
-- Botão "Editar" (linha ~231): adicionar `disabled={bloqueadoParaCorretor}` e `title={bloqueadoParaCorretor ? "Contrato finalizado — somente administradores podem editar" : undefined}`. `onClick` inalterado.
-- `<Select>` de status (linha ~251): adicionar `disabled={bloqueadoParaCorretor}` e `title` análogo no `<SelectTrigger>`. `onValueChange` inalterado.
+### Plano de execução proposto (revisado)
 
-## Tarefa 3 (adaptada) — Banner condicional (`ContratoDetalhe.tsx`)
+Editar **3 arquivos** (não 4):
 
-- Logo após `<div className="p-6 lg:p-8">` (raiz do JSX retornado), inserir:
+1. `src/pages/app/Empresas.tsx`
+   - Substituir bloco CEP→UF (linhas ~131–166) por `<AddressForm value={...} onChange={handleAddressChange} />`.
+   - `handleAddressChange` despacha para `updateField`.
+   - Remover `useCepLookup`, `onCepResult`, e `import { maskCEP }` se não usados em outro lugar.
 
-```tsx
-{bloqueadoParaCorretor && (
-  <div className="mb-4 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-    Este contrato está em status <strong>{contract.status}</strong> e não pode ser editado.
-    Contate o administrador para solicitar alterações.
-  </div>
-)}
-```
+2. `src/pages/app/Contatos.tsx`
+   - Mesma estratégia de Empresas.
+   - Remover imports órfãos.
 
-Sem depender de `isEditing` (não existe) — apenas role + status.
+3. `src/components/contract/ManualParticipantCard.tsx`
+   - Substituir bloco CEP→UF (linhas ~358–414) por `<AddressForm>`.
+   - `onChange` → `updateField(field, value)` (já existe).
+   - Remover `useCepLookup`, `onCepResult` locais.
+   - Aceitar pequena mudança visual nos labels (ou, alternativa: pular este arquivo para preservar `text-xs`).
 
-## Tarefa 4 — Bloquear delete de template em uso (`useTemplates.ts`)
+### Pontos a confirmar antes de executar
 
-Em `deleteMutation.mutationFn(id)`, antes do `.delete()` existente (linha 114):
-
-```ts
-const { count, error: checkError } = await supabase
-  .from("contracts")
-  .select("id", { count: "exact", head: true })
-  .eq("template_id", id);
-
-if (checkError) throw checkError;
-
-if (count && count > 0) {
-  throw new Error(
-    `Este modelo está em uso em ${count} contrato${count > 1 ? "s" : ""}. Desvincule antes de excluir.`
-  );
-}
-```
-
-`.delete()` segue inalterado abaixo. O `onError` já usa `parseSupabaseError`, que repassa `error.message` quando não é código Postgres → toast exibirá a mensagem corretamente.
-
-## Critério de aceite
-
-- corretor: "Excluir" some da listagem
-- corretor + status ≠ rascunho: botão Editar e Select status desabilitados com tooltip + banner amarelo
-- corretor + status rascunho: tudo funciona normalmente
-- admin_empresa/super_admin: comportamento idêntico ao atual
-- Excluir template em uso: toast "Este modelo está em uso em N contrato(s)..."
-- Excluir template sem uso: funciona normalmente
-- Zero migrations, zero arquivos fora dos 3 listados
+1. OK **excluir `Onboarding.tsx`** do escopo (preserva validação `react-hook-form` + zod)?
+2. OK aceitar a leve mudança visual nos labels do `ManualParticipantCard` (de `text-xs` para padrão)? Alternativa: deixar este arquivo de fora também e substituir só Empresas/Contatos.
+3. OK incluir a **limpeza dos imports órfãos** (`useCepLookup`, `onCepResult`, `maskCEP` quando não usado em outro campo) nos arquivos substituídos?
