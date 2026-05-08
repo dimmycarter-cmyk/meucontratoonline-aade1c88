@@ -111,6 +111,15 @@ const ManualParticipantCard = ({
   const [contactSearch, setContactSearch] = useState("");
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [cpfError, setCpfError] = useState("");
+  const [nameOpen, setNameOpen] = useState(false);
+
+  const nameSuggestions = (() => {
+    const q = participant.nome.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return contacts
+      .filter((c) => c.nome.toLowerCase().includes(q) || (c.cpf && c.cpf.includes(q)))
+      .slice(0, 8);
+  })();
 
   const updateField = (field: keyof ManualParticipantData, value: string | boolean) => {
     onUpdate({ ...participant, [field]: value as never });
@@ -220,14 +229,44 @@ const ManualParticipantCard = ({
         {expanded && (
           <div className="space-y-4 pt-2">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1 sm:col-span-2">
+              <div className="space-y-1 sm:col-span-2 relative">
                 <Label className="text-xs">Nome completo *</Label>
                 <Input
                   value={participant.nome}
-                  onChange={(e) => updateField("nome", e.target.value)}
+                  onChange={(e) => {
+                    updateField("nome", e.target.value);
+                    setNameOpen(e.target.value.trim().length >= 2);
+                  }}
+                  onFocus={() => {
+                    if (participant.nome.trim().length >= 2) setNameOpen(true);
+                  }}
+                  onBlur={() => {
+                    // delay para permitir click no dropdown
+                    setTimeout(() => setNameOpen(false), 150);
+                  }}
                   placeholder="Nome completo"
                   className="h-8 text-sm"
+                  autoComplete="off"
                 />
+                {nameOpen && nameSuggestions.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border border-border bg-popover shadow-md">
+                    {nameSuggestions.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b border-border last:border-b-0"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          fillFromContact(c);
+                          setNameOpen(false);
+                        }}
+                      >
+                        <p className="text-xs font-medium text-foreground">{c.nome}</p>
+                        <p className="text-[10px] text-muted-foreground">{c.cpf || c.email || "—"}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">CPF</Label>
