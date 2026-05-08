@@ -1063,6 +1063,43 @@ const NovoContrato = () => {
               });
             }
           }
+
+          // Persistência silenciosa no histórico de contatos (tabela `contacts`).
+          // Para cada participante manual sem contact_id vinculado e com CPF,
+          // grava como contato do tenant se ainda não existir (dedupe por CPF).
+          // Falhas são engolidas — não interromper o fluxo do wizard.
+          try {
+            const existingCpfs = new Set(
+              contacts.map((c) => (c.cpf || "").replace(/\D/g, "")).filter(Boolean)
+            );
+            for (const mp of manualParticipants) {
+              if (!mp.nome.trim() || mp.contact_id) continue;
+              const cpfDigits = (mp.cpf || "").replace(/\D/g, "");
+              if (!cpfDigits || existingCpfs.has(cpfDigits)) continue;
+              existingCpfs.add(cpfDigits);
+              await supabase.from("contacts").insert({
+                tenant_id: profile.tenant_id,
+                nome: mp.nome,
+                cpf: mp.cpf || null,
+                rg: mp.rg || null,
+                orgao_expedidor: mp.orgao_expedidor || null,
+                profissao: mp.profissao || null,
+                nacionalidade: mp.nacionalidade || null,
+                estado_civil: mp.estado_civil || null,
+                email: mp.email || null,
+                whatsapp: mp.whatsapp || null,
+                cep: mp.cep || null,
+                rua: mp.rua || null,
+                numero: mp.numero || null,
+                complemento: mp.complemento || null,
+                bairro: mp.bairro || null,
+                cidade: mp.cidade || null,
+                estado: mp.estado || null,
+              } as any);
+            }
+          } catch (e) {
+            console.warn("[NovoContrato] Falha silenciosa ao gravar histórico de contatos:", e);
+          }
         }
       }
 
