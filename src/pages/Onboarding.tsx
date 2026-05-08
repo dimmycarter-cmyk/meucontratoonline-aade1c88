@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,11 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { AddressFormRHF } from "@/components/ui/AddressFormRHF";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { maskPhone, maskCNPJ, maskCEP } from "@/lib/masks";
-import { useCepLookup } from "@/hooks/useCepLookup";
+import { maskPhone, maskCNPJ } from "@/lib/masks";
 
 const step1Schema = z.object({
   nome: z.string().min(2, "Nome da empresa é obrigatório"),
@@ -57,18 +57,6 @@ const Onboarding = () => {
     resolver: zodResolver(step2Schema),
     defaultValues: { cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "" },
   });
-
-  const onCepResult = useCallback(
-    (data: { rua: string; bairro: string; cidade: string; estado: string }) => {
-      form2.setValue("rua", data.rua);
-      form2.setValue("bairro", data.bairro);
-      form2.setValue("cidade", data.cidade);
-      form2.setValue("estado", data.estado);
-    },
-    [form2]
-  );
-
-  const { lookup: lookupCep } = useCepLookup(onCepResult);
 
   const handleStep1Submit = (data: Step1Data) => {
     setStep1Data(data);
@@ -249,108 +237,19 @@ const Onboarding = () => {
                 <CardContent>
                   <Form {...form2}>
                     <form onSubmit={form2.handleSubmit(handleStep2Submit)} className="space-y-4">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                          control={form2.control}
-                          name="cep"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>CEP *</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="00000-000"
-                                  value={field.value}
-                                  onChange={(e) => {
-                                    const masked = maskCEP(e.target.value);
-                                    field.onChange(masked);
-                                    lookupCep(masked);
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div />
-                        <FormField
-                          control={form2.control}
-                          name="rua"
-                          render={({ field }) => (
-                            <FormItem className="sm:col-span-2">
-                              <FormLabel>Rua / Avenida *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Rua das Flores" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form2.control}
-                          name="numero"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Número *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="123" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form2.control}
-                          name="complemento"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Complemento</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Sala 01" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form2.control}
-                          name="bairro"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bairro *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Centro" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form2.control}
-                          name="cidade"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Cidade *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Belo Horizonte" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form2.control}
-                          name="estado"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>UF *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="MG" maxLength={2} {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                      <AddressFormRHF
+                        control={form2.control}
+                        setValue={form2.setValue}
+                        fieldNames={{
+                          cep: "cep",
+                          rua: "rua",
+                          numero: "numero",
+                          complemento: "complemento",
+                          bairro: "bairro",
+                          cidade: "cidade",
+                          estado: "estado",
+                        }}
+                      />
                       <div className="flex gap-3 pt-4">
                         <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">
                           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
