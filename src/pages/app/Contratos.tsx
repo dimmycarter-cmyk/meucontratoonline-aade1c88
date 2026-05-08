@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { format } from "date-fns";
 import { getContractStatusMeta } from "@/lib/contract-status";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Contratos = () => {
   const navigate = useNavigate();
@@ -55,7 +56,37 @@ const Contratos = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">Carregando...</div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Código</th>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contrato</th>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                    <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">Valor</th>
+                    <th className="hidden pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">Data</th>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="py-3"><Skeleton className="h-4 w-16 rounded" /></td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-9 w-9 rounded-lg" />
+                          <Skeleton className="h-4 w-40 rounded" />
+                        </div>
+                      </td>
+                      <td className="py-3"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                      <td className="hidden py-3 lg:table-cell"><Skeleton className="h-4 w-24 rounded" /></td>
+                      <td className="hidden py-3 sm:table-cell"><Skeleton className="h-4 w-20 rounded" /></td>
+                      <td className="py-3 text-right"><Skeleton className="ml-auto h-8 w-8 rounded" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
