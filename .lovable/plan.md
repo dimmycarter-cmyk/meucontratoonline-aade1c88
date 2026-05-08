@@ -1,56 +1,51 @@
-## Comparativo: Prompt K vs. estado atual do Onboarding
+## Comparativo: Prompt L vs. estado atual
 
-Inspecionei `src/pages/Onboarding.tsx` (384 linhas). Resposta às 7 perguntas do prompt + ajustes recomendados antes de executar.
+Inspecionei os 4 arquivos. Resumo:
 
-### Respostas às perguntas de inspeção
+| Arquivo | Loading hoje | Skeleton importado? | Aderência ao Prompt L |
+|---|---|---|---|
+| `Contratos.tsx` | Texto "Carregando..." centralizado | ❌ Não | **Faltante** — único que ainda usa spinner/texto |
+| `Contatos.tsx` | 3× `<Skeleton className="h-14 w-full" />` genéricos | ✅ Sim | Parcial — não imita colunas da tabela |
+| `Modelos.tsx` | 3× `<Skeleton className="h-48 w-full rounded-lg" />` (grid) | ✅ Sim | Bom — é grid de cards, skeleton já bate |
+| `Clausulas.tsx` | 3× `<Skeleton className="h-16 w-full rounded-lg" />` (lista) | ✅ Sim | Bom — é lista de cards, skeleton já bate |
 
-1. **Nomes dos campos no schema zod**: `cep`, `rua`, `numero`, `complemento`, `bairro`, `cidade`, `estado` — **idênticos** aos defaults do `AddressForm`. Não precisa customizar `fieldNames`.
-2. **Todos os 7 campos presentes**: ✅ sim, no `step2Schema` (linhas 25–33). `complemento` é `optional()`; os demais são obrigatórios com mensagens em PT-BR.
-3. **`useForm` declarado como**: `const form2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema), defaultValues: {...} })` (linhas 56–59). Acesso via `form2.control` e `form2.setValue` — compatível com a API proposta.
-4. **Padrão de campos**: `<FormField control={form2.control} name="..." render={({ field }) => <FormItem>...<FormMessage/></FormItem>} />` — shadcn/ui padrão. ✅ compatível com `AddressFormRHF`.
-5. **`useCepLookup` já importado**: ✅ sim (linha 16). Usado via `onCepResult` callback (linhas 61–69) que chama `form2.setValue` para os 4 campos. Após a substituição, **toda essa lógica sai do Onboarding** e vai pra dentro do `AddressFormRHF` — `onCepResult` e `lookupCep` ficam órfãos.
-6. **Tipo inferido**: `type Step2Data = z.infer<typeof step2Schema>` (linha 36).
-7. **Bloco de endereço**: linhas **252–353** (dentro do `<div className="grid gap-4 sm:grid-cols-2">`).
+Variável de loading: todas usam `isLoading` (vindas dos hooks `useContracts/useContacts/useTemplates/useClauses`). Estado vazio (`EmptyState`) já está aplicado nos 4. Nenhuma lógica de fetch a tocar.
 
-### Pontos a melhorar no Prompt K
+### Colunas reais das tabelas
+- **Contratos** (6 cols): Código (mono curto) · Contrato (ícone+nome) · Status (badge) · Valor (lg:) · Data (sm:) · ações
+- **Contatos** (5 cols): Nome · CPF · Contato (md:) · Cidade (lg:) · ações
 
-1. **Labels com asterisco**: Onboarding usa `CEP *`, `Rua / Avenida *`, `Número *`, `Bairro *`, `Cidade *`, `UF *` (obrigatório) e `Complemento` (sem `*`). O `AddressFormRHF` proposto usa `CEP`, `Logradouro`, `Número`, etc. **sem asterisco e com "Logradouro" em vez de "Rua / Avenida"**. Isso muda o visual.
-   - **Recomendo**: aceitar prop opcional `requiredFields?: Partial<Record<keyof AddressFieldNames, boolean>>` ou simplesmente hardcodar os labels reais do Onboarding (`Rua / Avenida *`, `UF *`, etc.) para preservar a UX atual.
-2. **Lookup no `onBlur` vs `onChange`**: o Onboarding atual dispara `lookupCep` em `onChange` (linha 266), enquanto o prompt propõe `onBlur`. O `useCepLookup` já tem debounce de 500ms — mudar pra `onBlur` é uma alteração de comportamento perceptível ao usuário.
-   - **Recomendo**: manter `lookup` em `onChange` (como `AddressForm.tsx` controlado já faz) para paridade total com o comportamento existente.
-3. **Layout grid**: Onboarding usa um único `grid sm:grid-cols-2` envolvendo todos os campos, com `sm:col-span-2` no campo "Rua". O `AddressFormRHF` proposto tem múltiplos sub-grids separados (CEP+UF juntos, depois Rua sozinha, depois Número+Complemento, depois Bairro, depois Cidade). **Visual diferente** do atual. O `AddressForm` (versão controlada) já usa o mesmo layout grid único — vale espelhar essa estrutura no RHF para manter consistência visual entre as duas variantes e com o Onboarding original.
-4. **Limpeza de imports**: após a substituição, ficam órfãos em `Onboarding.tsx`: `useCallback` (se não usado em outro lugar — é usado só no `onCepResult`), `maskCEP` (usado só no campo CEP), `useCepLookup`, e o callback `onCepResult` + `lookupCep`. **Incluir limpeza no escopo** (o prompt menciona "verificar antes de remover" mas não confirma).
-5. **Tipos genéricos**: a interface `AddressFormRHFProps` proposta usa `Control` e `Path` sem genéricos. Para type safety com `Step2Data`, vale tipar como `AddressFormRHFProps<TFieldValues extends FieldValues>` com `control: Control<TFieldValues>` e `fieldNames: Record<keyof AddressFieldNames, Path<TFieldValues>>`. Custo zero, ganho de DX.
-6. **`AddressFieldNames` interface duplicada**: o prompt define `AddressFieldNames` mas não a usa nas props (usa um objeto inline com `Path`). Pode ser removida ou usada de fato (`Record<keyof AddressFieldNames, Path<T>>`).
+### O que melhorar (escopo mínimo, sem ampliar Prompt L)
 
-### Plano de execução proposto (revisado)
+**1. `Contratos.tsx` — obrigatório (atualmente sem skeleton)**
+- Adicionar `import { Skeleton } from "@/components/ui/skeleton"`.
+- Substituir o `<div>Carregando...</div>` por um skeleton de tabela com 6 colunas e 5 linhas, respeitando os mesmos `hidden lg:table-cell` / `hidden sm:table-cell` para não quebrar mobile.
+- Manter `<table>`/`<thead>` reais com larguras aproximadas: `w-16` (código), `w-48` (nome+ícone redondo), `w-20 rounded-full` (badge status), `w-24` (valor), `w-20` (data), `w-8` (ação).
 
-**Arquivo CRIADO**: `src/components/ui/AddressFormRHF.tsx`
-- Genérico: `<TFieldValues extends FieldValues>`.
-- Props: `control: Control<TFieldValues>`, `setValue: UseFormSetValue<TFieldValues>`, `fieldNames: Record<'cep'|'rua'|'numero'|'complemento'|'bairro'|'cidade'|'estado', Path<TFieldValues>>`, `disabled?`, `requiredFields?: Partial<Record<keyof AddressFieldNames, boolean>>` (default: todos true exceto `complemento`).
-- Labels: `Rua / Avenida`, `UF` (espelhar `AddressForm.tsx`), com `*` quando `requiredFields[k]` for true.
-- Layout: **grid único `sm:grid-cols-2`** com `sm:col-span-2` no Rua — idêntico ao `AddressForm.tsx` controlado e ao Onboarding atual.
-- Lookup: disparar em `onChange` do CEP (paridade com Onboarding atual).
-- `useCepLookup` chamado internamente; `setValue` usado pra preencher rua/bairro/cidade/estado com `{ shouldValidate: true }` opcional? — manter sem `shouldValidate` pra não disparar validação prematura (comportamento atual do Onboarding).
+**2. `Contatos.tsx` — melhoria de fidelidade**
+- Trocar as 3 barras genéricas por skeleton de tabela com 5 colunas × 5 linhas, respeitando `hidden md:table-cell` / `hidden lg:table-cell`. Larguras: `w-40`, `w-28`, `w-44`, `w-24`, `w-8`.
+- Skeleton já está importado — não duplicar import.
 
-**Arquivo EDITADO**: `src/pages/Onboarding.tsx`
-- Adicionar import `AddressFormRHF`.
-- Substituir linhas 252–353 (todo o bloco grid de endereço) por:
-  ```tsx
-  <AddressFormRHF
-    control={form2.control}
-    setValue={form2.setValue}
-    fieldNames={{ cep:"cep", rua:"rua", numero:"numero", complemento:"complemento", bairro:"bairro", cidade:"cidade", estado:"estado" }}
-  />
-  ```
-- Remover linhas 61–71 (`onCepResult` + `lookupCep`).
-- Remover imports órfãos: `useCallback`, `maskCEP`, `useCepLookup`. Manter `maskPhone`, `maskCNPJ` (usados no step1).
+**3. `Modelos.tsx` — ajuste pequeno**
+- Manter grid `sm:grid-cols-2 lg:grid-cols-3`, aumentar de 3 para 6 cards skeleton (preenche grid em desktop). Sem mudar altura nem layout.
 
-**Não tocar**: `AddressForm.tsx`, `useCepLookup.ts`, `step2Schema`, `handleStep2Submit`, payload da RPC, `form2.handleSubmit`.
+**4. `Clausulas.tsx` — ajuste pequeno**
+- Aumentar de 3 para 5 linhas skeleton (lista vertical) e trocar `h-16` por `h-[72px]` para bater melhor com a altura real do card de cláusula. Opcional; se quiser preservar 100% do estado atual, deixamos como está.
 
-### Pontos a confirmar antes de executar
+### Detalhes técnicos
 
-1. OK manter labels **com asterisco** (`Rua / Avenida *`, `UF *`, etc.) via prop `requiredFields` — preservando 100% a UX atual? (Alternativa do prompt: labels sem `*`, mudando o visual.)
-2. OK manter lookup do CEP em **`onChange`** (com debounce do hook), em vez de `onBlur` como o prompt propõe?
-3. OK usar **layout grid único** `sm:grid-cols-2` (igual ao `AddressForm.tsx` e ao Onboarding atual), em vez dos múltiplos sub-grids do prompt?
-4. OK incluir **limpeza dos imports órfãos** (`useCallback`, `maskCEP`, `useCepLookup`) no Onboarding após a substituição?
+- Cada `<Skeleton>` envolto em `<td className="py-3"><Skeleton className="h-4 w-X rounded" /></td>` (ou `rounded-full` para badge de status).
+- Reusar exatamente o mesmo `<thead>` real de cada tabela para que o skeleton e o estado carregado tenham largura idêntica (sem "pulo" visual ao trocar).
+- Nenhuma mudança em hook, query, mutation, EmptyState ou tratamento de erro.
+- Nenhum arquivo fora dos 4 listados será tocado.
+
+### Critério de aceite (espelha o Prompt L)
+- Slow 3G nas 4 telas → skeleton no lugar de "Carregando..." / barras genéricas.
+- Dados carregados → tabela real sem layout shift.
+- Lista vazia → `EmptyState` intacto.
+- Erro de fetch → comportamento atual preservado.
+- Build limpo, lógica de fetch inalterada.
+
+### Pergunta antes de executar
+
+Você quer que eu inclua os ajustes pequenos em `Modelos.tsx` (3→6 cards) e `Clausulas.tsx` (3→5 linhas, altura ajustada), ou prefere que eu mexa **apenas** em `Contratos.tsx` + `Contatos.tsx` (onde há ganho real de fidelidade)?
