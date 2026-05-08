@@ -111,6 +111,15 @@ const ManualParticipantCard = ({
   const [contactSearch, setContactSearch] = useState("");
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [cpfError, setCpfError] = useState("");
+  const [nameOpen, setNameOpen] = useState(false);
+
+  const nameSuggestions = (() => {
+    const q = participant.nome.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return contacts
+      .filter((c) => c.nome.toLowerCase().includes(q) || (c.cpf && c.cpf.includes(q)))
+      .slice(0, 8);
+  })();
 
   const updateField = (field: keyof ManualParticipantData, value: string | boolean) => {
     onUpdate({ ...participant, [field]: value as never });
