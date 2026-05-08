@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,11 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { AddressFormRHF } from "@/components/ui/AddressFormRHF";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { maskPhone, maskCNPJ, maskCEP } from "@/lib/masks";
-import { useCepLookup } from "@/hooks/useCepLookup";
+import { maskPhone, maskCNPJ } from "@/lib/masks";
 
 const step1Schema = z.object({
   nome: z.string().min(2, "Nome da empresa é obrigatório"),
