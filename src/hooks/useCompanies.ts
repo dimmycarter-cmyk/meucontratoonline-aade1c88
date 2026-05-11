@@ -7,6 +7,7 @@ export interface Company {
   id: string;
   tenant_id: string;
   cnpj: string | null;
+  creci: string | null;
   nome_fantasia: string;
   razao_social: string | null;
   whatsapp: string | null;
