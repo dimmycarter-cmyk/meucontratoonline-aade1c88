@@ -73,6 +73,10 @@ export function AddressFormRHF<TFieldValues extends FieldValues>({
                   field.onChange(masked);
                   lookup(masked);
                 }}
+                autoComplete="postal-code"
+                inputMode="numeric"
+                pattern="\d{5}-\d{3}"
+                title="Formato: 00000-000"
               />
             </FormControl>
             <FormMessage />

@@ -45,6 +45,10 @@ export function AddressForm({ value, onChange, disabled }: AddressFormProps) {
           }}
           placeholder="00000-000"
           disabled={disabled}
+          autoComplete="postal-code"
+          inputMode="numeric"
+          pattern="\d{5}-\d{3}"
+          title="Formato: 00000-000"
         />
       </div>
       <div />
