@@ -21,6 +21,7 @@
 import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
 import type { ParticipantRole } from "@/components/contract/ParticipantCard";
 import { enrichDados, type CompanyData } from "./contract-enrichment";
+import { composeEnderecoCanonico, isValidCep } from "./contract-formatters";
 
 const SLOT_LIMITS: Partial<Record<ParticipantRole, number>> = {
   comprador: 2,
@@ -56,11 +57,24 @@ function applyParticipantFields(
   set("genero", p.genero);
   set("data_nascimento", p.data_nascimento);
 
-  // Endereço composto
-  const endParts = [p.rua, p.numero, p.complemento, p.bairro, p.cidade, p.estado, p.cep]
-    .filter(Boolean)
-    .join(", ");
-  if (endParts) dados[`${prefix}_endereco`] = endParts;
+  // Endereço composto — formato canônico unificado (mesmo da empresa).
+  if (p.cep && !isValidCep(p.cep)) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[auto-fill-dados] CEP malformado em ${prefix}: "${p.cep}". ` +
+        `Esperados 8 dígitos. Será emitido no contrato como digitado.`
+    );
+  }
+  const endereco = composeEnderecoCanonico({
+    rua: p.rua,
+    numero: p.numero,
+    complemento: p.complemento,
+    bairro: p.bairro,
+    cidade: p.cidade,
+    estado: p.estado,
+    cep: p.cep,
+  });
+  if (endereco) dados[`${prefix}_endereco`] = endereco;
 
   // Campos condicionais
   if (p.profissao && /advogad/i.test(p.profissao) && p.oab) {

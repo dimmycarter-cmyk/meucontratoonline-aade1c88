@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`snapshot endereço canônico > A — endereço completo (rua, número, complemento, bairro, cidade/UF, CEP) 1`] = `"Avenida Brasil, nº 1500, Apto 302, Bairro Centro, Belo Horizonte/MG, CEP 30130-000"`;
+
+exports[`snapshot endereço canônico > B — sem complemento 1`] = `"Rua das Flores, nº 100, Bairro Vila Nova, Curitiba/PR, CEP 80000-123"`;
+
+exports[`snapshot endereço canônico > C — sem número (lote rural / endereço informal) 1`] = `"Estrada do Sertão, s/n, Bairro Zona Rural, Diamantina/MG, CEP 39100-000"`;
+
+exports[`snapshot endereço canônico > D — campo faltando (sem bairro e sem CEP) 1`] = `"Rua Augusta, nº 2500, Sala 12, São Paulo/SP"`;

@@ -30,6 +30,17 @@ export function formatCEP(value: string | null | undefined): string {
   return `${d.slice(0, 5)}-${d.slice(5)}`;
 }
 
+/**
+ * Retorna true se `value` é truthy e contém exatamente 8 dígitos numéricos
+ * (com ou sem hífen). Útil para decidir se um aviso de "CEP malformado"
+ * deve ser emitido pelo caller — `formatCEP` em si é silencioso por design
+ * (retorna o valor cru quando não consegue formatar).
+ */
+export function isValidCep(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return onlyDigits(value).length === 8;
+}
+
 export function formatTelefone(value: string | null | undefined): string {
   const d = onlyDigits(value || "");
   if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
@@ -155,4 +166,69 @@ export function valorPorExtenso(value: number | string | null | undefined, optio
 
   const texto = partes.join("");
   return options.semDe ? texto : texto;
+}
+
+/**
+ * Partes brutas de um endereço (formato compartilhado por participantes
+ * e empresa). Todos os campos são opcionais — a função compositora
+ * omite trechos ausentes elegantemente.
+ */
+export interface EnderecoParts {
+  rua?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  /** Sigla da UF; será normalizada para letras maiúsculas. */
+  estado?: string | null;
+  cep?: string | null;
+}
+
+/** Trim + colapso de espaços internos múltiplos. */
+function squish(value: string | null | undefined): string {
+  if (value == null) return "";
+  return String(value).trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Compõe a string canônica do endereço usada nos contratos.
+ *
+ *   "{logradouro}, nº {número} [s/n], {complemento}, Bairro {bairro},
+ *    {cidade}/{UF}, CEP {cep_formatado}"
+ *
+ * Regras:
+ *  - Cada trecho ausente é omitido sem deixar pontuação órfã.
+ *  - Número: prefixado com "nº "; vira "s/n" SE houver rua mas faltar número.
+ *  - Complemento e logradouro entram nus — o usuário já digita com o tipo
+ *    ("Avenida Brasil", "Estrada do Sertão", "Apto 302", "Sala 12").
+ *  - Bairro recebe prefixo "Bairro ".
+ *  - Cidade e UF se unem por "/", UF normalizada para maiúsculas.
+ *  - CEP usa `formatCEP` (`30130000` → `30130-000`); CEPs malformados
+ *    são emitidos como vieram, sem warning aqui (função é pura — quem
+ *    quiser warning consulta `isValidCep` antes de chamar).
+ *
+ * Função pura — não lê nem escreve fora de seus argumentos.
+ */
+export function composeEnderecoCanonico(parts: EnderecoParts): string {
+  const rua = squish(parts.rua);
+  const numero = squish(parts.numero);
+  const complemento = squish(parts.complemento);
+  const bairro = squish(parts.bairro);
+  const cidade = squish(parts.cidade);
+  const uf = squish(parts.estado).toUpperCase();
+  const cep = squish(parts.cep);
+
+  const segments: string[] = [];
+
+  if (rua) segments.push(rua);
+  if (numero) segments.push(`nº ${numero}`);
+  else if (rua) segments.push("s/n");
+  if (complemento) segments.push(complemento);
+  if (bairro) segments.push(`Bairro ${bairro}`);
+  if (cidade && uf) segments.push(`${cidade}/${uf}`);
+  else if (cidade) segments.push(cidade);
+  else if (uf) segments.push(uf);
+  if (cep) segments.push(`CEP ${formatCEP(cep)}`);
+
+  return segments.join(", ");
 }

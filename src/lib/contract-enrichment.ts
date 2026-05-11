@@ -14,6 +14,8 @@ import {
   formatDataCurta,
   formatDataExtenso,
   valorPorExtenso,
+  composeEnderecoCanonico,
+  isValidCep,
 } from "./contract-formatters";
 import { LEGACY_BRACKET_MAP } from "./placeholder";
 
@@ -70,13 +72,15 @@ export interface EnrichOptions {
   cidadeContrato?: string;
 }
 
-function composeEndereco(c: CompanyData): string {
-  const ruaNumero = [c.rua, c.numero].filter(Boolean).join(", ");
-  const complemento = c.complemento ? ` - ${c.complemento}` : "";
-  const bairro = c.bairro ? `, ${c.bairro}` : "";
-  const cidadeUF = [c.cidade, c.estado].filter(Boolean).join("/");
-  const cep = c.cep ? ` - CEP ${formatCEP(c.cep)}` : "";
-  return `${ruaNumero}${complemento}${bairro}${cidadeUF ? `, ${cidadeUF}` : ""}${cep}`.trim().replace(/^,\s*/, "");
+/** Avisa quando o CEP está preenchido mas não tem 8 dígitos válidos. */
+function warnIfInvalidCep(context: string, cep: string | null | undefined) {
+  if (cep && !isValidCep(cep)) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[contract-enrichment] CEP malformado em ${context}: "${cep}". ` +
+        `Esperados 8 dígitos. Será emitido no contrato como digitado.`
+    );
+  }
 }
 
 /** Injeta empresa_* a partir do registro da company do tenant, sem sobrescrever valores manuais. */
@@ -99,7 +103,8 @@ function injectCompany(dados: Record<string, string>, company: CompanyData) {
   setIfEmpty("empresa_agencia", company.agencia);
   setIfEmpty("empresa_conta", company.conta);
   setIfEmpty("empresa_pix", company.pix);
-  setIfEmpty("empresa_endereco", composeEndereco(company));
+  warnIfInvalidCep("empresa", company.cep);
+  setIfEmpty("empresa_endereco", composeEnderecoCanonico(company));
 }
 
 /** Resolve aliases bidirecionalmente — chave vazia recebe o valor da preenchida. */
