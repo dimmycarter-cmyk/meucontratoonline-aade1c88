@@ -337,6 +337,15 @@ const ManualParticipantCard = ({
                 />
               </div>
               <div className="space-y-1">
+                <Label className="text-xs">Data de Nascimento</Label>
+                <Input
+                  type="date"
+                  value={participant.data_nascimento || ""}
+                  onChange={(e) => updateField("data_nascimento", e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
                 <Label className="text-xs">Nacionalidade</Label>
                 <Input
                   value={participant.nacionalidade}

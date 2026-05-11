@@ -7,6 +7,8 @@
  * (ex: empresa_* ↔ imobiliaria_*) são resolvidos pelo enrichDados.
  */
 
+import { applyFallback, getFallbackStrategy, type FallbackStrategy } from "./placeholder-fallback";
+
 export const LEGACY_BRACKET_MAP: Record<string, string> = {
   // ===== Comprador (índice padrão) =====
   "NOME COMPLETO DO(A) COMPRADOR(A)": "comprador_nome",
@@ -294,16 +296,36 @@ export function preprocessTemplate(
   return stripConditionalBlocks(text, vars);
 }
 
+export interface ReplaceOptions {
+  /**
+   * Estratégia aplicada quando o placeholder não tem dado correspondente.
+   * Default: `"auto"` — consulta `getFallbackStrategy(key)` para decidir
+   * (`blank_line` para RG/órgão, `omit` para datas de nascimento, etc.).
+   * Use `"keep_literal"` para preservar o `{{key}}` no resultado (debug
+   * ou preview que sinaliza pendências ao usuário).
+   */
+  fallback?: "auto" | FallbackStrategy;
+}
+
 export function replacePlaceholders(
   text: string,
-  vars: Record<string, string>
+  vars: Record<string, string>,
+  options: ReplaceOptions = {}
 ): string {
   if (!text) return text;
+  const fallbackMode = options.fallback ?? "auto";
+  const resolveFallback = (key: string, rawMatch: string): string => {
+    const strategy: FallbackStrategy =
+      fallbackMode === "auto" ? getFallbackStrategy(key) : fallbackMode;
+    return applyFallback(strategy, rawMatch);
+  };
+
   let result = text;
 
   // 1. Substituir {{key}} e {{ key }}
   result = result.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_match, key) => {
-    return (vars[key] !== undefined && vars[key] !== "") ? vars[key] : _match;
+    if (vars[key] !== undefined && vars[key] !== "") return vars[key];
+    return resolveFallback(key, _match);
   });
 
   // 2. Substituir [LABEL LEGADO]
@@ -317,7 +339,10 @@ export function replacePlaceholders(
     if (vars[directKey] !== undefined && vars[directKey] !== "") {
       return vars[directKey];
     }
-    return _match;
+    // Sem dado: aplica fallback usando a chave canônica (se houver)
+    // ou a chave derivada do próprio label.
+    const fallbackKey = canonicalKey || directKey;
+    return resolveFallback(fallbackKey, _match);
   });
 
   return result;
