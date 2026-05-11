@@ -21,6 +21,9 @@ dist-ssr
 .env.staging
 .env.test
 
+# Mensagens temporárias de commit (sempre removidas após uso)
+.git-commit-msg-*.tmp
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
