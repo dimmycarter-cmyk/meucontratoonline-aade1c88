@@ -13,9 +13,17 @@ export type AuditAction =
   | "document.viewed"
   | "document.deleted"
   | "template.created"
-  | "template.updated";
+  | "template.updated"
+  | "profile.updated"
+  | "company.updated";
 
-export type AuditEntityType = "contract" | "participant" | "document" | "template";
+export type AuditEntityType =
+  | "contract"
+  | "participant"
+  | "document"
+  | "template"
+  | "profile"
+  | "company";
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "contract.created": "Contrato criado",
@@ -31,6 +39,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "document.deleted": "Documento removido",
   "template.created": "Modelo criado",
   "template.updated": "Modelo editado",
+  "profile.updated": "Perfil editado",
+  "company.updated": "Empresa editada",
 };
 
 interface LogActionParams {

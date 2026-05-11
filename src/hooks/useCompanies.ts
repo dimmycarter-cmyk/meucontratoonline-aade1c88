@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { parseSupabaseError } from "@/lib/supabase-errors";
+import { logAction } from "@/lib/audit";
 export interface Company {
   id: string;
   tenant_id: string;
@@ -89,9 +90,16 @@ export const useCompanies = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any, variables) => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
       toast({ title: "Empresa atualizada" });
+      logAction({
+        tenantId: data?.tenant_id,
+        action: "company.updated",
+        entityType: "company",
+        entityId: data?.id ?? variables.id,
+        metadata: { fields: Object.keys(variables).filter((k) => k !== "id") },
+      });
     },
     onError: (error) => {
       toast({ title: "Erro ao atualizar empresa", description: parseSupabaseError(error), variant: "destructive" });

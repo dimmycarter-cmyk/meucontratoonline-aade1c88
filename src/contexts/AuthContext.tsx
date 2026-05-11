@@ -19,6 +19,8 @@ interface Profile {
   email: string;
   avatar_url: string | null;
   status: string;
+  whatsapp: string | null;
+  cargo: string | null;
 }
 
 interface AuthContextType {
