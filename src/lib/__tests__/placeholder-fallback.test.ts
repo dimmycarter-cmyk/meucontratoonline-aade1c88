@@ -51,10 +51,11 @@ describe("placeholder fallback — estratégia tabular", () => {
       expect(out).not.toContain("{{vendedor_rg}}");
     });
 
-    it("omite data de nascimento vazia", () => {
+    it("omite data de nascimento vazia (cleanup colapsa espaço duplo)", () => {
       const html = "Data nasc: {{vendedor_data_nascimento}} fim";
       const out = replacePlaceholders(html, {});
-      expect(out).toBe("Data nasc:  fim");
+      // omit substitui por ""; cleanOrphanPunctuation colapsa o espaço duplo.
+      expect(out).toBe("Data nasc: fim");
       expect(out).not.toContain("{{vendedor_data_nascimento}}");
     });
 
@@ -67,7 +68,8 @@ describe("placeholder fallback — estratégia tabular", () => {
     it("aplica omit (default) para campo arbitrário sem dado", () => {
       const html = "início {{campo_qualquer}} fim";
       const out = replacePlaceholders(html, {});
-      expect(out).toBe("início  fim");
+      // omit substitui por ""; cleanOrphanPunctuation colapsa o espaço duplo.
+      expect(out).toBe("início fim");
     });
   });
 
@@ -88,6 +90,8 @@ describe("placeholder fallback — estratégia tabular", () => {
     it("omit forçado vale para tudo, mesmo RG", () => {
       const html = "RG: {{vendedor_rg}}.";
       const out = replacePlaceholders(html, {}, { fallback: "omit" });
+      // omit substitui por ""; sem vírgula órfã, o cleanup não toca em "RG: ."
+      // (espaço-antes-de-pontuação é responsabilidade do template).
       expect(out).toBe("RG: .");
     });
   });

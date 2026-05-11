@@ -8,6 +8,7 @@
  */
 
 import { applyFallback, getFallbackStrategy, type FallbackStrategy } from "./placeholder-fallback";
+import { cleanOrphanPunctuation } from "./text-cleanup";
 
 export const LEGACY_BRACKET_MAP: Record<string, string> = {
   // ===== Comprador (índice padrão) =====
@@ -344,6 +345,11 @@ export function replacePlaceholders(
     const fallbackKey = canonicalKey || directKey;
     return resolveFallback(fallbackKey, _match);
   });
+
+  // 3. Limpa pontuação órfã deixada por placeholders omitidos
+  // (ex.: "João, , portador(a)" → "João, portador(a)"). Aplicado apenas
+  // sobre o resultado da substituição, não sobre o template puro.
+  result = cleanOrphanPunctuation(result);
 
   return result;
 }
