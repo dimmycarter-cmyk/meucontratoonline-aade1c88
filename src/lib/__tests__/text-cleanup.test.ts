@@ -82,8 +82,7 @@ describe("cleanOrphanPunctuation", () => {
 
   it("retorna string vazia para input vazio/null sem crash", () => {
     expect(cleanOrphanPunctuation("")).toBe("");
-    // @ts-expect-error testando defensividade
-    expect(cleanOrphanPunctuation(null)).toBe(null);
+    expect(cleanOrphanPunctuation(null as unknown as string)).toBe(null);
   });
 
   it("respeita teto de iterações em input patológico (sem travar)", () => {

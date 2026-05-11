@@ -843,30 +843,36 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          cargo: string | null
           created_at: string
           email: string
           id: string
           nome: string
           status: string
           tenant_id: string
+          whatsapp: string | null
         }
         Insert: {
           avatar_url?: string | null
+          cargo?: string | null
           created_at?: string
           email?: string
           id: string
           nome?: string
           status?: string
           tenant_id: string
+          whatsapp?: string | null
         }
         Update: {
           avatar_url?: string | null
+          cargo?: string | null
           created_at?: string
           email?: string
           id?: string
           nome?: string
           status?: string
           tenant_id?: string
+          whatsapp?: string | null
         }
         Relationships: [
           {
