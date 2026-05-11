@@ -11,9 +11,16 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Environment files (Vite convention) — never commit any of these
 .env
-.env.production
+.env.local
+.env.*.local
 .env.development
+.env.production
+.env.staging
+.env.test
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
