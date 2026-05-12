@@ -81,7 +81,7 @@ export function companyToFormData(company: Record<string, unknown> | null | unde
 
 interface CompanyEditFormProps {
   value: CompanyFormData;
-  onChange: (next: CompanyFormData) => void;
+  onChange: (next: CompanyFormData | ((prev: CompanyFormData) => CompanyFormData)) => void;
   onSubmit: (data: CompanyFormData) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
@@ -102,11 +102,11 @@ export function CompanyEditForm({
   const [cnpjError, setCnpjError] = useState("");
 
   const updateField = (field: keyof CompanyFormData, v: string) => {
-    onChange({ ...value, [field]: v });
+    onChange((prev) => ({ ...prev, [field]: v }));
   };
 
   const handleAddressChange = (field: keyof AddressData, v: string) => {
-    onChange({ ...value, [field]: v } as CompanyFormData);
+    onChange((prev) => ({ ...prev, [field]: v } as CompanyFormData));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
