@@ -30,7 +30,7 @@ const SECTIONS: Section[] = [
 
 interface MultipleParticipantsPanelProps {
   participants: ManualParticipantData[];
-  onChange: (participants: ManualParticipantData[]) => void;
+  onChange: (participants: ManualParticipantData[] | ((prev: ManualParticipantData[]) => ManualParticipantData[])) => void;
   contacts: Contact[];
   /** Flags booleanas para blocos condicionais (ex: tem_procurador). Opcional. */
   flags?: Record<string, boolean>;
@@ -58,28 +58,33 @@ const MultipleParticipantsPanel = ({
     return map;
   }, [participants]);
 
-  const updateOne = (id: string, data: ManualParticipantData) =>
-    onChange(participants.map((p) => (p.id === id ? data : p)));
+  const updateOne = (
+    id: string,
+    updater: ManualParticipantData | ((prev: ManualParticipantData) => ManualParticipantData)
+  ) =>
+    onChange((prev) =>
+      prev.map((p) =>
+        p.id === id ? (typeof updater === "function" ? updater(p) : updater) : p
+      )
+    );
 
   const removeOne = (id: string) => {
     // Also remove spouses linked to this participant
-    onChange(
-      participants.filter((p) => p.id !== id && p.linked_to_id !== id)
-    );
+    onChange((prev) => prev.filter((p) => p.id !== id && p.linked_to_id !== id));
   };
 
   const addPrincipal = (role: ParticipantRole) =>
-    onChange([...participants, emptyParticipant(role)]);
+    onChange((prev) => [...prev, emptyParticipant(role)]);
 
   const addSpouseFor = (principalId: string) => {
     const spouse = emptyParticipant("conjuge");
     spouse.linked_to_id = principalId;
-    onChange([...participants, spouse]);
+    onChange((prev) => [...prev, spouse]);
   };
 
   const toggleAnuenteFlag = (spouseId: string) => {
-    onChange(
-      participants.map((p) =>
+    onChange((prev) =>
+      prev.map((p) =>
         p.id === spouseId ? { ...p, also_anuente: !p.also_anuente } : p
       )
     );
@@ -124,7 +129,7 @@ const MultipleParticipantsPanel = ({
                 onFlagChange("tem_procurador", v);
                 // Limpa cards de procurador quando desliga
                 if (!v) {
-                  onChange(participants.filter((p) => p.role !== "procurador"));
+                  onChange((prev) => prev.filter((p) => p.role !== "procurador"));
                 }
               }}
             />
@@ -184,7 +189,7 @@ const MultipleParticipantsPanel = ({
                       <ManualParticipantCard
                         participant={p}
                         index={idx}
-                        onUpdate={(data) => updateOne(p.id, data)}
+                        onUpdate={(updater) => updateOne(p.id, updater)}
                         onRemove={() => removeOne(p.id)}
                         contacts={contacts}
                       />
@@ -226,7 +231,7 @@ const MultipleParticipantsPanel = ({
                           <ManualParticipantCard
                             participant={sp}
                             index={sIdx}
-                            onUpdate={(data) => updateOne(sp.id, data)}
+                            onUpdate={(updater) => updateOne(sp.id, updater)}
                             onRemove={() => removeOne(sp.id)}
                             contacts={contacts}
                           />

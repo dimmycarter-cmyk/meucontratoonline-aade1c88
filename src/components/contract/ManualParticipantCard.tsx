@@ -95,7 +95,7 @@ export const emptyParticipant = (role: ParticipantRole): ManualParticipantData =
 interface ManualParticipantCardProps {
   participant: ManualParticipantData;
   index: number;
-  onUpdate: (data: ManualParticipantData) => void;
+  onUpdate: (data: ManualParticipantData | ((prev: ManualParticipantData) => ManualParticipantData)) => void;
   onRemove: () => void;
   contacts: Contact[];
 }
@@ -122,7 +122,7 @@ const ManualParticipantCard = ({
   })();
 
   const updateField = (field: keyof ManualParticipantData, value: string | boolean) => {
-    onUpdate({ ...participant, [field]: value as never });
+    onUpdate((prev) => ({ ...prev, [field]: value as never }));
   };
 
   const isLawyer = /advogad/i.test(participant.profissao || "");
@@ -130,12 +130,12 @@ const ManualParticipantCard = ({
   const showBankBlock = participant.role === "vendedor" || participant.role === "procurador";
 
   const handleAddressChange = (field: keyof AddressData, value: string) => {
-    onUpdate({ ...participant, [field]: value });
+    onUpdate((prev) => ({ ...prev, [field]: value }));
   };
 
   const fillFromContact = (contact: Contact) => {
-    onUpdate({
-      ...participant,
+    onUpdate((prev) => ({
+      ...prev,
       contact_id: contact.id,
       nome: contact.nome || "",
       cpf: contact.cpf || "",
@@ -153,7 +153,7 @@ const ManualParticipantCard = ({
       bairro: contact.bairro || "",
       cidade: contact.cidade || "",
       estado: contact.estado || "",
-    });
+    }));
     setShowContactPicker(false);
   };
 
