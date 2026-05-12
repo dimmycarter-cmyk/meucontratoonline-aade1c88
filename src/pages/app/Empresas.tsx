@@ -1,33 +1,22 @@
 import { useState } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { AddressForm, AddressData } from "@/components/ui/AddressForm";
-import { Plus, Search, MoreHorizontal, Building2, Trash2, Pencil, LogIn, ChevronDown } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Building2, Trash2, Pencil, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { maskCNPJ, maskPhone } from "@/lib/masks";
-import { cnpjSchema } from "@/lib/validators";
+import { CompanyEditForm, CompanyFormData, companyToFormData, emptyCompanyForm } from "@/components/empresa/CompanyEditForm";
 import { useNavigate } from "react-router-dom";
-
-const emptyCompany = {
-  nome_fantasia: "", razao_social: "", cnpj: "", creci: "", whatsapp: "", email: "",
-  cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
-  banco: "", agencia: "", conta: "", pix: "",
-};
 
 const Empresas = () => {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState(emptyCompany);
+  const [form, setForm] = useState<CompanyFormData>(emptyCompanyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [cnpjError, setCnpjError] = useState("");
   const { companies, isLoading, createCompany, updateCompany, deleteCompany, isCreating } = useCompanies();
   const { isSuperAdmin, setImpersonatedTenant } = useAuth();
   const navigate = useNavigate();
@@ -37,43 +26,26 @@ const Empresas = () => {
     (e.cnpj && e.cnpj.includes(search))
   );
 
-  const updateField = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
-
-  const handleAddressChange = (field: keyof AddressData, value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (data: CompanyFormData) => {
     if (editingId) {
-      await updateCompany({ id: editingId, ...form });
+      await updateCompany({ id: editingId, ...data });
     } else {
-      await createCompany(form);
+      await createCompany(data);
     }
     setDialogOpen(false);
-    setForm(emptyCompany);
+    setForm(emptyCompanyForm);
     setEditingId(null);
   };
 
   const handleEdit = (company: any) => {
-    setForm({
-      nome_fantasia: company.nome_fantasia || "", razao_social: company.razao_social || "",
-      cnpj: company.cnpj || "", creci: company.creci || "",
-      whatsapp: company.whatsapp || "", email: company.email || "",
-      cep: company.cep || "", rua: company.rua || "", numero: company.numero || "",
-      complemento: company.complemento || "", bairro: company.bairro || "",
-      cidade: company.cidade || "", estado: company.estado || "",
-      banco: company.banco || "", agencia: company.agencia || "",
-      conta: company.conta || "", pix: company.pix || "",
-    });
+    setForm(companyToFormData(company));
     setEditingId(company.id);
-    setCnpjError("");
     setDialogOpen(true);
   };
 
   const handleNew = () => {
-    setForm(emptyCompany);
+    setForm(emptyCompanyForm);
     setEditingId(null);
-    setCnpjError("");
     setDialogOpen(true);
   };
 
@@ -92,114 +64,14 @@ const Empresas = () => {
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar Empresa" : "Nova Empresa"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Nome Fantasia *</Label>
-                  <Input value={form.nome_fantasia} onChange={(e) => updateField("nome_fantasia", e.target.value)} required />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Razão Social</Label>
-                  <Input value={form.razao_social} onChange={(e) => updateField("razao_social", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>CNPJ</Label>
-                  <Input
-                    value={form.cnpj}
-                    onChange={(e) => updateField("cnpj", maskCNPJ(e.target.value))}
-                    onBlur={(e) => {
-                      if (!e.target.value) { setCnpjError(""); return; }
-                      const result = cnpjSchema.safeParse(e.target.value);
-                      setCnpjError(result.success ? "" : result.error.issues[0].message);
-                    }}
-                    placeholder="00.000.000/0001-00"
-                  />
-                  {cnpjError && <p className="text-xs text-destructive">{cnpjError}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label>CRECI</Label>
-                  <Input
-                    value={form.creci}
-                    onChange={(e) => updateField("creci", e.target.value)}
-                    placeholder="Ex.: CRECI-MG 12345-J"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>WhatsApp</Label>
-                  <Input value={form.whatsapp} onChange={(e) => updateField("whatsapp", maskPhone(e.target.value))} placeholder="(31) 99999-5858" />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>E-mail</Label>
-                  <Input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} />
-                </div>
-              </div>
-              <h3 className="pt-2 text-sm font-semibold text-foreground">Endereço</h3>
-              <AddressForm
-                value={{
-                  cep: form.cep,
-                  rua: form.rua,
-                  numero: form.numero,
-                  complemento: form.complemento,
-                  bairro: form.bairro,
-                  cidade: form.cidade,
-                  estado: form.estado,
-                }}
-                onChange={handleAddressChange}
-              />
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="-mx-2 h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <ChevronDown className="h-3.5 w-3.5" />
-                    Dados bancários (opcional, usados em contratos)
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Banco</Label>
-                      <Input
-                        value={form.banco}
-                        onChange={(e) => updateField("banco", e.target.value)}
-                        placeholder="Ex.: Itaú, Bradesco, Nubank..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Agência</Label>
-                      <Input
-                        value={form.agencia}
-                        onChange={(e) => updateField("agencia", e.target.value)}
-                        placeholder="0000"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Conta</Label>
-                      <Input
-                        value={form.conta}
-                        onChange={(e) => updateField("conta", e.target.value)}
-                        placeholder="00000-0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Chave PIX</Label>
-                      <Input
-                        value={form.pix}
-                        onChange={(e) => updateField("pix", e.target.value)}
-                        placeholder="CPF/CNPJ, e-mail, telefone ou chave aleatória"
-                      />
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-                <Button type="submit" disabled={isCreating}>{editingId ? "Salvar" : "Criar Empresa"}</Button>
-              </div>
-            </form>
+            <CompanyEditForm
+              value={form}
+              onChange={setForm}
+              onSubmit={handleSubmit}
+              onCancel={() => setDialogOpen(false)}
+              isSubmitting={isCreating}
+              submitLabel={editingId ? "Salvar" : "Criar Empresa"}
+            />
           </DialogContent>
         </Dialog>
       </div>
