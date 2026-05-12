@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
 import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
+import { enrichDados } from "@/lib/contract-enrichment";
 import { logAction } from "@/lib/audit";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
@@ -551,11 +552,16 @@ const NovoContrato = () => {
   }, [comprador, vendedor, empresa, dados, manualParticipants]);
 
   // Build final content
+  // Aplica enrichDados antes de preprocessTemplate/replacePlaceholders para que
+  // empresa_* (banco/pix/cnpj/endereço canônico), data_contrato_extenso,
+  // valor_*_extenso, aliases e formatadores universais (CPF/CNPJ/CEP)
+  // sejam resolvidos uniformemente — princípio "preview = save".
   const buildFinalContent = useCallback(() => {
     const raw = selectedTemplate?.conteudo || "";
-    const processed = preprocessTemplate(raw, dados);
-    setConteudoFinal(replacePlaceholders(processed, dados));
-  }, [selectedTemplate, dados]);
+    const enrichedDados = enrichDados(dados, { company: empresa ?? null });
+    const processed = preprocessTemplate(raw, enrichedDados);
+    setConteudoFinal(replacePlaceholders(processed, enrichedDados));
+  }, [selectedTemplate, dados, empresa]);
 
   // AI flow: add participant
   const handleAddParticipant = (role: ParticipantRole) => {
@@ -888,21 +894,29 @@ const NovoContrato = () => {
       };
 
       // Always recalculate conteudo_final with latest data
+      // Aplica enrichDados antes de substituir: garante data_contrato_extenso,
+      // valor_*_extenso, injeção de empresa_* (banco/pix/cnpj/endereço canônico),
+      // aliases e formatadores universais (CPF/CNPJ/CEP) — pipeline canônico.
+      // mergedDados (cru) continua sendo o que vai para contracts.dados; apenas
+      // a renderização do conteudo_final usa a versão enriquecida.
+      const enrichedMergedDados = enrichDados(mergedDados, { company: empresa ?? null });
+
       let fullContent = "";
       const templateBase = selectedTemplate?.conteudo || "";
       const editorContent = conteudoFinal || "";
-      
+
       if (editorContent) {
-        const processed = preprocessTemplate(editorContent, mergedDados);
-        fullContent = replacePlaceholders(processed, mergedDados);
+        const processed = preprocessTemplate(editorContent, enrichedMergedDados);
+        fullContent = replacePlaceholders(processed, enrichedMergedDados);
       } else if (templateBase) {
-        const processed = preprocessTemplate(templateBase, mergedDados);
-        fullContent = replacePlaceholders(processed, mergedDados);
+        const processed = preprocessTemplate(templateBase, enrichedMergedDados);
+        fullContent = replacePlaceholders(processed, enrichedMergedDados);
       }
 
       // Aviso de placeholders não resolvidos (já roda sobre conteúdo pré-processado).
       // Não bloqueia o salvamento — o contrato é gravado como rascunho mesmo com pendências.
-      const unresolved = getUnresolvedPlaceholders(fullContent, mergedDados);
+      // Usa enrichedMergedDados para evitar falsos positivos em campos derivados.
+      const unresolved = getUnresolvedPlaceholders(fullContent, enrichedMergedDados);
       if (unresolved.length > 0) {
         toast({
           title: "Salvo como rascunho",
