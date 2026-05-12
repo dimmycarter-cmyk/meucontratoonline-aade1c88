@@ -28,6 +28,20 @@ describe("placeholder fallback — estratégia tabular", () => {
       expect(getFallbackStrategy("campo_arbitrario_nao_mapeado")).toBe("omit");
       expect(getFallbackStrategy("xyz")).toBe("omit");
     });
+
+    it("retorna omit explícito para os 8 campos opcionais do imóvel (Sprint 2 BUG 7)", () => {
+      // Overrides declarados em PLACEHOLDER_FALLBACK_STRATEGY: garantem que
+      // alterar o DEFAULT_STRATEGY global não muda silenciosamente esses
+      // campos. Coincidem com o default atual mas servem como contrato.
+      expect(getFallbackStrategy("imovel_area_privativa")).toBe("omit");
+      expect(getFallbackStrategy("imovel_area_total")).toBe("omit");
+      expect(getFallbackStrategy("imovel_area_acessoria")).toBe("omit");
+      expect(getFallbackStrategy("imovel_vagas")).toBe("omit");
+      expect(getFallbackStrategy("imovel_matricula")).toBe("omit");
+      expect(getFallbackStrategy("imovel_cartorio")).toBe("omit");
+      expect(getFallbackStrategy("imovel_inscricao_municipal")).toBe("omit");
+      expect(getFallbackStrategy("imovel_indice_cadastral")).toBe("omit");
+    });
   });
 
   describe("applyFallback", () => {

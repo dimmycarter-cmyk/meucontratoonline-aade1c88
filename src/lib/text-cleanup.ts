@@ -51,6 +51,21 @@ export function cleanOrphanPunctuation(text: string): string {
       .replace(/,\s*(<\/[a-z][^>]*>)/gi, "$1")
       // Vírgula logo após uma tag de abertura HTML (ex.: "<p>, X" → "<p>X")
       .replace(/(<[a-z][^>]*>)\s*,\s*/gi, "$1")
+      // ⭐ Regra α-conservadora (Sprint 2, ajuste-12): vírgula órfã
+      // imediatamente após preposição PT-BR + espaços + algo não-whitespace
+      // (ex.: "de , no banco" → "de no banco", "em , à esquerda" → "em à
+      // esquerda"). Cobre BUG 4 e BUG 7 em casos pós-preposição (campos
+      // vazios via fallback omit em frases tipo "área privativa de
+      // {{...}}, área total de...").
+      // Decisão UX: "no false positives wins over coverage" — vírgulas em
+      // contratos têm peso jurídico, listas legítimas em PT-BR ("João,
+      // brasileiro, casado") NÃO têm espaço antes da vírgula e são
+      // preservadas. Casos pós-substantivo ("agência ,", "nº ,") ficam
+      // para Sprints futuras com regex específicas adicionais.
+      .replace(
+        /\b(de|da|do|dos|das|em|no|na|nos|nas|sob|com|para|por|a|ao|à|às|aos)[ \t]+,[ \t]+(?=\S)/gi,
+        "$1 "
+      )
       // Espaços/tabs múltiplos (não toca em \n)
       .replace(/[ \t]{2,}/g, " ");
 

@@ -43,8 +43,19 @@ const BLANK_LINE = "__________";
  * destoa do padrão do seu sufixo.
  */
 export const PLACEHOLDER_FALLBACK_STRATEGY: Record<string, FallbackStrategy> = {
-  // (vazio por enquanto — os casos atuais são bem cobertos pelos
-  //  padrões de sufixo abaixo.)
+  // Campos opcionais do imóvel — quando ausentes, o contrato deve fluir
+  // sem placeholders literais nem vírgulas órfãs. Declarados explicitamente
+  // (mesmo coincidindo com o DEFAULT_STRATEGY "omit") para servir como
+  // contrato verificável: alterar o default global não muda silenciosamente
+  // o comportamento desses campos. Decisão Sprint 2 (ajuste-12 / BUG 7).
+  imovel_area_privativa: "omit",
+  imovel_area_total: "omit",
+  imovel_area_acessoria: "omit",
+  imovel_vagas: "omit",
+  imovel_matricula: "omit",
+  imovel_cartorio: "omit",
+  imovel_inscricao_municipal: "omit",
+  imovel_indice_cadastral: "omit",
 };
 
 /**

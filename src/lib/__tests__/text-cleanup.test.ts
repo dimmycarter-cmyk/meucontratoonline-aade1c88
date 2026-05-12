@@ -85,6 +85,62 @@ describe("cleanOrphanPunctuation", () => {
     expect(cleanOrphanPunctuation(null as unknown as string)).toBe(null);
   });
 
+  describe("regex α — vírgula órfã pós-preposição PT-BR", () => {
+    it('remove vírgula órfã após "de" seguida de palavra', () => {
+      expect(cleanOrphanPunctuation("conta de , no banco X")).toBe(
+        "conta de no banco X"
+      );
+    });
+
+    it('remove vírgula órfã após "da" / "do" / "dos" / "das"', () => {
+      expect(cleanOrphanPunctuation("partilha da , com herdeiros")).toBe(
+        "partilha da com herdeiros"
+      );
+      expect(cleanOrphanPunctuation("titular do , para fins")).toBe(
+        "titular do para fins"
+      );
+    });
+
+    it('remove vírgula órfã após "em" / "no" / "na" / "sob"', () => {
+      expect(cleanOrphanPunctuation("situado em , à esquerda")).toBe(
+        "situado em à esquerda"
+      );
+      expect(cleanOrphanPunctuation("matriculado sob , com averbação")).toBe(
+        "matriculado sob com averbação"
+      );
+    });
+
+    it("preserva vírgulas legítimas em qualificação de pessoa", () => {
+      // Sem espaço antes da vírgula — padrão correto em PT-BR.
+      const limpo = "João, brasileiro, casado, corretor";
+      expect(cleanOrphanPunctuation(limpo)).toBe(limpo);
+    });
+
+    it("preserva vírgulas em listas de endereço/cidade", () => {
+      const limpo = "endereço no Centro, Rio de Janeiro/RJ";
+      expect(cleanOrphanPunctuation(limpo)).toBe(limpo);
+    });
+
+    it("não remove vírgula quando a próxima posição é whitespace puro", () => {
+      // O lookahead exige \S — fim de linha não casa.
+      expect(cleanOrphanPunctuation("residente em , \n")).toBe(
+        "residente em , \n"
+      );
+    });
+
+    it("não confunde 'de' substring com preposição (boundary check)", () => {
+      // "verdade" termina em "de" mas não é a preposição. Não deve casar.
+      const limpo = "verdade, próxima palavra";
+      expect(cleanOrphanPunctuation(limpo)).toBe(limpo);
+    });
+
+    it("case-insensitive — capitaliza no início de frase", () => {
+      expect(cleanOrphanPunctuation("Sob , com averbação")).toBe(
+        "Sob com averbação"
+      );
+    });
+  });
+
   it("respeita teto de iterações em input patológico (sem travar)", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
