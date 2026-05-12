@@ -4,17 +4,19 @@ import { applyFallback, getFallbackStrategy } from "../placeholder-fallback";
 
 describe("placeholder fallback — estratégia tabular", () => {
   describe("getFallbackStrategy", () => {
-    it("retorna blank_line para qualquer slot de RG", () => {
-      expect(getFallbackStrategy("vendedor_rg")).toBe("blank_line");
-      expect(getFallbackStrategy("comprador_rg")).toBe("blank_line");
-      expect(getFallbackStrategy("vendedor2_rg")).toBe("blank_line");
-      expect(getFallbackStrategy("conjuge_rg")).toBe("blank_line");
-      expect(getFallbackStrategy("anuente_rg")).toBe("blank_line");
+    it("retorna omit para qualquer slot de RG", () => {
+      // Decisão Sprint 2 (ajuste-12): RG vazio omitido em vez de blank_line.
+      // "__________" parecia campo a preencher e atrapalhava a leitura.
+      expect(getFallbackStrategy("vendedor_rg")).toBe("omit");
+      expect(getFallbackStrategy("comprador_rg")).toBe("omit");
+      expect(getFallbackStrategy("vendedor2_rg")).toBe("omit");
+      expect(getFallbackStrategy("conjuge_rg")).toBe("omit");
+      expect(getFallbackStrategy("anuente_rg")).toBe("omit");
     });
 
-    it("retorna blank_line para qualquer slot de órgão expedidor", () => {
-      expect(getFallbackStrategy("vendedor_orgao_expedidor")).toBe("blank_line");
-      expect(getFallbackStrategy("comprador3_orgao_expedidor")).toBe("blank_line");
+    it("retorna omit para qualquer slot de órgão expedidor", () => {
+      expect(getFallbackStrategy("vendedor_orgao_expedidor")).toBe("omit");
+      expect(getFallbackStrategy("comprador3_orgao_expedidor")).toBe("omit");
     });
 
     it("retorna omit para qualquer slot de data de nascimento", () => {
@@ -44,11 +46,33 @@ describe("placeholder fallback — estratégia tabular", () => {
   });
 
   describe("replacePlaceholders — auto (default)", () => {
-    it("substitui RG vazio por linha de underscores", () => {
+    it("omite RG vazio (fallback default)", () => {
+      // Sprint 2 (ajuste-12): RG → omit. Frase fica "RG nº " (espaço sobra
+      // antes da vírgula — cleanOrphanPunctuation atual não cobre "X , Y",
+      // alvo do Commit 3). O {{}} desaparece e o "__________" não vaza.
       const html = "portador(a) do RG nº {{vendedor_rg}}, inscrito(a) no CPF.";
       const out = replacePlaceholders(html, {});
-      expect(out).toMatch(/portador\(a\) do RG nº _+, inscrito\(a\) no CPF\./);
       expect(out).not.toContain("{{vendedor_rg}}");
+      expect(out).not.toMatch(/_{2,}/);
+      expect(out).toContain("RG nº");
+      expect(out).toContain("inscrito(a) no CPF");
+    });
+
+    it("omite órgão expedidor vazio em frase real", () => {
+      const html = "RG {{vendedor_rg}} {{vendedor_orgao_expedidor}}, inscrito.";
+      const out = replacePlaceholders(html, {});
+      expect(out).not.toContain("{{vendedor_orgao_expedidor}}");
+      expect(out).not.toContain("{{vendedor_rg}}");
+      expect(out).not.toMatch(/_{2,}/);
+    });
+
+    it("preserva órgão expedidor quando o dado existe", () => {
+      const html = "RG {{vendedor_rg}} {{vendedor_orgao_expedidor}}";
+      const out = replacePlaceholders(html, {
+        vendedor_rg: "12.345.678",
+        vendedor_orgao_expedidor: "SSP/MG",
+      });
+      expect(out).toBe("RG 12.345.678 SSP/MG");
     });
 
     it("omite data de nascimento vazia (cleanup colapsa espaço duplo)", () => {
@@ -97,9 +121,10 @@ describe("placeholder fallback — estratégia tabular", () => {
   });
 
   describe("getUnresolvedPlaceholders — validação independente do fallback", () => {
-    it("continua reportando RG vazio mesmo com fallback blank_line aplicado", () => {
+    it("continua reportando RG vazio mesmo com fallback omit aplicado", () => {
       const html = "RG {{vendedor_rg}}";
-      // render aplica blank_line, mas a validação cru continua flagging:
+      // render aplica omit (Sprint 2), mas a validação cru continua flagging
+      // — o usuário ainda precisa saber que o campo está pendente.
       replacePlaceholders(html, {});
       const unresolved = getUnresolvedPlaceholders(html, {});
       expect(unresolved).toContain("{{vendedor_rg}}");

@@ -55,7 +55,10 @@ export const PLACEHOLDER_FALLBACK_STRATEGY: Record<string, FallbackStrategy> = {
 const FALLBACK_PATTERNS: Array<[RegExp, FallbackStrategy]> = [
   // Documentos de identidade e órgão expedidor (qualquer prefixo:
   // vendedor_rg, vendedor2_rg, comprador_rg, conjuge_rg, anuente_rg…)
-  [/(^|_)(rg|orgao_expedidor)$/i, "blank_line"],
+  // Decisão UX (Sprint 2, ajuste-12): RG/órgão expedidor ausentes são
+  // omitidos em vez de exibir "__________" — a linha em branco parecia
+  // campo a preencher manualmente e atrapalhava a leitura do contrato.
+  [/(^|_)(rg|orgao_expedidor)$/i, "omit"],
 
   // Datas de nascimento (qualquer prefixo)
   [/(^|_)(data_nascimento|nascimento)$/i, "omit"],

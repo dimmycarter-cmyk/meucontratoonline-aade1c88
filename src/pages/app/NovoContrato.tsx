@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
 import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
 import { enrichDados } from "@/lib/contract-enrichment";
+import { composeEnderecoCanonico } from "@/lib/contract-formatters";
 import { logAction } from "@/lib/audit";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
@@ -798,7 +799,10 @@ const NovoContrato = () => {
           if (mp.estado_civil) freshDados[prefix + "estado_civil"] = mp.estado_civil;
           if (mp.email) freshDados[prefix + "email"] = mp.email;
           if (mp.whatsapp) freshDados[prefix + "whatsapp"] = mp.whatsapp;
-          const endParts = [mp.rua, mp.numero, mp.complemento, mp.bairro, mp.cidade, mp.estado, mp.cep].filter(Boolean).join(", ");
+          const endParts = composeEnderecoCanonico({
+            rua: mp.rua, numero: mp.numero, complemento: mp.complemento,
+            bairro: mp.bairro, cidade: mp.cidade, estado: mp.estado, cep: mp.cep,
+          });
           if (endParts) freshDados[prefix + "endereco"] = endParts;
         }
       }
@@ -814,7 +818,10 @@ const NovoContrato = () => {
         if (comprador.estado_civil) freshDados.comprador_estado_civil = comprador.estado_civil;
         if (comprador.email) freshDados.comprador_email = comprador.email;
         if (comprador.whatsapp) freshDados.comprador_whatsapp = comprador.whatsapp;
-        const endC = [comprador.rua, comprador.numero, comprador.complemento, comprador.bairro, comprador.cidade, comprador.estado, comprador.cep].filter(Boolean).join(", ");
+        const endC = composeEnderecoCanonico({
+          rua: comprador.rua, numero: comprador.numero, complemento: comprador.complemento,
+          bairro: comprador.bairro, cidade: comprador.cidade, estado: comprador.estado, cep: comprador.cep,
+        });
         if (endC) freshDados.comprador_endereco = endC;
       }
       if (vendedor) {
@@ -827,13 +834,23 @@ const NovoContrato = () => {
         if (vendedor.estado_civil) freshDados.vendedor_estado_civil = vendedor.estado_civil;
         if (vendedor.email) freshDados.vendedor_email = vendedor.email;
         if (vendedor.whatsapp) freshDados.vendedor_whatsapp = vendedor.whatsapp;
-        const endV = [vendedor.rua, vendedor.numero, vendedor.complemento, vendedor.bairro, vendedor.cidade, vendedor.estado, vendedor.cep].filter(Boolean).join(", ");
+        const endV = composeEnderecoCanonico({
+          rua: vendedor.rua, numero: vendedor.numero, complemento: vendedor.complemento,
+          bairro: vendedor.bairro, cidade: vendedor.cidade, estado: vendedor.estado, cep: vendedor.cep,
+        });
         if (endV) freshDados.vendedor_endereco = endV;
       }
       if (empresa) {
         if (empresa.nome_fantasia) freshDados.empresa_nome = empresa.nome_fantasia;
         if (empresa.cnpj) freshDados.empresa_cnpj = empresa.cnpj;
-        const endE = [empresa.rua, empresa.numero, empresa.complemento, empresa.bairro, empresa.cidade, empresa.estado, empresa.cep].filter(Boolean).join(", ");
+        // Necessário canonicalizar AQUI mesmo (mesmo com enrichDados rodando depois):
+        // injectCompany usa setIfEmpty, então se l.836 deixasse a versão crua, o
+        // composeEnderecoCanonico interno do injectCompany seria silenciosamente
+        // bypassed para o endereço da empresa.
+        const endE = composeEnderecoCanonico({
+          rua: empresa.rua, numero: empresa.numero, complemento: empresa.complemento,
+          bairro: empresa.bairro, cidade: empresa.cidade, estado: empresa.estado, cep: empresa.cep,
+        });
         if (endE) freshDados.empresa_endereco = endE;
       }
 
