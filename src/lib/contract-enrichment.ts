@@ -15,6 +15,7 @@ import {
   formatDataExtenso,
   valorPorExtenso,
   composeEnderecoCanonico,
+  decomposeData,
   isValidCep,
 } from "./contract-formatters";
 import { LEGACY_BRACKET_MAP } from "./placeholder";
@@ -43,6 +44,19 @@ export const PLACEHOLDER_ALIASES: Array<[string, string]> = [
   // Contrato
   ["contrato_cidade", "cidade_contrato"],
   ["contrato_foro", "foro"],
+
+  // Empresa do tenant ↔ Intermediadora 1 (Sprint 2, ajuste-12 / BUG 3):
+  // A imobiliária do tenant tipicamente é a 1ª intermediadora do contrato.
+  // Os aliases são bidirecionais com setIfEmpty, então preenchimento manual
+  // de qualquer um dos lados é preservado. A 2ª intermediadora permanece
+  // como entidade independente (não aliased) — quando opcional, o template
+  // deve envolver em {{#if intermediadora2_nome}}…{{/if}}.
+  ["empresa_nome", "intermediadora1_nome"],
+  ["empresa_cnpj", "intermediadora1_cnpj"],
+  ["empresa_banco", "intermediadora1_banco"],
+  ["empresa_agencia", "intermediadora1_agencia"],
+  ["empresa_conta", "intermediadora1_conta"],
+  ["empresa_pix", "intermediadora1_pix"],
 ];
 
 export interface CompanyData {
@@ -157,6 +171,15 @@ function generateDerived(dados: Record<string, string>, opts: EnrichOptions) {
     if (!dados["data_contrato_extenso"]) {
       const cidade = dados["cidade_contrato"] || dados["contrato_cidade"] || opts.cidadeContrato;
       dados["data_contrato_extenso"] = formatDataExtenso(dados["data_contrato"], cidade);
+    }
+    // Partes individuais — para templates que usam {{data_dia}},
+    // {{data_mes}}, {{data_ano}} separadamente (padrão jurídico
+    // PT-BR comum em .docx importados). Sprint 2 ajuste-12 / BUG 6.
+    const partes = decomposeData(dados["data_contrato"]);
+    if (partes) {
+      if (!dados["data_dia"]) dados["data_dia"] = partes.dia;
+      if (!dados["data_mes"]) dados["data_mes"] = partes.mes;
+      if (!dados["data_ano"]) dados["data_ano"] = partes.ano;
     }
   }
 }

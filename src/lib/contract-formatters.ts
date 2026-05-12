@@ -83,6 +83,30 @@ export function formatDataExtenso(value: string | Date | null | undefined, cidad
   return `${prefix}${dia} de ${mes} de ${ano}`;
 }
 
+/**
+ * Decompõe uma data em suas partes canônicas para uso direto em
+ * templates que usam placeholders separados ({{data_dia}},
+ * {{data_mes}}, {{data_ano}}) — padrão comum em contratos jurídicos
+ * importados via .docx.
+ *
+ *   decomposeData("2026-05-12") → { dia: "12", mes: "maio", ano: "2026" }
+ *
+ * Dia retorna sem zero-padding (estilo PT-BR jurídico: "1 de maio",
+ * não "01 de maio"). Mês em minúsculas. Ano 4 dígitos. Retorna null
+ * se a data não puder ser parseada.
+ */
+export function decomposeData(
+  value: string | Date | null | undefined
+): { dia: string; mes: string; ano: string } | null {
+  const d = parseDate(value);
+  if (!d) return null;
+  return {
+    dia: String(d.getDate()),
+    mes: MESES[d.getMonth()],
+    ano: String(d.getFullYear()),
+  };
+}
+
 // ===== Valor por extenso =====
 const UNIDADES = ["", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove"];
 const DEZ_A_DEZENOVE = ["dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
