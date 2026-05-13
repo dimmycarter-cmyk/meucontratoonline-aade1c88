@@ -286,15 +286,63 @@ export function stripConditionalBlocks(
 }
 
 /**
- * Helper de conveniência: pré-processa o template (resolve condicionais)
- * para que tanto `replacePlaceholders` quanto `getUnresolvedPlaceholders`
- * recebam exatamente o mesmo texto base e não divirjam.
+ * Remove prefixos literais que duplicariam saída de formatters/dados ao
+ * renderizar o template. Sprint 3 — BUGs 2 e 5.
+ *
+ *  BUG 2: `formatBRL` (aplicado em `applyFormatters` para `valor_*`) já
+ *  prefixa "R$ " no valor. Templates importados de `.docx` frequentemente
+ *  trazem "R$ {{valor_total}}" ou "R$ [VALOR TOTAL]" — gera "R$ R$ X".
+ *
+ *  BUG 5: a descrição livre do imóvel (`imovel_descricao`) tipicamente
+ *  começa com "Imóvel:" (hábito de OCR/digitação). Templates importados
+ *  trazem "imóvel: {{imovel_descricao}}" — gera "imóvel: Imóvel: X".
+ *
+ * O fix é estrutural (no render, não no template do tenant) para cobrir
+ * automaticamente futuros `.docx` importados com os mesmos hábitos.
+ *
+ * Lista de labels casados para `[VALOR ...]` é restritiva — só os que o
+ * `LEGACY_BRACKET_MAP` mapeia para `valor_*`. Evita falso-positivo em
+ * brackets ad-hoc que possam conter a palavra VALOR sem ser canônicos.
+ */
+export function stripRedundantPrefixes(text: string): string {
+  if (!text) return text;
+  let out = text;
+
+  // BUG 2 — "R$ " literal antes de placeholder de valor monetário
+  out = out.replace(
+    /R\$\s*(\{\{\s*valor_[a-z0-9_]+\s*\}\})/gi,
+    "$1"
+  );
+  out = out.replace(
+    /R\$\s*(\[\s*VALOR(?:\s+(?:TOTAL|DO\s+SINAL|REMANESCENTE|DO\s+FINANCIAMENTO|PARA\s+O\s+VENDEDOR|DA\s+CORRETAGEM)(?:\s+POR\s+EXTENSO)?)?\s*\])/gi,
+    "$1"
+  );
+
+  // BUG 5 — "imóvel:" literal antes de placeholder de descrição
+  out = out.replace(
+    /(?:im[óo]vel)\s*:\s*(\{\{\s*imovel_descricao\s*\}\})/gi,
+    "$1"
+  );
+  out = out.replace(
+    /(?:im[óo]vel)\s*:\s*(\[\s*DESCRI[ÇC][ÃA]O(?:\s+COMPLETA)?\s+DO\s+IM[ÓO]VEL\s*\])/gi,
+    "$1"
+  );
+
+  return out;
+}
+
+/**
+ * Helper de conveniência: pré-processa o template (resolve condicionais
+ * e remove prefixos literais redundantes) para que tanto
+ * `replacePlaceholders` quanto `getUnresolvedPlaceholders` recebam
+ * exatamente o mesmo texto base e não divirjam.
  */
 export function preprocessTemplate(
   text: string,
   vars: Record<string, string>
 ): string {
-  return stripConditionalBlocks(text, vars);
+  const stripped = stripConditionalBlocks(text, vars);
+  return stripRedundantPrefixes(stripped);
 }
 
 export interface ReplaceOptions {
