@@ -34,3 +34,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generic .tmp files (Strategy 3 protocol — audit-before-commit)
+*.tmp
