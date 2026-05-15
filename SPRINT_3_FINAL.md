@@ -1,6 +1,7 @@
 # 🏆 SPRINT 3 — FINAL
 
 **Data de fechamento:** 13/05/2026
+**Validação real em produção:** 14/05/2026 (ver Adendo)
 **Projeto:** Contract Genius AI (meucontratoonline-aade1c88)
 **Fundador:** Dimmy Carter (Zix Pay, BH/MG)
 **Stack:** Vite + React + TypeScript + Tailwind + Supabase + Bun (Windows)
@@ -12,12 +13,13 @@
 
 ```
 ✅ Sprint 3 fechada com 7/7 BUGs originais resolvidos (100%)
-✅ Commit 867aa5b aplicado no GitHub origin/main
+✅ Commit 867aa5b (fix) + f730ff0 (docs) aplicados no GitHub origin/main
 ✅ Vitest: 148/148 verde (39 testes novos adicionados)
 ✅ TypeScript: 0 erros
-✅ Validação visual em produção: BUGs 2 e 5 ausentes no contrato real
+✅ Validação visual em LOCALHOST (13/05): BUGs 2 e 5 ausentes no contrato gerado
+✅ Validação visual em PRODUÇÃO (14/05): confirmada em meucontratoonline.lovable.app — ver Adendo
 🏆 PRIMEIRA sprint do projeto a atingir 100% dos BUGs originais
-🏆 19º commit técnico do Contract Genius AI
+🏆 19º + 20º commit técnico do Contract Genius AI
 ```
 
 ---
@@ -173,7 +175,7 @@ Esse aprendizado entra como **princípio engenheirado #4**.
 
 ---
 
-## ✅ VALIDAÇÃO VISUAL EM PRODUÇÃO
+## ✅ VALIDAÇÃO VISUAL EM LOCALHOST (13/05/2026)
 
 ### Cenário utilizado (handoff Sprint 2 padronizado)
 
@@ -193,7 +195,7 @@ Esse aprendizado entra como **princípio engenheirado #4**.
 | Template | `CONTRATO_AVISTA_EM_BRANCO` |
 | Tenant | Andreia Souza (`5200928d-76c6-4ded-85f6-82b9f2b2335a`) |
 
-### ✅ BUG 2 (R$ R$) — Eliminado
+### ✅ BUG 2 (R$ R$) — Eliminado em localhost
 
 **5/5 valores monetários** renderizados sem duplicação:
 
@@ -205,13 +207,16 @@ Esse aprendizado entra como **princípio engenheirado #4**.
 | Cláusula 4, parágrafo 1º | `R$ 81,90` ✅ |
 | Cláusula 7 (corretagem) | `R$ 7.000,00` ✅ |
 
-### ✅ BUG 5 (imóvel: Imóvel:) — Eliminado
+### ✅ BUG 5 (imóvel: Imóvel:) — Eliminado em localhost
 
 Cláusula Primeira renderizada corretamente:
 
 > *"Constitui objeto de compra e venda deste contrato o **Imóvel: Lote n. 13 do quarteirão n. 94 do Bairro Fernão Dias**, Dias, com área de 281,25m²..."*
 
 Aparece **apenas UMA vez** o prefixo `Imóvel:` (vindo do input do usuário). O `imóvel:` literal do template foi removido pela regex.
+
+> ⚠️ **Importante:** essa validação foi feita em `http://localhost:8080` (Vite dev server local).
+> Validação em **produção real** (lovable.app) foi feita em **14/05/2026** — ver Adendo no final do documento.
 
 ---
 
@@ -236,6 +241,8 @@ A Sprint 3 validou em produção 6 princípios que ficam como **doutrina do proj
 
 6. **"Check twice, act once"**
    → Após pausas longas, sempre re-validar estado antes de agir.
+
+> 🆕 **Princípios #7, #8 e #9** foram adicionados em 14/05/2026 após validação em produção — ver Adendo.
 
 ---
 
@@ -291,6 +298,11 @@ Configurado **DNS Cloudflare** permanentemente na interface Wi-Fi:
 
 Caminho usado: Painel de Controle → Conexões de Rede → Wi-Fi → Propriedades → Protocolo IP Versão 4 (TCP/IPv4) → Propriedades → "Usar os seguintes endereços de servidor DNS".
 
+> ⚠️ **Update 14/05/2026:** Este incidente **se repetiu** na manhã seguinte após reboot do PC.
+> A configuração de DNS via `Set-DnsClientServerAddress` no PowerShell **não persiste** após reboot
+> quando interface Wi-Fi usa DHCP — o roteador sobrescreve com DNS do ISP no reconnect.
+> Ver Adendo para detalhes da segunda ocorrência e solução definitiva.
+
 ### Items críticos para Sprint 4 derivados deste incidente
 
 **Frente B — Robustez operacional:**
@@ -305,7 +317,7 @@ Caminho usado: Painel de Controle → Conexões de Rede → Wi-Fi → Propriedad
 
 ---
 
-## 📊 ESTADO FINAL DO GIT
+## 📊 ESTADO FINAL DO GIT (13/05/2026)
 
 ```
 HEAD:     867aa5b fix(sprint-3): elimina duplicação R$ R$ e imóvel: Imóvel: no render
@@ -387,6 +399,9 @@ Esta Sprint estabelece **3 marcos** na história do Contract Genius AI:
 3. **Frente D** (Supabase Pro) — decisão de produto, paralela ao código
 4. **Frente C** (backlog) — quando sobrar tempo
 
+> 🆕 **Update 14/05/2026:** Após validação em produção, novos itens críticos foram identificados.
+> Backlog Sprint 4 foi ATUALIZADO no Adendo no final deste documento.
+
 ### Decisões pendentes (não-técnicas)
 
 - Quando contratar primeiro dev junior? (handoff para onboarding usaria Sprint 1-3 docs)
@@ -395,9 +410,9 @@ Esta Sprint estabelece **3 marcos** na história do Contract Genius AI:
 
 ---
 
-## 📎 ANEXO A — Contrato gerado completo (auditoria máxima)
+## 📎 ANEXO A — Contrato gerado em localhost (auditoria máxima)
 
-Contrato real gerado em 13/05/2026 após aplicação do commit `867aa5b`, usando o cenário padrão do handoff Sprint 2 e o tenant da imobiliária Andreia (`5200928d-76c6-4ded-85f6-82b9f2b2335a`). Documento preservado **exatamente como saiu do render** — incluindo resíduos identificados que vão para Sprint 4.
+Contrato real gerado em 13/05/2026 após aplicação do commit `867aa5b`, usando o cenário padrão do handoff Sprint 2 e o tenant da imobiliária Andreia (`5200928d-76c6-4ded-85f6-82b9f2b2335a`), em `http://localhost:8080`. Documento preservado **exatamente como saiu do render** — incluindo resíduos identificados que vão para Sprint 4.
 
 ---
 
@@ -577,3 +592,290 @@ A Sprint 3 marca a transição do projeto Contract Genius AI de **fase de corre�
 **Próxima ação:** definir prioridade da Sprint 4 e início do trabalho.
 
 🏆 **Sprint 3 fechada — 7/7 BUGs (100%) — 13/05/2026.**
+
+---
+
+---
+
+# 🔄 ADENDO — Validação Real em Produção (14/05/2026)
+
+> Esta seção foi adicionada em **14/05/2026** registrando a validação visual em **produção real**
+> (`meucontratoonline.lovable.app`), que **não havia sido feita** em 13/05/2026.
+
+## 🎯 RESUMO DO ADENDO
+
+```
+✅ Sprint 3 fechada 100% END-TO-END em produção pública
+✅ BUGs 2 e 5 confirmados ausentes em meucontratoonline.lovable.app
+✅ Hipótese A do RETOMADA.md CONFIRMADA: Lovable não faz auto-deploy on push
+✅ Princípio Engenheirado #7 validado em campo — salvou Andreia
+🆕 3 novos princípios engenheirados (#7, #8, #9) registrados
+🆕 Backlog Sprint 4 reorganizado com prioridades atualizadas
+```
+
+---
+
+## 📜 CONTEXTO — Por que este Adendo existe
+
+Em 13/05/2026 (fechamento da Sprint 3), declaramos a Sprint como "fechada 100%" baseado em:
+- ✅ Testes 148/148 verde
+- ✅ Validação visual em **localhost** (Vite dev server)
+- ✅ Push para GitHub aplicado
+
+Mas após o `git push`, fizemos um **smoke test em produção** (`meucontratoonline.lovable.app`) e descobrimos que **os BUGs 2 e 5 AINDA APARECIAM** no contrato gerado real.
+
+Documentamos isso no `RETOMADA.md` com **3 hipóteses** ativas:
+- **Hipótese A:** Deploy Lovable não aplicou
+- **Hipótese B:** Cache de browser/CDN
+- **Hipótese C:** Fix não funciona em runtime real
+
+Este Adendo registra o **diagnóstico final**, a **correção aplicada**, e as **lições aprendidas**.
+
+---
+
+## 🔬 INVESTIGAÇÃO (14/05/2026 manhã)
+
+### Passo 1 — Teste em localhost (refuta Hipótese C)
+
+Geramos contrato em `http://localhost:8080` com cenário Andreia padrão (após reboot, com Vite reiniciado, hard refresh).
+
+**Resultado:**
+- ✅ `R$ R$` AUSENTE em todos os 5 valores monetários
+- ✅ `imóvel: Imóvel:` AUSENTE na Cláusula 1
+
+**Conclusão:** Fix funciona perfeitamente em runtime → **Hipótese C REFUTADA**.
+
+### Passo 2 — Investigação do Lovable (analisa Hipótese A)
+
+Abrimos `https://lovable.dev/` → projeto `meucontratoonline-aade1c88`.
+
+**Observações:**
+- ✅ Painel esquerdo mostra os 2 commits sincronizados (`867aa5b` + `f730ff0`)
+- ✅ Lovable detecta o GitHub corretamente
+- 🟡 Header dizia "Previewing last saved version" — diferente de "Live"
+- 🚨 Botão **"Publish"** azul no canto superior direito
+
+Clicamos em "Publish" → modal mostrou:
+- Status: **"Published"** com URL `meucontratoonline.lovable.app`
+- Botão principal: **"Up to date"** (roxo claro)
+
+Clicamos no botão **"Up to date"** — provavelmente disparou redeploy da versão atual.
+
+### Passo 3 — Re-validação em produção
+
+Após o clique em "Up to date":
+
+1. Janela anônima (`Ctrl + Shift + N`)
+2. `https://meucontratoonline.lovable.app/login`
+3. Login `dimmycarter@gmail.com`
+4. Cenário Andreia padrão
+5. Gerou contrato
+
+**Resultado:** ✅ **PRODUÇÃO LIMPA!**
+
+### Comparação cruzada — ANTES vs. DEPOIS
+
+| Trecho | Ontem (Produção) | Hoje (Produção) | Status |
+|---|---|---|---|
+| Cláusula 2 caput | `R$ R$ 350.000,00` ❌ | `R$ 350.000,00` ✅ | **CORRIGIDO** |
+| Cláusula 2 item 2.1 | `R$ R$ 35.000,00` ❌ | `R$ 35.000,00` ✅ | **CORRIGIDO** |
+| Cláusula 4 §1º | (não testado) | `R$ 81,90` ✅ | **CONFIRMADO LIMPO** |
+| Cláusula 7 corretagem | `R$ R$ 7.000,00` ❌ | `R$ 7.000,00` ✅ | **CORRIGIDO** |
+| Cláusula 1 imóvel | `imóvel: Imóvel: Lote...` ❌ | `Imóvel: Lote...` ✅ | **CORRIGIDO** |
+
+**Conclusão:** 🎯 **Hipótese A CONFIRMADA** — Lovable NÃO faz auto-deploy on git push. O botão "Publish" / "Up to date" precisa ser clicado manualmente para que a URL pública seja atualizada.
+
+---
+
+## 🚨 DESCOBERTA OPERACIONAL CRÍTICA — Lovable não tem CI/CD automático
+
+### O problema arquitetural
+
+Esperávamos o workflow padrão de SaaS moderno:
+```
+git push origin main  →  CI build automático  →  Deploy em produção  →  URL pública atualizada
+```
+
+**Mas no Lovable, o workflow real é:**
+```
+git push origin main  →  Lovable sincroniza repo  →  ❌ PARA AQUI sem deploy
+                                                  ↓
+                                  Você precisa clicar "Publish" manualmente
+                                                  ↓
+                                  Produção pública atualizada
+```
+
+### Implicações para o produto
+
+1. **Cada Sprint** vai exigir **clique manual** no botão "Publish" do Lovable
+2. **Esquecer de clicar** = produção desatualizada (foi o que aconteceu em 13/05)
+3. **Hotfix urgente** com cliente real = depende de ter acesso ao Lovable + clicar
+4. **CI/CD profissional** (com staging, rollback automático, etc.) não é nativo
+
+### Decisão estratégica para Sprint 4 (Frente D — UPGRADE de prioridade)
+
+> ⚠️ **AVALIAR MIGRAÇÃO DE PLATAFORMA DE DEPLOY antes do primeiro cliente pagante real.**
+>
+> Opções:
+> - **Vercel** (Vite + React nativo, auto-deploy on push, preview branches)
+> - **Netlify** (similar, integração GitHub robusta)
+> - **Cloudflare Pages** (já temos DNS Cloudflare configurado)
+>
+> Critérios de decisão:
+> - ✅ Auto-deploy automático on `git push`
+> - ✅ Rollback fácil (1 clique)
+> - ✅ Preview deploys por branch (testes antes de merge)
+> - ✅ Logs de build acessíveis
+> - ✅ Suporte a custom domain (`app.zixpay.com.br`)
+>
+> **Decisão:** Sprint 4 ou Sprint 5, antes da Andreia entrar em produção real.
+
+---
+
+## 🚨 SEGUNDO INCIDENTE DE DNS (14/05 manhã)
+
+### Sintoma
+Ao tentar logar em produção pela manhã (após reboot do PC):
+- `Failed to fetch` na tela de login
+- DNS local com timeout para `ahewugbsgddrvggsllmt.supabase.co`
+
+### Diagnóstico
+```powershell
+Get-DnsClientServerAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4
+# Output: ServerAddresses : {181.213.132.8, 181.213.132.9}  ← DNS do ISP, não Cloudflare!
+```
+
+**Causa-raiz confirmada:** A configuração `Set-DnsClientServerAddress` aplicada em 13/05 **foi perdida no reboot**. Quando o Wi-Fi reconectou, o DHCP do roteador sobrescreveu o DNS estático com o DNS do ISP.
+
+### Solução aplicada (mesma de ontem, mas reaplicada)
+```powershell
+Set-DnsClientServerAddress -InterfaceAlias "Wi-Fi" -ServerAddresses ("1.1.1.1","1.0.0.1","8.8.8.8")
+ipconfig /flushdns
+```
+
+### Solução definitiva (pendente, vai para Sprint 4)
+**A solução via PowerShell NÃO é robusta o suficiente.** Cada reboot vai exigir reaplicação.
+
+Alternativas mais robustas:
+- **(a)** Configurar DNS via UI gráfica (`ncpa.cpl` → Wi-Fi → Propriedades → IPv4 → DNS estático) — persiste no registry
+- **(b)** Configurar DNS no roteador (afeta toda rede, mais permanente)
+- **(c)** App detectar erro de rede e mostrar tela amigável (não pode "Failed to fetch" cru)
+
+---
+
+## 🆕 NOVOS PRINCÍPIOS ENGENHEIRADOS REGISTRADOS
+
+### Princípio #7 — Validação em Produção
+> *"Sprint não está fechada até validação visual em PRODUÇÃO REAL com contrato GERADO.*
+> *Print de formulário preenchido NÃO é validação.*
+> *Print de contrato gerado em localhost é gate intermediário.*
+> *Print de contrato gerado em produção pública é o ÚNICO gate final."*
+
+**Validado em campo:** sem este princípio, Sprint 3 teria sido declarada fechada com produção quebrada. Andreia (cliente real) teria descoberto os BUGs antes de nós.
+
+### Princípio #8 — Reconhecer Fadiga
+> *"Reconhecer fadiga = decisão de engenharia, não fraqueza.*
+> *Forçar trabalho técnico após 6+ horas aumenta probabilidade de bug pior.*
+> *Documentar estado e descansar é parte do protocolo profissional."*
+
+**Validado em campo:** em 13/05 às 19h, parar e gerar `RETOMADA.md` (em vez de tentar debugar produção cansado) economizou ~2h de retrabalho em 14/05 com cabeça fresca.
+
+### Princípio #9 — DNS Frágil no Windows
+> *"DNS configurado via `Set-DnsClientServerAddress` no PowerShell NÃO persiste após reboot quando interface Wi-Fi usa DHCP.*
+> *Solução robusta requer:*
+> *(a) Configuração via UI gráfica (`ncpa.cpl`), OU*
+> *(b) Configuração no roteador, OU*
+> *(c) App resiliente a falhas de DNS (health-check + retry + mensagem amigável)."*
+
+**Validado em campo:** 2 incidentes em 2 dias com mesmo padrão. Padrão confirmado, não aleatório.
+
+---
+
+## 🚀 BACKLOG SPRINT 4 ATUALIZADO (14/05/2026)
+
+### 🔴 PRIORIDADE 1 — Robustez Operacional (Frente B EXPANDIDA)
+
+Após 2 incidentes DNS em 2 dias e descoberta do gap de auto-deploy do Lovable, esta frente sobe para **prioridade máxima**:
+
+- [ ] **🚨 Health check no boot do app** (detecta falha de conexão Supabase, mostra mensagem amigável)
+- [ ] **🚨 Tela amigável de erro de rede** (substituir "Failed to fetch" cru por mensagem traduzida + botão "Tentar novamente")
+- [ ] **🚨 Guard Zod para variáveis de ambiente** (falhar com mensagem clara se faltar `VITE_SUPABASE_URL`)
+- [ ] **🆕 Documentar workflow "git push → clicar Publish no Lovable"** no README.md
+- [ ] **🆕 Documentar DNS Cloudflare 1.1.1.1 como requisito de dev** no README.md
+- [ ] **🆕 Configurar DNS via UI gráfica permanentemente** (uma vez só, mas registrar no protocolo operacional)
+
+### 🟡 PRIORIDADE 2 — Resíduos de placeholders (Frente A)
+
+Descobertos na auditoria do Anexo A (contrato gerado em localhost):
+
+- [ ] Substantivo órfão pós-vírgula (`Bairro Fernão Dias, Dias,`)
+- [ ] Vírgulas órfãs em cascata (`nº , inscrito(a) no CPF sob o nº ,`)
+- [ ] Pontos órfãos pós-espaço (`sob o nº .`)
+- [ ] Intermediadora vazia residual no render
+
+### 🟡 PRIORIDADE 3 — Resíduos novos descobertos em 14/05
+
+Encontrados no contrato gerado em produção (não estavam no Anexo A):
+
+- [ ] Label `Cidade/UF:` vazando na Cláusula 11 (foro) e área de assinatura
+- [ ] Label `Nome:` vazando nas linhas dos signatários
+- [ ] Datas vazias na área de assinatura (`de de .`)
+
+**Hipótese:** alteração de template entre 13/05 e 14/05 (possivelmente via Lovable Editor que reverteu para sintaxe legacy). Investigar antes de fixar.
+
+### 🔴 PRIORIDADE 4 — Decisão estratégica de go-to-market (Frente D)
+
+- [ ] **🚨 Upgrade Supabase Free → Pro (US$ 25/mês) ANTES do primeiro cliente pagante**
+- [ ] **🆕 AVALIAR migração de Lovable para Vercel/Netlify/Cloudflare Pages**
+  - Critério: auto-deploy on push, preview branches, rollback fácil
+  - Custo: zero (todos têm tier gratuito generoso)
+  - Benefício: workflow profissional, sem dependência de clique manual
+
+### 🟢 PRIORIDADE 5 — Backlog já listado (Frente C)
+
+- [ ] HTML interleaved entre `R$` e `{{}}/[]`
+- [ ] NBSP literal entre `R$` e placeholder em `.docx`
+- [ ] Refactor `autoFillDados` (4 ocorrências `.filter(Boolean).join` inline)
+- [ ] Sprint Limpeza: `git filter-repo` + remover `.env` do histórico
+
+---
+
+## 🏆 STATUS FINAL DA SPRINT 3 — 100% END-TO-END
+
+```
+✅ Código aplicado e validado em testes (148/148 verde)
+✅ Commits aplicados no GitHub (867aa5b + f730ff0)
+✅ Validação em localhost (13/05/2026) — Anexo A
+✅ Validação em PRODUÇÃO REAL (14/05/2026) — este Adendo
+✅ Workflow Lovable mapeado e documentado
+✅ 2 incidentes operacionais resolvidos e registrados
+✅ Backlog Sprint 4 reorganizado com prioridades atualizadas
+✅ 3 novos princípios engenheirados consolidados (#7, #8, #9)
+
+🏆 SPRINT 3 — 7/7 BUGs (100%) — FECHADA E VALIDADA EM PRODUÇÃO REAL
+🏆 PRIMEIRA Sprint do projeto a passar pelo ciclo completo:
+   código → testes → docs → localhost → produção → adendo histórico
+```
+
+---
+
+## 🎓 META-LIÇÃO PARA O PROJETO
+
+Esta Sprint não fechou em 1 dia, mas em **2 dias com pausa estratégica**. Isso revela algo importante para o protocolo do projeto:
+
+**Sprint = ciclo completo, não evento único.**
+
+Quando declaramos "Sprint 3 fechada" em 13/05 às 19h, estávamos prematuros. O ciclo completo incluía:
+1. Código + testes ✅ (13/05)
+2. Documentação ✅ (13/05)
+3. Validação localhost ✅ (13/05)
+4. Smoke test produção 🚨 (13/05 — descobriu gap)
+5. Validação produção real ✅ (14/05)
+6. Adendo histórico ✅ (14/05)
+
+**Sprint 4 vai começar com essa consciência:** o gate de fechamento é o **passo 6**, não o **passo 3**.
+
+---
+
+🏆 **Sprint 3 — Definitivamente Fechada em 14/05/2026.**
+🚀 **Próxima ação:** iniciar Sprint 4 com Frente B (Robustez Operacional) em prioridade máxima.
