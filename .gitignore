@@ -35,8 +35,11 @@ dist-ssr
 *.sln
 *.sw?
 
-# Generic .tmp files (Strategy 3 protocol — audit-before-commit)
+# Generic .tmp files (Strategy 3 protocol - audit-before-commit)
 *.tmp
 
 # Sprint 4 housekeeping (25/05/2026)
 supabase/.temp/
+
+# Handoffs operacionais (Sprint 4+) - locais, nao versionados
+RETOMADA_SPRINT_*.md
