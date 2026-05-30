@@ -204,6 +204,14 @@ const NovoContrato = () => {
   // AI sub-step inside "review-data": extraction → review → data
   const [aiReviewSubStep, setAiReviewSubStep] = useState<"extraction" | "review" | "data">(draft.current?.aiReviewSubStep ?? "extraction");
 
+  // ===== Dirty flags (Épico 5) — protegem edições manuais contra rebuilds em handleNext =====
+  // Foundation: estado declarado e persistido; guards ligados nos Commits 2-4.
+  const [conteudoFinalDirty, setConteudoFinalDirty] = useState<boolean>(draft.current?.conteudoFinalDirty ?? false);
+  const [dadosDirty, setDadosDirty] = useState<Set<string>>(
+    () => new Set<string>(Array.isArray(draft.current?.dadosDirty) ? draft.current.dadosDirty : [])
+  );
+  const [aiReviewDirty, setAiReviewDirty] = useState<boolean>(draft.current?.aiReviewDirty ?? false);
+
   // Unresolved placeholders dialog — hard block apenas em Exportar PDF (Leva 3: soft removido)
   const [unresolvedDialogOpen, setUnresolvedDialogOpen] = useState(false);
 
@@ -229,12 +237,16 @@ const NovoContrato = () => {
       manualParticipants,
       participants,
       aiReviewSubStep,
+      conteudoFinalDirty,
+      dadosDirty: Array.from(dadosDirty),
+      aiReviewDirty,
     }),
     [
       flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
       conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
       compradorNome, vendedorNome, checkedDocs, manualParticipants, participants,
       aiReviewSubStep,
+      conteudoFinalDirty, dadosDirty, aiReviewDirty,
     ]
   );
 
@@ -280,6 +292,9 @@ const NovoContrato = () => {
       if (snap.manualParticipants) setManualParticipants(snap.manualParticipants);
       if (snap.participants) setParticipants(snap.participants);
       if (snap.aiReviewSubStep) setAiReviewSubStep(snap.aiReviewSubStep);
+      if (typeof snap.conteudoFinalDirty === "boolean") setConteudoFinalDirty(snap.conteudoFinalDirty);
+      if (Array.isArray(snap.dadosDirty)) setDadosDirty(new Set(snap.dadosDirty));
+      if (typeof snap.aiReviewDirty === "boolean") setAiReviewDirty(snap.aiReviewDirty);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contratoIdParam]);
@@ -307,12 +322,16 @@ const NovoContrato = () => {
     aiReviewSubStep,
     extractedData,
     manualParticipants,
+    conteudoFinalDirty,
+    dadosDirty: Array.from(dadosDirty),
+    aiReviewDirty,
   }), [
     flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
     conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
     compradorNome, vendedorNome,
     checkedDocs, uploadedFiles, participants, aiReviewSubStep, extractedData,
     manualParticipants,
+    conteudoFinalDirty, dadosDirty, aiReviewDirty,
   ]);
 
   // Persist state to localStorage with debounce
