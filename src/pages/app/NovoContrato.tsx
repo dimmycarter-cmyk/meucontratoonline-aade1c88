@@ -26,7 +26,12 @@ import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate } fr
 import { enrichDados } from "@/lib/contract-enrichment";
 import { composeEnderecoCanonico } from "@/lib/contract-formatters";
 import { logAction } from "@/lib/audit";
-import { shouldRebuildConteudo, shouldResetDirtyOnTemplateChange } from "@/lib/wizard-dirty";
+import {
+  shouldRebuildConteudo,
+  shouldResetDirtyOnTemplateChange,
+  pickAutoFillFields,
+  diffKeys,
+} from "@/lib/wizard-dirty";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import { useToast } from "@/hooks/use-toast";
@@ -516,61 +521,67 @@ const NovoContrato = () => {
     c.nome_fantasia.toLowerCase().includes(searchCompanies.toLowerCase())
   );
 
-  // Auto-fill dados from manualParticipants and company (manual mode)
+  // Auto-fill dados from manualParticipants and company (manual mode).
+  // Pattern: coleta candidatos → filtra dirty → merge sobre prev.
+  // Bug B (Épico 5): chaves marcadas como editadas pelo usuário em dadosDirty
+  // são puladas pelo pickAutoFillFields, preservando o trabalho manual.
   const autoFillDados = useCallback(() => {
-    const filled: Record<string, string> = { ...dados };
+    const candidates: Record<string, string> = {};
+    const add = (key: string, value: string | undefined | null) => {
+      if (value && String(value).trim()) candidates[key] = String(value);
+    };
 
-    // Map manual participants to dados
     for (const mp of manualParticipants) {
       const prefix = mp.role + "_";
-      if (mp.nome) filled[prefix + "nome"] = mp.nome;
-      if (mp.cpf) filled[prefix + "cpf"] = mp.cpf;
-      if (mp.rg) filled[prefix + "rg"] = mp.rg;
-      if (mp.orgao_expedidor) filled[prefix + "orgao_expedidor"] = mp.orgao_expedidor;
-      if (mp.profissao) filled[prefix + "profissao"] = mp.profissao;
-      if (mp.nacionalidade) filled[prefix + "nacionalidade"] = mp.nacionalidade;
-      if (mp.estado_civil) filled[prefix + "estado_civil"] = mp.estado_civil;
-      if (mp.email) filled[prefix + "email"] = mp.email;
-      if (mp.whatsapp) filled[prefix + "whatsapp"] = mp.whatsapp;
+      add(prefix + "nome", mp.nome);
+      add(prefix + "cpf", mp.cpf);
+      add(prefix + "rg", mp.rg);
+      add(prefix + "orgao_expedidor", mp.orgao_expedidor);
+      add(prefix + "profissao", mp.profissao);
+      add(prefix + "nacionalidade", mp.nacionalidade);
+      add(prefix + "estado_civil", mp.estado_civil);
+      add(prefix + "email", mp.email);
+      add(prefix + "whatsapp", mp.whatsapp);
       const endParts = [mp.rua, mp.numero, mp.complemento, mp.bairro, mp.cidade, mp.estado, mp.cep].filter(Boolean).join(", ");
-      if (endParts) filled[prefix + "endereco"] = endParts;
+      add(prefix + "endereco", endParts);
     }
 
     // Legacy: also fill from selected contacts (backward compat)
     if (comprador) {
-      if (comprador.nome) filled.comprador_nome = comprador.nome;
-      if (comprador.cpf) filled.comprador_cpf = comprador.cpf;
-      if (comprador.rg) filled.comprador_rg = comprador.rg;
-      if (comprador.orgao_expedidor) filled.comprador_orgao_expedidor = comprador.orgao_expedidor;
-      if (comprador.profissao) filled.comprador_profissao = comprador.profissao;
-      if (comprador.nacionalidade) filled.comprador_nacionalidade = comprador.nacionalidade;
-      if (comprador.estado_civil) filled.comprador_estado_civil = comprador.estado_civil;
-      if (comprador.email) filled.comprador_email = comprador.email;
-      if (comprador.whatsapp) filled.comprador_whatsapp = comprador.whatsapp;
+      add("comprador_nome", comprador.nome);
+      add("comprador_cpf", comprador.cpf);
+      add("comprador_rg", comprador.rg);
+      add("comprador_orgao_expedidor", comprador.orgao_expedidor);
+      add("comprador_profissao", comprador.profissao);
+      add("comprador_nacionalidade", comprador.nacionalidade);
+      add("comprador_estado_civil", comprador.estado_civil);
+      add("comprador_email", comprador.email);
+      add("comprador_whatsapp", comprador.whatsapp);
       const endComprador = [comprador.rua, comprador.numero, comprador.complemento, comprador.bairro, comprador.cidade, comprador.estado, comprador.cep].filter(Boolean).join(", ");
-      if (endComprador) filled.comprador_endereco = endComprador;
+      add("comprador_endereco", endComprador);
     }
     if (vendedor) {
-      if (vendedor.nome) filled.vendedor_nome = vendedor.nome;
-      if (vendedor.cpf) filled.vendedor_cpf = vendedor.cpf;
-      if (vendedor.rg) filled.vendedor_rg = vendedor.rg;
-      if (vendedor.orgao_expedidor) filled.vendedor_orgao_expedidor = vendedor.orgao_expedidor;
-      if (vendedor.profissao) filled.vendedor_profissao = vendedor.profissao;
-      if (vendedor.nacionalidade) filled.vendedor_nacionalidade = vendedor.nacionalidade;
-      if (vendedor.estado_civil) filled.vendedor_estado_civil = vendedor.estado_civil;
-      if (vendedor.email) filled.vendedor_email = vendedor.email;
-      if (vendedor.whatsapp) filled.vendedor_whatsapp = vendedor.whatsapp;
+      add("vendedor_nome", vendedor.nome);
+      add("vendedor_cpf", vendedor.cpf);
+      add("vendedor_rg", vendedor.rg);
+      add("vendedor_orgao_expedidor", vendedor.orgao_expedidor);
+      add("vendedor_profissao", vendedor.profissao);
+      add("vendedor_nacionalidade", vendedor.nacionalidade);
+      add("vendedor_estado_civil", vendedor.estado_civil);
+      add("vendedor_email", vendedor.email);
+      add("vendedor_whatsapp", vendedor.whatsapp);
       const endVendedor = [vendedor.rua, vendedor.numero, vendedor.complemento, vendedor.bairro, vendedor.cidade, vendedor.estado, vendedor.cep].filter(Boolean).join(", ");
-      if (endVendedor) filled.vendedor_endereco = endVendedor;
+      add("vendedor_endereco", endVendedor);
     }
     if (empresa) {
-      if (empresa.nome_fantasia) filled.empresa_nome = empresa.nome_fantasia;
-      if (empresa.cnpj) filled.empresa_cnpj = empresa.cnpj;
+      add("empresa_nome", empresa.nome_fantasia);
+      add("empresa_cnpj", empresa.cnpj);
       const endEmpresa = [empresa.rua, empresa.numero, empresa.complemento, empresa.bairro, empresa.cidade, empresa.estado, empresa.cep].filter(Boolean).join(", ");
-      if (endEmpresa) filled.empresa_endereco = endEmpresa;
+      add("empresa_endereco", endEmpresa);
     }
-    setDados(filled);
-  }, [comprador, vendedor, empresa, dados, manualParticipants]);
+
+    setDados((prev) => ({ ...prev, ...pickAutoFillFields(candidates, dadosDirty) }));
+  }, [comprador, vendedor, empresa, manualParticipants, dadosDirty]);
 
   // Build final content
   // Aplica enrichDados antes de preprocessTemplate/replacePlaceholders para que
@@ -598,6 +609,27 @@ const NovoContrato = () => {
     }
     setSelectedTemplateId(nextId);
   }, [selectedTemplateId]);
+
+  // === Wrapper para dirty flag do Épico 5 (Bug B — dados editados) ===
+  // Aceita o mesmo signature de setDados (valor direto ou updater function).
+  // Calcula diff entre prev e next e marca as chaves alteradas como dirty.
+  const handleDadoChange = useCallback(
+    (next: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
+      setDados((prev) => {
+        const nextValue = typeof next === "function" ? next(prev) : next;
+        const changed = diffKeys(prev, nextValue);
+        if (changed.length > 0) {
+          setDadosDirty((dirtyPrev) => {
+            const dirtyNext = new Set(dirtyPrev);
+            for (const k of changed) dirtyNext.add(k);
+            return dirtyNext;
+          });
+        }
+        return nextValue;
+      });
+    },
+    []
+  );
 
   // AI flow: add participant
   const handleAddParticipant = (role: ParticipantRole) => {
@@ -1458,7 +1490,7 @@ const NovoContrato = () => {
                           <Label className="mb-1 text-xs text-muted-foreground">{v.label}</Label>
                           <Input
                             value={dados[v.key] || ""}
-                            onChange={(e) => setDados((prev) => ({ ...prev, [v.key]: e.target.value }))}
+                            onChange={(e) => handleDadoChange((prev) => ({ ...prev, [v.key]: e.target.value }))}
                             placeholder={v.label}
                           />
                         </div>
@@ -1481,7 +1513,7 @@ const NovoContrato = () => {
             contacts={contacts}
             flags={{ tem_procurador: dados.tem_procurador === "true" }}
             onFlagChange={(key, value) =>
-              setDados((prev) => ({ ...prev, [key]: value ? "true" : "false" }))
+              handleDadoChange((prev) => ({ ...prev, [key]: value ? "true" : "false" }))
             }
           />
 
@@ -1526,11 +1558,11 @@ const NovoContrato = () => {
 
             <FixedDataFields
               dados={dados}
-              onChange={setDados}
+              onChange={handleDadoChange}
               manualParticipants={manualParticipants}
             />
 
-            <ParcelasManager dados={dados} onChange={setDados} />
+            <ParcelasManager dados={dados} onChange={handleDadoChange} />
           </div>
 
           {/* Clauses section */}
