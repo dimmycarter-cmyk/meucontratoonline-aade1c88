@@ -26,6 +26,7 @@ import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate } fr
 import { enrichDados } from "@/lib/contract-enrichment";
 import { composeEnderecoCanonico } from "@/lib/contract-formatters";
 import { logAction } from "@/lib/audit";
+import { shouldRebuildConteudo, shouldResetDirtyOnTemplateChange } from "@/lib/wizard-dirty";
 import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import { useToast } from "@/hooks/use-toast";
@@ -583,6 +584,21 @@ const NovoContrato = () => {
     setConteudoFinal(replacePlaceholders(processed, enrichedDados));
   }, [selectedTemplate, dados, empresa]);
 
+  // === Wrappers para dirty flags do Épico 5 (Bug A — TipTap) ===
+  // Marca conteudoFinal como editado manualmente pelo usuário (TipTap).
+  const handleConteudoChange = useCallback((html: string) => {
+    setConteudoFinal(html);
+    setConteudoFinalDirty(true);
+  }, []);
+
+  // Quando o usuário troca de template, a "base" mudou — reset de dirty.
+  const handleTemplateChange = useCallback((nextId: string | null) => {
+    if (shouldResetDirtyOnTemplateChange(selectedTemplateId, nextId)) {
+      setConteudoFinalDirty(false);
+    }
+    setSelectedTemplateId(nextId);
+  }, [selectedTemplateId]);
+
   // AI flow: add participant
   const handleAddParticipant = (role: ParticipantRole) => {
     setParticipants((prev) => [
@@ -658,9 +674,11 @@ const NovoContrato = () => {
       autoFillDados();
     }
 
-    // Before editor, build final content
+    // Before editor, build final content (apenas se conteúdo ainda não foi editado).
     if (stepId === "data-clauses" || (flowMode === "ai" && stepId === "review-data")) {
-      buildFinalContent();
+      if (shouldRebuildConteudo(conteudoFinalDirty)) {
+        buildFinalContent();
+      }
     }
 
     // AI: trigger extraction when moving from participants
@@ -1209,7 +1227,7 @@ const NovoContrato = () => {
         variaveis: [],
       });
       if (created?.id) {
-        setSelectedTemplateId(created.id);
+        handleTemplateChange(created.id);
       }
       setShowCreateTemplate(false);
       setNewTemplateName("");
@@ -1298,7 +1316,7 @@ const NovoContrato = () => {
                 <div className="flex gap-2">
                   <Select
                     value={selectedTemplateId || ""}
-                    onValueChange={(val) => setSelectedTemplateId(val)}
+                    onValueChange={(val) => handleTemplateChange(val)}
                   >
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Selecione um modelo..." />
@@ -1562,7 +1580,7 @@ const NovoContrato = () => {
       {currentStep?.id === "editor-finish" && (
         <WizardStepEditor
           conteudoFinal={conteudoFinal}
-          onConteudoChange={setConteudoFinal}
+          onConteudoChange={handleConteudoChange}
           liveUnresolved={liveUnresolved}
           onShowPendencias={() => setUnresolvedDialogOpen(true)}
           selectedClauses={selectedClauses}
