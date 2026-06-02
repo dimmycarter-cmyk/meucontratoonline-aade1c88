@@ -11,6 +11,11 @@ export function shouldRebuildConteudo(conteudoFinalDirty: boolean): boolean {
   return !conteudoFinalDirty;
 }
 
+/** Bug C — extractAll: só reextrai documentos quando o usuário ainda não revisou/editou. */
+export function shouldRunExtractAll(aiReviewDirty: boolean): boolean {
+  return !aiReviewDirty;
+}
+
 /** Reset de dirty quando o usuário escolhe outro template (base nova = sem edições). */
 export function shouldResetDirtyOnTemplateChange(
   prevId: string | null,

@@ -28,6 +28,7 @@ import { composeEnderecoCanonico } from "@/lib/contract-formatters";
 import { logAction } from "@/lib/audit";
 import {
   shouldRebuildConteudo,
+  shouldRunExtractAll,
   shouldResetDirtyOnTemplateChange,
   pickAutoFillFields,
   diffKeys,
@@ -631,6 +632,17 @@ const NovoContrato = () => {
     []
   );
 
+  // === Wrapper para dirty flag do Épico 5 (Bug C — revisão IA editada) ===
+  // Marca aiReviewDirty quando o usuário corrige um campo extraído, para que
+  // handleNext não re-dispare extractAll e descarte a revisão manual.
+  const handleAiReviewChange = useCallback(
+    (participantId: string, fieldKey: string, value: string) => {
+      setAiReviewDirty(true);
+      updateField(participantId, fieldKey, value);
+    },
+    [updateField]
+  );
+
   // AI flow: add participant
   const handleAddParticipant = (role: ParticipantRole) => {
     setParticipants((prev) => [
@@ -715,7 +727,10 @@ const NovoContrato = () => {
 
     // AI: trigger extraction when moving from participants
     if (flowMode === "ai" && stepId === "participants") {
-      extractAll(participants);
+      // Bug C: só reextrai se o usuário ainda não revisou/editou os dados da IA.
+      if (shouldRunExtractAll(aiReviewDirty)) {
+        extractAll(participants);
+      }
       setAiReviewSubStep("extraction");
     }
 
@@ -726,10 +741,13 @@ const NovoContrato = () => {
         return;
       }
       if (aiReviewSubStep === "review") {
+        // collect: dados mapeados da extração da IA
         const aiDados = mapToDados();
-        // Only merge AI data if there's actual extracted data to avoid wiping existing dados
-        if (Object.keys(aiDados).length > 0) {
-          setDados((prev) => ({ ...prev, ...aiDados }));
+        // filter: remove chaves que o usuário editou manualmente (dadosDirty)
+        const aiDadosSafe = pickAutoFillFields(aiDados, dadosDirty);
+        // merge: aplica só o que não pisa em edição manual
+        if (Object.keys(aiDadosSafe).length > 0) {
+          setDados((prev) => ({ ...prev, ...aiDadosSafe }));
         }
         setAiReviewSubStep("data");
         return;
@@ -1462,7 +1480,7 @@ const NovoContrato = () => {
           {aiReviewSubStep === "review" && (
             <ExtractedDataReview
               participantsData={extractedData}
-              onUpdateField={updateField}
+              onUpdateField={handleAiReviewChange}
             />
           )}
 
