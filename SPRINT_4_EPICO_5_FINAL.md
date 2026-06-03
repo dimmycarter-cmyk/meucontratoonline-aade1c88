@@ -1,11 +1,13 @@
 # 🏆 SPRINT 4 - ÉPICO 5 FINAL: DIRTY FLAGS (3/3 BUGS P0)
 
-**Status:** ÉPICO 5 FECHADO 3/3 ✅
-**Período:** 29/05/2026 a 02/06/2026
-**Foundation:** 3/3 ATIVA
-**Bugs P0 resolvidos:** 3 de 3 (100%)
+**Status:** ÉPICO 5 FECHADO + VALIDADO E2E ✅
+**Versão:** v2 (definitiva)
+**Período (código):** 29/05/2026 a 02/06/2026
+**Período (validação):** 03/06/2026 (manhã)
+**Foundation:** 3/3 ATIVA em produção
+**Bugs P0 resolvidos:** 3 de 3 (100% + validados em produção)
 **Testes:** 174/174 passing
-**Validação E2E:** PENDENTE (FASE 4)
+**Validação E2E:** ✅ CONCLUÍDA EM PRODUÇÃO (03/06/2026)
 
 ---
 
@@ -188,14 +190,104 @@ Apos validacao E2E Andreia bem-sucedida:
 - Voltar etapa + avancar
 - Verificar edicao preservada
 
-### Aprovacao final v1
+### Aprovacao final v2 (definitiva)
 
-EPICO 5 FECHADO 3/3
-Data: 02/06/2026
-HEAD: 677cdb0
-Testes: 174/174 passing
-Foundation: 3/3 ATIVA
+EPICO 5 FECHADO + VALIDADO EM PRODUCAO 3/3
+Data codigo: 02/06/2026
+Data validacao E2E: 03/06/2026
+HEAD apos doc: 003898e (plano EPICO 6 publicado)
+Testes Vitest: 174/174 passing
+Foundation dirty flags: 3/3 ATIVA em producao
+Validacao E2E: COMPLETA (ver Secao 6)
 
-Status: PRONTO PARA VALIDACAO E2E
+Status: EPICO 5 OFICIALMENTE FECHADO
+
+---
+
+## 6. VALIDACAO E2E EM PRODUCAO (03/06/2026)
+
+### Contexto
+
+Apos EPICO 5 fechado em codigo (02/06/2026) e doc v1 publicado,
+validacao end-to-end foi executada na URL de producao
+meucontratoonline.lovable.app pelo Founder usando conta
+dimmycarter@gmail.com (Andreia Souza - tenant teste).
+
+Manutencao Supabase estava programada para as 11h Brasil
+(10h us-east-1), entao validacao foi feita na janela segura
+antes dessa hora.
+
+### Resultados dos 3 bugs
+
+#### Bug A (TipTap) - VALIDADO ✅
+
+Cenario testado:
+- Wizard ate Editor TipTap
+- Edicao distintiva no editor
+- Voltar etapa + Avancar
+- Verificar persistencia da edicao
+
+Resultado: edicao preservada. Editor TipTap NAO regenerou
+do template. Foundation conteudoFinalDirty + shouldRebuildConteudo
+operacional em producao.
+
+#### Bug B (autoFill) - VALIDADO ✅
+
+Cenario testado:
+- Wizard ate "Dados & Cláusulas"
+- Editar manualmente campo "Foro" para "Comarca de TESTE BUG B"
+- Voltar para "Partes & Docs" + Avancar
+- Verificar persistencia da edicao
+
+Resultado: "Comarca de TESTE BUG B" preservado.
+Foundation dadosDirty (Set) + shouldAutoFillField + pickAutoFillFields
+operacional em producao.
+
+#### Bug C (extractAll + AI merge) - VALIDADO ✅
+
+Cenario testado:
+- Wizard com matricula PDF anexada
+- IA processou e extraiu dados
+- Edicao distintiva: adicionado "Teste de revisão" no fim
+  da descricao do imovel
+- Voltar etapa + Avancar
+- Verificar persistencia da edicao
+
+Resultado: "Teste de revisão" preservado.
+Foundation aiReviewDirty + shouldRunExtractAll + pickAutoFillFields
+(reutilizado de Bug B) operacional em producao.
+
+### Bug NOVO detectado durante validacao
+
+Durante teste do Bug A, foi detectado bug DIFERENTE:
+- Wizard aceita multiplos vendedores (visivel em "Vendedor 2/5")
+- PDF gerado renderiza apenas 1 vendedor
+- Outros vendedores ignorados no template
+
+Escopo: NAO eh do EPICO 5 (dirty flags) nem EPICO 6 (security).
+Eh bug de RENDER/TEMPLATE.
+
+Severidade: P1 (importante mas nao critico imediato).
+
+Status: registrado no backlog Sprint 5+ (anotado em RETOMADA gitignored).
+
+Workaround temporario: cliente usa 1 vendedor por contrato.
+
+### Veredito final
+
+EPICO 5 oficialmente CONCLUIDO e VALIDADO em producao.
+
+Foundation arquitetural de dirty flags provada robusta em
+ambiente real com cliente piloto Andreia.
+
+Codigo no GitHub = comportamento real do usuario.
+Vitest 174/174 = realidade em producao.
+
+### Proximos passos
+
+Apos manutencao Supabase 11h Brasil (03/06/2026):
+- FASE 3 do EPICO 6 (Security RLS hardening)
+- Implementacao dos 3 fixes documentados em
+  docs/planejamento/05_EPICO_6_SECURITY.md
 
 ---
