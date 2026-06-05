@@ -146,6 +146,7 @@ const ManualParticipantCard = ({
       email: contact.email || "",
       nacionalidade: contact.nacionalidade || "Brasileiro(a)",
       estado_civil: contact.estado_civil || "",
+      genero: contact.genero || "",
       cep: contact.cep || "",
       rua: contact.rua || "",
       numero: contact.numero || "",
@@ -344,6 +345,21 @@ const ManualParticipantCard = ({
                   onChange={(e) => updateField("data_nascimento", e.target.value)}
                   className="h-8 text-sm"
                 />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Genero</Label>
+                <Select
+                  value={participant.genero || ""}
+                  onValueChange={(v) => updateField("genero", v)}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Masculino</SelectItem>
+                    <SelectItem value="F">Feminino</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Nacionalidade</Label>

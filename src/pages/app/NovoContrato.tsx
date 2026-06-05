@@ -26,6 +26,7 @@ import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate, exp
 import { enrichDados } from "@/lib/contract-enrichment";
 import { composeEnderecoCanonico } from "@/lib/contract-formatters";
 import { autoFillDadosFromParticipants, buildParticipantsByRole } from "@/lib/auto-fill-dados";
+import { enrichParticipantsWithAgreementL1, buildAgreementVarsL2 } from "@/lib/agreement";
 import { logAction } from "@/lib/audit";
 import {
   shouldRebuildConteudo,
@@ -589,9 +590,13 @@ const NovoContrato = () => {
     // {{#each <papel>}} lê o ARRAY de participantes direto (fonte única) e
     // roda ANTES de preprocessTemplate/replacePlaceholders — depois só restam
     // placeholders planos/compartilhados.
-    const expanded = expandEachBlocks(raw, buildParticipantsByRole(manualParticipants));
-    const processed = preprocessTemplate(expanded, enrichedDados);
-    setConteudoFinal(replacePlaceholders(processed, enrichedDados));
+    // 2.C - enriquece participantes com tokens de concordancia PT-BR
+    const byRole = buildParticipantsByRole(manualParticipants);
+    const byRoleWithAgreement = enrichParticipantsWithAgreementL1(byRole);
+    const dadosWithAgreement = { ...enrichedDados, ...buildAgreementVarsL2(byRole) };
+    const expanded = expandEachBlocks(raw, byRoleWithAgreement);
+    const processed = preprocessTemplate(expanded, dadosWithAgreement);
+    setConteudoFinal(replacePlaceholders(processed, dadosWithAgreement));
   }, [selectedTemplate, dados, empresa, manualParticipants]);
 
   // === Wrappers para dirty flags do Épico 5 (Bug A — TipTap) ===
@@ -1002,15 +1007,18 @@ const NovoContrato = () => {
       // editor (conteudoFinal) os blocos já foram expandidos por
       // buildFinalContent — re-rodar é no-op (não restam tags {{#each}}).
       const byRole = buildParticipantsByRole(manualParticipants);
+      // 2.C - enriquece participantes com tokens de concordancia PT-BR
+      const byRoleWithAgreement = enrichParticipantsWithAgreementL1(byRole);
+      const dadosWithAgreement = { ...enrichedMergedDados, ...buildAgreementVarsL2(byRole) };
 
       if (editorContent) {
-        const expanded = expandEachBlocks(editorContent, byRole);
-        const processed = preprocessTemplate(expanded, enrichedMergedDados);
-        fullContent = replacePlaceholders(processed, enrichedMergedDados);
+        const expanded = expandEachBlocks(editorContent, byRoleWithAgreement);
+        const processed = preprocessTemplate(expanded, dadosWithAgreement);
+        fullContent = replacePlaceholders(processed, dadosWithAgreement);
       } else if (templateBase) {
-        const expanded = expandEachBlocks(templateBase, byRole);
-        const processed = preprocessTemplate(expanded, enrichedMergedDados);
-        fullContent = replacePlaceholders(processed, enrichedMergedDados);
+        const expanded = expandEachBlocks(templateBase, byRoleWithAgreement);
+        const processed = preprocessTemplate(expanded, dadosWithAgreement);
+        fullContent = replacePlaceholders(processed, dadosWithAgreement);
       }
 
       // Aviso de placeholders não resolvidos (já roda sobre conteúdo pré-processado).
