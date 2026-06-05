@@ -21,7 +21,7 @@
 import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
 import type { ParticipantRole } from "@/components/contract/ParticipantCard";
 import { enrichDados, type CompanyData } from "./contract-enrichment";
-import { composeEnderecoCanonico, isValidCep } from "./contract-formatters";
+import { composeEnderecoCanonico, formatCPF, isValidCep } from "./contract-formatters";
 
 const SLOT_LIMITS: Partial<Record<ParticipantRole, number>> = {
   comprador: 2,
@@ -146,4 +146,76 @@ export function autoFillDadosFromParticipants(
     company: options.company ?? null,
     cidadeContrato: options.cidadeContrato,
   });
+}
+
+/**
+ * Mapeia o papel singular (ParticipantRole) para a chave PLURAL usada nos
+ * blocos {{#each <papel>}} do template. Só os papéis com renderização
+ * dinâmica suportada hoje. Papéis fora deste mapa são ignorados pelo loop.
+ */
+const ROLE_PLURAL: Partial<Record<ParticipantRole, string>> = {
+  vendedor: "vendedores",
+  comprador: "compradores",
+  anuente: "anuentes",
+  fiador: "fiadores",
+  testemunha: "testemunhas",
+};
+
+const asStr = (v: string | undefined | null): string => (v == null ? "" : String(v));
+
+/**
+ * Converte um participante no registro de campos consumido por
+ * `expandEachBlocks` dentro de um {{#each}}. Campos vêm já formatados
+ * (CPF mascarado, endereço composto canonicamente) e SEMPRE presentes —
+ * mesmo vazios — para que o renderer do bloco limpe pontuação órfã.
+ */
+function participantToEachItem(p: ManualParticipantData): Record<string, string> {
+  return {
+    nome: asStr(p.nome),
+    cpf: formatCPF(p.cpf),
+    rg: asStr(p.rg),
+    orgao_expedidor: asStr(p.orgao_expedidor),
+    profissao: asStr(p.profissao),
+    estado_civil: asStr(p.estado_civil),
+    nacionalidade: asStr(p.nacionalidade),
+    email: asStr(p.email),
+    whatsapp: asStr(p.whatsapp),
+    genero: asStr(p.genero),
+    data_nascimento: asStr(p.data_nascimento),
+    oab: asStr(p.oab),
+    regime_bens: asStr(p.regime_bens),
+    banco: asStr(p.banco),
+    agencia: asStr(p.agencia),
+    conta: asStr(p.conta),
+    pix: asStr(p.pix),
+    endereco: composeEnderecoCanonico({
+      rua: p.rua,
+      numero: p.numero,
+      complemento: p.complemento,
+      bairro: p.bairro,
+      cidade: p.cidade,
+      estado: p.estado,
+      cep: p.cep,
+    }),
+  };
+}
+
+/**
+ * Agrupa `manualParticipants` por papel PLURAL para alimentar os blocos
+ * {{#each <papel>}} no render. Lê o ARRAY direto (fonte única), na ordem
+ * de cadastro, pulando quem não tem nome. É o equivalente dinâmico do
+ * mapeamento por chaves planas de `autoFillDadosFromParticipants` — mas
+ * sem o limite de slots fixos (N partes por papel).
+ */
+export function buildParticipantsByRole(
+  participants: ManualParticipantData[]
+): Record<string, Array<Record<string, string>>> {
+  const byRole: Record<string, Array<Record<string, string>>> = {};
+  for (const p of participants) {
+    if (!p.nome || !p.nome.trim()) continue; // pula vazios
+    const plural = ROLE_PLURAL[p.role];
+    if (!plural) continue; // papel sem suporte a {{#each}} ainda
+    (byRole[plural] ??= []).push(participantToEachItem(p));
+  }
+  return byRole;
 }

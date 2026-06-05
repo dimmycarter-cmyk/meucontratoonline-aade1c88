@@ -22,10 +22,10 @@ import { useContracts } from "@/hooks/useContracts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
-import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
+import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate, expandEachBlocks } from "@/lib/placeholder";
 import { enrichDados } from "@/lib/contract-enrichment";
 import { composeEnderecoCanonico } from "@/lib/contract-formatters";
-import { autoFillDadosFromParticipants } from "@/lib/auto-fill-dados";
+import { autoFillDadosFromParticipants, buildParticipantsByRole } from "@/lib/auto-fill-dados";
 import { logAction } from "@/lib/audit";
 import {
   shouldRebuildConteudo,
@@ -586,9 +586,13 @@ const NovoContrato = () => {
   const buildFinalContent = useCallback(() => {
     const raw = selectedTemplate?.conteudo || "";
     const enrichedDados = enrichDados(dados, { company: empresa ?? null });
-    const processed = preprocessTemplate(raw, enrichedDados);
+    // {{#each <papel>}} lê o ARRAY de participantes direto (fonte única) e
+    // roda ANTES de preprocessTemplate/replacePlaceholders — depois só restam
+    // placeholders planos/compartilhados.
+    const expanded = expandEachBlocks(raw, buildParticipantsByRole(manualParticipants));
+    const processed = preprocessTemplate(expanded, enrichedDados);
     setConteudoFinal(replacePlaceholders(processed, enrichedDados));
-  }, [selectedTemplate, dados, empresa]);
+  }, [selectedTemplate, dados, empresa, manualParticipants]);
 
   // === Wrappers para dirty flags do Épico 5 (Bug A — TipTap) ===
   // Marca conteudoFinal como editado manualmente pelo usuário (TipTap).
@@ -994,12 +998,18 @@ const NovoContrato = () => {
       let fullContent = "";
       const templateBase = selectedTemplate?.conteudo || "";
       const editorContent = conteudoFinal || "";
+      // Expande {{#each}} a partir do array de participantes. No caminho do
+      // editor (conteudoFinal) os blocos já foram expandidos por
+      // buildFinalContent — re-rodar é no-op (não restam tags {{#each}}).
+      const byRole = buildParticipantsByRole(manualParticipants);
 
       if (editorContent) {
-        const processed = preprocessTemplate(editorContent, enrichedMergedDados);
+        const expanded = expandEachBlocks(editorContent, byRole);
+        const processed = preprocessTemplate(expanded, enrichedMergedDados);
         fullContent = replacePlaceholders(processed, enrichedMergedDados);
       } else if (templateBase) {
-        const processed = preprocessTemplate(templateBase, enrichedMergedDados);
+        const expanded = expandEachBlocks(templateBase, byRole);
+        const processed = preprocessTemplate(expanded, enrichedMergedDados);
         fullContent = replacePlaceholders(processed, enrichedMergedDados);
       }
 

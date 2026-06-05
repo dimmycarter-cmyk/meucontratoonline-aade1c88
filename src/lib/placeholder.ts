@@ -286,6 +286,103 @@ export function stripConditionalBlocks(
 }
 
 /**
+ * Expande blocos de repetição {{#each <papel>}}…{{/each}}, renderizando o
+ * bloco interno uma vez por participante daquele papel e unindo os
+ * resultados com concordância PT-BR (", " entre itens, " e " antes do
+ * último). É o construto irmão de {{#if}} para listas dinâmicas de partes.
+ *
+ * `<papel>` é a chave PLURAL do grupo (vendedores, compradores, anuentes,
+ * fiadores, testemunhas) — a mesma usada em `participantsByRole`.
+ *
+ * Dentro do bloco, os campos do participante atual são referenciados por
+ * {{campo}} (nome, cpf, rg, profissao, estado_civil, endereco, banco,
+ * agencia, conta, pix, …). A substituição é POR ITEM: cada {{campo}} cujo
+ * nome existe no registro do participante é trocado pelo valor daquele
+ * participante (mesmo vazio, para a limpeza de pontuação órfã agir).
+ * Placeholders que NÃO são campos do participante (ex.: {{valor_total}})
+ * são deixados intactos para o passe externo (`replacePlaceholders`).
+ *
+ * Papel com 0 participantes ⇒ bloco rende string vazia. A remoção do texto
+ * ao redor (rótulos, "ASSINATURAS", etc.) continua a cargo de {{#if}}.
+ *
+ * Parser balanceado idêntico ao de `stripConditionalBlocks` (resolve o
+ * bloco mais interno primeiro), com teto defensivo de iterações.
+ *
+ * IMPORTANTE: deve rodar ANTES de `preprocessTemplate`/`replacePlaceholders`
+ * — depois da expansão, só restam placeholders planos/compartilhados.
+ */
+export interface EachOptions {
+  /** Separador entre itens não-finais. Default ", ". */
+  separator?: string;
+  /** Separador antes do último item. Default " e ". Ex.: "; e " (estilo serial jurídico). */
+  lastSeparator?: string;
+}
+
+export function expandEachBlocks(
+  text: string,
+  participantsByRole: Record<string, Array<Record<string, string>>>,
+  options: EachOptions = {}
+): string {
+  if (!text) return text;
+  const sep = options.separator ?? ", ";
+  const lastSep = options.lastSeparator ?? " e ";
+
+  const openRe = /\{\{#each\s+([\w]+)\}\}/g;
+  const closeStr = "{{/each}}";
+
+  let curr = text;
+  let safety = 0;
+  while (safety < 50) {
+    safety++;
+    const closeIdx = curr.indexOf(closeStr);
+    if (closeIdx === -1) break;
+
+    // Último `{{#each ...}}` antes desse `{{/each}}` (bloco mais interno)
+    openRe.lastIndex = 0;
+    let lastOpen: { idx: number; len: number; role: string } | null = null;
+    let m: RegExpExecArray | null;
+    while ((m = openRe.exec(curr)) !== null) {
+      if (m.index >= closeIdx) break;
+      lastOpen = { idx: m.index, len: m[0].length, role: m[1] };
+    }
+    if (!lastOpen) break; // `{{/each}}` órfão — evita loop
+
+    const innerStart = lastOpen.idx + lastOpen.len;
+    const inner = curr.slice(innerStart, closeIdx);
+    const items = participantsByRole[lastOpen.role] ?? [];
+    const rendered = items.map((item) => renderEachItem(inner, item));
+    const joined = joinWithConjunction(rendered, sep, lastSep);
+    curr = curr.slice(0, lastOpen.idx) + joined + curr.slice(closeIdx + closeStr.length);
+  }
+  return curr;
+}
+
+/**
+ * Renderiza o bloco interno de um {{#each}} para UM participante.
+ * Só substitui {{campo}} cujo nome é propriedade própria de `item`
+ * (campos vazios viram ""); demais placeholders ficam intactos para o
+ * passe externo. Limpa pontuação órfã deixada por campos omitidos.
+ */
+function renderEachItem(inner: string, item: Record<string, string>): string {
+  const out = inner.replace(/\{\{\s*([\w]+)\s*\}\}/g, (full, key) => {
+    if (Object.prototype.hasOwnProperty.call(item, key)) return item[key] ?? "";
+    return full;
+  });
+  return cleanOrphanPunctuation(out);
+}
+
+/**
+ * Une os itens já renderizados com concordância PT-BR:
+ *   0 → ""  ·  1 → "A"  ·  2 → "A{lastSep}B"  ·  3+ → "A{sep}B{lastSep}C"
+ */
+function joinWithConjunction(items: string[], sep: string, lastSep: string): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  const head = items.slice(0, -1).join(sep);
+  return head + lastSep + items[items.length - 1];
+}
+
+/**
  * Remove prefixos literais que duplicariam saída de formatters/dados ao
  * renderizar o template. Sprint 3 — BUGs 2 e 5.
  *
