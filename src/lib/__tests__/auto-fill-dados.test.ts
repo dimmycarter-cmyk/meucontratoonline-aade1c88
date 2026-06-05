@@ -79,3 +79,100 @@ describe("autoFillDadosFromParticipants", () => {
     expect(out.vendedor2_nome).toBeUndefined();
   });
 });
+
+// Fecha o buraco do path da UI (autoFillDados / handleSave em NovoContrato.tsx),
+// que chama a função com { enrich: false } para manter `contracts.dados` cru —
+// o payload é round-tripped em inputs editáveis na retomada de rascunho, então
+// valores formatados/derivados/empresa_* não podem vazar para o estado.
+describe("autoFillDadosFromParticipants — enrich:false (path da UI)", () => {
+  it("retorna mapeamento CRU: cpf não formatado e sem empresa_*/derivados", () => {
+    const out = autoFillDadosFromParticipants(
+      [
+        mk("comprador", "Ana Souza", { cpf: "12345678909" }),
+        mk("vendedor", "João Silva", { cpf: "98765432100" }),
+      ],
+      {
+        enrich: false,
+        // company e baseDados presentes de propósito: com enrich:false NADA disso
+        // deve ser injetado/derivado no resultado.
+        company: { nome_fantasia: "Imobiliária Acme", cnpj: "11222333000181", banco: "Itaú" },
+        baseDados: { valor_total: "250000", data_contrato: "2026-06-04" },
+      }
+    );
+
+    // CPF permanece cru (sem máscara) — enrichment é responsabilidade do render.
+    expect(out.comprador_cpf).toBe("12345678909");
+    expect(out.vendedor_cpf).toBe("98765432100");
+
+    // baseDados preservado, mas SEM formatação nem derivados.
+    expect(out.valor_total).toBe("250000");
+    expect(out.valor_total).not.toMatch(/R\$/);
+    expect(out.valor_total_extenso).toBeUndefined();
+    expect(out.data_contrato).toBe("2026-06-04");
+    expect(out.data_contrato_extenso).toBeUndefined();
+    expect(out.data_contrato_curta).toBeUndefined();
+
+    // Nenhuma injeção de empresa/aliases.
+    expect(out.empresa_nome).toBeUndefined();
+    expect(out.empresa_cnpj).toBeUndefined();
+    expect(out.empresa_banco).toBeUndefined();
+    expect(out.imobiliaria_nome).toBeUndefined();
+    expect(out.intermediadora1_nome).toBeUndefined();
+  });
+
+  it("2 vendedores → vendedor_* E vendedor2_* (ambos) com enrich:false", () => {
+    const out = autoFillDadosFromParticipants(
+      [
+        mk("vendedor", "Alice Costa", { cpf: "11111111111" }),
+        mk("vendedor", "Bruno Lima", { cpf: "22222222222" }),
+      ],
+      { enrich: false }
+    );
+
+    expect(out.vendedor_nome).toBe("Alice Costa");
+    expect(out.vendedor_cpf).toBe("11111111111");
+    expect(out.vendedor2_nome).toBe("Bruno Lima");
+    expect(out.vendedor2_cpf).toBe("22222222222");
+  });
+
+  it("2 compradores → comprador_* E comprador2_* (ambos) com enrich:false", () => {
+    const out = autoFillDadosFromParticipants(
+      [
+        mk("comprador", "Carla Mendes", { cpf: "33333333333" }),
+        mk("comprador", "Diego Nunes", { cpf: "44444444444" }),
+      ],
+      { enrich: false }
+    );
+
+    expect(out.comprador_nome).toBe("Carla Mendes");
+    expect(out.comprador_cpf).toBe("33333333333");
+    expect(out.comprador2_nome).toBe("Diego Nunes");
+    expect(out.comprador2_cpf).toBe("44444444444");
+  });
+
+  it("preserva campos do superset (bancário, gênero, oab) crus com enrich:false", () => {
+    const out = autoFillDadosFromParticipants(
+      [
+        mk("vendedor", "Eva Prado", {
+          banco: "Bradesco",
+          agencia: "0042",
+          conta: "12345-6",
+          pix: "eva@pix.com",
+          genero: "feminino",
+          data_nascimento: "1980-01-15",
+          profissao: "Advogada",
+          oab: "OAB/SP 123456",
+        }),
+      ],
+      { enrich: false }
+    );
+
+    expect(out.vendedor_banco).toBe("Bradesco");
+    expect(out.vendedor_agencia).toBe("0042");
+    expect(out.vendedor_conta).toBe("12345-6");
+    expect(out.vendedor_pix).toBe("eva@pix.com");
+    expect(out.vendedor_genero).toBe("feminino");
+    expect(out.vendedor_data_nascimento).toBe("1980-01-15");
+    expect(out.vendedor_oab).toBe("OAB/SP 123456");
+  });
+});

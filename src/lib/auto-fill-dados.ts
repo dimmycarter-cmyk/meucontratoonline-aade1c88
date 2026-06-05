@@ -98,6 +98,15 @@ export interface AutoFillOptions {
   cidadeContrato?: string;
   /** Dados já existentes que devem ser preservados quando vazio no participante. */
   baseDados?: Record<string, string>;
+  /**
+   * Quando false, retorna o mapeamento indexado CRU (sem enrichDados / sem
+   * injeção de empresa). Use na UI para não congelar empresa_* nem derivados no
+   * payload persistido — `contracts.dados` é round-tripped em inputs editáveis
+   * na retomada de rascunho (setDados(snap.dados)), onde valores formatados ou
+   * derivados ficariam stale/dessincronizados. Default true — preserva os
+   * callers/testes existentes que esperam o objeto já enriquecido.
+   */
+  enrich?: boolean;
 }
 
 export function autoFillDadosFromParticipants(
@@ -129,6 +138,9 @@ export function autoFillDadosFromParticipants(
       }
     });
   }
+
+  // enrich:false → mapeamento cru, sem injeção de empresa nem derivados.
+  if (options.enrich === false) return dados;
 
   return enrichDados(dados, {
     company: options.company ?? null,

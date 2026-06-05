@@ -25,6 +25,7 @@ import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-varia
 import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
 import { enrichDados } from "@/lib/contract-enrichment";
 import { composeEnderecoCanonico } from "@/lib/contract-formatters";
+import { autoFillDadosFromParticipants } from "@/lib/auto-fill-dados";
 import { logAction } from "@/lib/audit";
 import {
   shouldRebuildConteudo,
@@ -527,25 +528,18 @@ const NovoContrato = () => {
   // Bug B (Épico 5): chaves marcadas como editadas pelo usuário em dadosDirty
   // são puladas pelo pickAutoFillFields, preservando o trabalho manual.
   const autoFillDados = useCallback(() => {
-    const candidates: Record<string, string> = {};
+    // Multi-participante: mapeamento indexado (vendedor2_*, comprador2_*, …) SEM
+    // enriquecer — `dados` permanece cru (enrichDados roda no render). enrich:false
+    // evita congelar empresa_*/derivados no payload, que é round-tripped em inputs
+    // editáveis na retomada de rascunho (setDados(snap.dados)). Guard length > 0:
+    // vazio é no-op, igual ao loop inline antigo.
+    const candidates: Record<string, string> =
+      manualParticipants.length > 0
+        ? autoFillDadosFromParticipants(manualParticipants, { enrich: false })
+        : {};
     const add = (key: string, value: string | undefined | null) => {
       if (value && String(value).trim()) candidates[key] = String(value);
     };
-
-    for (const mp of manualParticipants) {
-      const prefix = mp.role + "_";
-      add(prefix + "nome", mp.nome);
-      add(prefix + "cpf", mp.cpf);
-      add(prefix + "rg", mp.rg);
-      add(prefix + "orgao_expedidor", mp.orgao_expedidor);
-      add(prefix + "profissao", mp.profissao);
-      add(prefix + "nacionalidade", mp.nacionalidade);
-      add(prefix + "estado_civil", mp.estado_civil);
-      add(prefix + "email", mp.email);
-      add(prefix + "whatsapp", mp.whatsapp);
-      const endParts = [mp.rua, mp.numero, mp.complemento, mp.bairro, mp.cidade, mp.estado, mp.cep].filter(Boolean).join(", ");
-      add(prefix + "endereco", endParts);
-    }
 
     // Legacy: also fill from selected contacts (backward compat)
     if (comprador) {
@@ -875,23 +869,15 @@ const NovoContrato = () => {
 
       // Fill from manualParticipants (manual flow)
       if (flowMode === "manual") {
-        for (const mp of manualParticipants) {
-          const prefix = mp.role + "_";
-          if (mp.nome) freshDados[prefix + "nome"] = mp.nome;
-          if (mp.cpf) freshDados[prefix + "cpf"] = mp.cpf;
-          if (mp.rg) freshDados[prefix + "rg"] = mp.rg;
-          if (mp.orgao_expedidor) freshDados[prefix + "orgao_expedidor"] = mp.orgao_expedidor;
-          if (mp.profissao) freshDados[prefix + "profissao"] = mp.profissao;
-          if (mp.nacionalidade) freshDados[prefix + "nacionalidade"] = mp.nacionalidade;
-          if (mp.estado_civil) freshDados[prefix + "estado_civil"] = mp.estado_civil;
-          if (mp.email) freshDados[prefix + "email"] = mp.email;
-          if (mp.whatsapp) freshDados[prefix + "whatsapp"] = mp.whatsapp;
-          const endParts = composeEnderecoCanonico({
-            rua: mp.rua, numero: mp.numero, complemento: mp.complemento,
-            bairro: mp.bairro, cidade: mp.cidade, estado: mp.estado, cep: mp.cep,
-          });
-          if (endParts) freshDados[prefix + "endereco"] = endParts;
-        }
+        // Mesma função indexada do autoFillDados, CRUA (enrich:false) — corrige
+        // vendedor2_* no salvar sem congelar empresa_*/derivados em contracts.dados.
+        // Respeita dadosDirty (paridade Bug B / Épico 5): chaves editadas à mão já
+        // estão em freshDados (={...dados}) e são puladas por pickAutoFillFields.
+        const autoFilled =
+          manualParticipants.length > 0
+            ? autoFillDadosFromParticipants(manualParticipants, { enrich: false })
+            : {};
+        Object.assign(freshDados, pickAutoFillFields(autoFilled, dadosDirty));
       }
 
       // Fill from selected contacts (legacy/backward compat)
