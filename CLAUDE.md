@@ -83,6 +83,11 @@ When adding a new template variable: declare it in `template-variables.ts`, add 
 - Do not edit `src/integrations/supabase/{client,types}.ts` by hand — they regenerate.
 - New shadcn components: `src/components/ui/*` per `components.json` (slate base, CSS variables, no prefix).
 
+## Arquivos locais — nunca versionar (gitignored)
+
+- **Handoffs** (`RETOMADA_*.md`, `HANDOFF_*.md`) são notas de trabalho locais — **nunca** versionar. Já são ignorados por padrão no `.gitignore`; mantenha essa política.
+- **`src/scratch/`** é workspace efêmero para scripts/artefatos de migração pontuais — ignorado, **nunca** versionar. Não guarde ali nada que precise sobreviver.
+
 ## Regras Obrigatórias
 
 1. Nunca criar tabelas diretamente no código, sempre utilizar MCP do Supabase para operações no banco
