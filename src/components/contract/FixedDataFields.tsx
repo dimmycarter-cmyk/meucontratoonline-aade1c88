@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatBRL, valorPorExtenso } from "@/lib/contract-formatters";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { ManualParticipantData } from "./ManualParticipantCard";
+import type { ManualParticipantData } from "./manual-participant";
 
 const MAX_MATRICULA_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MATRICULA_TYPES = ["application/pdf", "image/jpeg", "image/png"];

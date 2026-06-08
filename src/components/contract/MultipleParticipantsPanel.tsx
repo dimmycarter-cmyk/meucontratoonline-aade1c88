@@ -4,10 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import ManualParticipantCard, {
-  type ManualParticipantData,
-  emptyParticipant,
-} from "./ManualParticipantCard";
+import ManualParticipantCard from "./ManualParticipantCard";
+import { type ManualParticipantData, emptyParticipant } from "./manual-participant";
 import type { ParticipantRole } from "./ParticipantCard";
 import type { Contact } from "@/hooks/useContacts";
 

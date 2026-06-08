@@ -18,7 +18,7 @@
  * Após o mapeamento, chama `enrichDados` para aplicar formatters, aliases,
  * derivados (extenso, data) e injeção dos dados da empresa.
  */
-import type { ManualParticipantData } from "@/components/contract/ManualParticipantCard";
+import type { ManualParticipantData } from "@/components/contract/manual-participant";
 import type { ParticipantRole } from "@/components/contract/ParticipantCard";
 import { enrichDados, type CompanyData } from "./contract-enrichment";
 import { composeEnderecoCanonico, formatCPF, isValidCep } from "./contract-formatters";

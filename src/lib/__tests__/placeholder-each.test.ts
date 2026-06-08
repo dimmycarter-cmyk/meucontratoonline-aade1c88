@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { expandEachBlocks } from "../placeholder";
 import { buildParticipantsByRole } from "../auto-fill-dados";
-import { emptyParticipant, type ManualParticipantData } from "@/components/contract/ManualParticipantCard";
+import { emptyParticipant, type ManualParticipantData } from "@/components/contract/manual-participant";
 
 function mk(
   role: ManualParticipantData["role"],

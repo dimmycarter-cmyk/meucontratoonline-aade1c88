@@ -6,7 +6,7 @@ import {
 } from "../contract-formatters";
 import { enrichDados, type CompanyData } from "../contract-enrichment";
 import { autoFillDadosFromParticipants } from "../auto-fill-dados";
-import { emptyParticipant, type ManualParticipantData } from "@/components/contract/ManualParticipantCard";
+import { emptyParticipant, type ManualParticipantData } from "@/components/contract/manual-participant";
 
 function mk(
   role: ManualParticipantData["role"],
