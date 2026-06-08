@@ -42,4 +42,8 @@ dist-ssr
 supabase/.temp/
 
 # Handoffs operacionais (Sprint 4+) - locais, nao versionados
-RETOMADA_SPRINT_*.md
+RETOMADA_*.md
+HANDOFF_*.md
+
+# Workspace local de migracoes - nao versionado
+src/scratch/
