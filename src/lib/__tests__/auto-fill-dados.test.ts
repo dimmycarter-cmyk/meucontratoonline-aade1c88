@@ -158,7 +158,7 @@ describe("autoFillDadosFromParticipants — enrich:false (path da UI)", () => {
           agencia: "0042",
           conta: "12345-6",
           pix: "eva@pix.com",
-          genero: "feminino",
+          genero: "F",
           data_nascimento: "1980-01-15",
           profissao: "Advogada",
           oab: "OAB/SP 123456",
@@ -171,7 +171,7 @@ describe("autoFillDadosFromParticipants — enrich:false (path da UI)", () => {
     expect(out.vendedor_agencia).toBe("0042");
     expect(out.vendedor_conta).toBe("12345-6");
     expect(out.vendedor_pix).toBe("eva@pix.com");
-    expect(out.vendedor_genero).toBe("feminino");
+    expect(out.vendedor_genero).toBe("F");
     expect(out.vendedor_data_nascimento).toBe("1980-01-15");
     expect(out.vendedor_oab).toBe("OAB/SP 123456");
   });

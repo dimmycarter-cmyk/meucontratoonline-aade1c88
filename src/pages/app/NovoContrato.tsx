@@ -28,6 +28,7 @@ import { enrichDados } from "@/lib/contract-enrichment";
 import { composeEnderecoCanonico } from "@/lib/contract-formatters";
 import { autoFillDadosFromParticipants, buildParticipantsByRole } from "@/lib/auto-fill-dados";
 import { enrichParticipantsWithAgreementL1, buildAgreementVarsL2 } from "@/lib/agreement";
+import { normalizeGenero } from "@/lib/genero";
 import { logAction } from "@/lib/audit";
 import {
   shouldRebuildConteudo,
@@ -863,7 +864,13 @@ const NovoContrato = () => {
         const faltam: string[] = [];
         if (!hasComprador) faltam.push("nome do comprador");
         if (!hasVendedor) faltam.push("nome do vendedor");
-        return faltam.length ? `Preencha o ${faltam.join(" e o ")} para continuar.` : null;
+        if (faltam.length) return `Preencha o ${faltam.join(" e o ")} para continuar.`;
+        // Gênero obrigatório — é fonte da concordância PT-BR; sem default silencioso.
+        const semGenero = manualParticipants.filter((p) => p.nome.trim() && !normalizeGenero(p.genero));
+        if (semGenero.length) {
+          return `Selecione o gênero de: ${semGenero.map((p) => p.nome.trim()).join(", ")}.`;
+        }
+        return null;
       }
       case "participants": {
         const hasComprador = participants.some((p) => p.role === "comprador" && p.full_name.trim());
@@ -912,6 +919,7 @@ const NovoContrato = () => {
         if (comprador.estado_civil) freshDados.comprador_estado_civil = comprador.estado_civil;
         if (comprador.email) freshDados.comprador_email = comprador.email;
         if (comprador.whatsapp) freshDados.comprador_whatsapp = comprador.whatsapp;
+        if (comprador.genero) freshDados.comprador_genero = comprador.genero;
         const endC = composeEnderecoCanonico({
           rua: comprador.rua, numero: comprador.numero, complemento: comprador.complemento,
           bairro: comprador.bairro, cidade: comprador.cidade, estado: comprador.estado, cep: comprador.cep,
@@ -928,6 +936,7 @@ const NovoContrato = () => {
         if (vendedor.estado_civil) freshDados.vendedor_estado_civil = vendedor.estado_civil;
         if (vendedor.email) freshDados.vendedor_email = vendedor.email;
         if (vendedor.whatsapp) freshDados.vendedor_whatsapp = vendedor.whatsapp;
+        if (vendedor.genero) freshDados.vendedor_genero = vendedor.genero;
         const endV = composeEnderecoCanonico({
           rua: vendedor.rua, numero: vendedor.numero, complemento: vendedor.complemento,
           bairro: vendedor.bairro, cidade: vendedor.cidade, estado: vendedor.estado, cep: vendedor.cep,
@@ -1095,6 +1104,7 @@ const NovoContrato = () => {
           cpf: "cpf", rg: "rg", orgao_expedidor: "issuing_agency",
           profissao: "profession", nacionalidade: "nationality",
           estado_civil: "marital_status", email: "email", whatsapp: "whatsapp",
+          genero: "gender",
         };
         const addrMap: Record<string, string> = {
           endereco_rua: "address_street", endereco_numero: "address_number",
@@ -1137,6 +1147,7 @@ const NovoContrato = () => {
               marital_status: fieldMap.marital_status || null,
               email: fieldMap.email || null,
               whatsapp: fieldMap.whatsapp || null,
+              gender: fieldMap.gender || null,
               address_street: fieldMap.address_street || null,
               address_number: fieldMap.address_number || null,
               address_complement: fieldMap.address_complement || null,
@@ -1176,6 +1187,7 @@ const NovoContrato = () => {
               marital_status: mp.estado_civil || null,
               email: mp.email || null,
               whatsapp: mp.whatsapp || null,
+              gender: mp.genero || null,
               address_street: mp.rua || null,
               address_number: mp.numero || null,
               address_complement: mp.complemento || null,
@@ -1222,6 +1234,7 @@ const NovoContrato = () => {
                 estado_civil: mp.estado_civil || null,
                 email: mp.email || null,
                 whatsapp: mp.whatsapp || null,
+                genero: mp.genero || null,
                 cep: mp.cep || null,
                 rua: mp.rua || null,
                 numero: mp.numero || null,

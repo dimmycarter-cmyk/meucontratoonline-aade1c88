@@ -11,6 +11,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useContacts } from "@/hooks/useContacts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { maskCPF, maskPhone } from "@/lib/masks";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { normalizeGenero } from "@/lib/genero";
+import { useToast } from "@/hooks/use-toast";
 import { InviteUserDialog } from "@/components/InviteUserDialog";
 import { PendingInvites } from "@/components/PendingInvites";
 import { useInvitations } from "@/hooks/useInvitations";
@@ -29,6 +32,7 @@ const Contatos = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const { contacts, isLoading, createContact, updateContact, deleteContact, isCreating } = useContacts();
   const { isAdmin } = useInvitations();
+  const { toast } = useToast();
 
   const filtered = contacts.filter((c) =>
     c.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -43,10 +47,17 @@ const Contatos = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Gênero é fonte de concordância no contrato — obrigatório e normalizado a M/F.
+    const generoNorm = normalizeGenero(form.genero);
+    if (!generoNorm) {
+      toast({ title: "Gênero obrigatório", description: "Selecione Masculino ou Feminino.", variant: "destructive" });
+      return;
+    }
+    const payload = { ...form, genero: generoNorm };
     if (editingId) {
-      await updateContact({ id: editingId, ...form });
+      await updateContact({ id: editingId, ...payload });
     } else {
-      await createContact(form);
+      await createContact(payload);
     }
     setDialogOpen(false);
     setForm(emptyContact);
@@ -122,8 +133,14 @@ const Contatos = () => {
                   <Input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Gênero</Label>
-                  <Input value={form.genero} onChange={(e) => updateField("genero", e.target.value)} />
+                  <Label>Gênero *</Label>
+                  <Select value={normalizeGenero(form.genero) || ""} onValueChange={(v) => updateField("genero", v)}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="M">Masculino</SelectItem>
+                      <SelectItem value="F">Feminino</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Nacionalidade</Label>

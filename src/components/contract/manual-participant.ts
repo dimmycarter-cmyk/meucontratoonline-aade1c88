@@ -1,4 +1,5 @@
 import type { ParticipantRole } from "./ParticipantCard";
+import type { Genero } from "@/lib/genero";
 
 const ROLE_LABELS: Record<ParticipantRole, string> = {
   vendedor: "Vendedor",
@@ -37,7 +38,8 @@ export interface ManualParticipantData {
   // Leva 2 — campos extras
   oab?: string;
   regime_bens?: string;
-  genero?: string;
+  /** Fonte única de gênero (enum forte). undefined = ainda não selecionado. */
+  genero?: Genero;
   data_nascimento?: string;
   banco?: string;
   agencia?: string;
@@ -71,7 +73,7 @@ export const emptyParticipant = (role: ParticipantRole): ManualParticipantData =
   contact_id: null,
   oab: "",
   regime_bens: "",
-  genero: "",
+  genero: undefined,
   data_nascimento: "",
   banco: "",
   agencia: "",

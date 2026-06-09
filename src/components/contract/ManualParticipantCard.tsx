@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddressForm, AddressData } from "@/components/ui/AddressForm";
 import { maskCPF, maskPhone } from "@/lib/masks";
+import { normalizeGenero } from "@/lib/genero";
 import { cpfSchema } from "@/lib/validators";
 import type { Contact } from "@/hooks/useContacts";
 import { MANUAL_ROLE_LABELS, type ManualParticipantData } from "./manual-participant";
@@ -67,7 +68,10 @@ const ManualParticipantCard = ({
       email: contact.email || "",
       nacionalidade: contact.nacionalidade || "Brasileiro(a)",
       estado_civil: contact.estado_civil || "",
-      genero: contact.genero || "",
+      // Gênero do contato (normalizado) popula o Select VISIVELMENTE — o que o
+      // usuário vê passa a ser o que vai pro contrato. Legado free-text vira M/F;
+      // não-reconhecido vira undefined (Select mostra "Selecione", sem default oculto).
+      genero: normalizeGenero(contact.genero),
       cep: contact.cep || "",
       rua: contact.rua || "",
       numero: contact.numero || "",

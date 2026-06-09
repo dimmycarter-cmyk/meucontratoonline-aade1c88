@@ -28,7 +28,13 @@
  *   fossem dados normais. Zero refactor do motor.
  */
 
-export type Genero = 'M' | 'F';
+import type { Genero } from './genero';
+import { normalizeGenero } from './genero';
+
+// Re-export para não quebrar importadores históricos de agreement.ts.
+// Fonte única real: ./genero.
+export type { Genero };
+export { normalizeGenero };
 
 export type RoleKey =
   | 'vendedores'
@@ -183,26 +189,8 @@ export function resolveLevel2(
 
 // =============================================================================
 // ADAPTERS — ponte entre o tipo bruto do participante e o tipo estrito da camada
+// (normalizeGenero foi hoistado para ./genero; reusado/re-exportado acima)
 // =============================================================================
-
-/**
- * Normaliza o campo `genero` (texto livre vindo do form) para enum Genero.
- *
- * Aceita: 'M', 'm', 'Masculino', 'masculino', 'MASC', 'masc'
- *         'F', 'f', 'Feminino', 'feminino', 'FEM', 'fem'
- * Qualquer outra coisa (incluindo "", undefined, "Outro", "X") => undefined.
- *
- * Quando retorna undefined, `resolveLevel1` e `resolveLevel2` aplicam fallback
- * masculino (decisao da SPEC §2 / §6.5).
- */
-export function normalizeGenero(input: string | undefined): Genero | undefined {
-  if (!input) return undefined;
-  const v = input.trim().toUpperCase();
-  if (v === '') return undefined;
-  if (v === 'M' || v === 'MASC' || v === 'MASCULINO') return 'M';
-  if (v === 'F' || v === 'FEM' || v === 'FEMININO') return 'F';
-  return undefined;
-}
 
 // =============================================================================
 // ENRICHMENT — funcoes prontas pra plugar antes do motor
