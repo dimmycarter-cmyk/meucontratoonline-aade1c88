@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTemplates, ContractTemplate } from "@/hooks/useTemplates";
 import { useContacts, Contact } from "@/hooks/useContacts";
 import { useCompanies, Company } from "@/hooks/useCompanies";
+import { resolveDefaultCompanyId } from "@/lib/resolve-default-company";
 import { useClauses, Clause } from "@/hooks/useClauses";
 import { useContracts } from "@/hooks/useContracts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -187,6 +188,9 @@ const NovoContrato = () => {
   const [compradorId, setCompradorId] = useState<string | null>(draft.current?.compradorId ?? null);
   const [vendedorId, setVendedorId] = useState<string | null>(draft.current?.vendedorId ?? null);
   const [empresaId, setEmpresaId] = useState<string | null>(draft.current?.empresaId ?? null);
+  // Marca interação manual com a seleção de empresa (select OU deselect), para que
+  // a auto-seleção default (escopo 1-company) nunca sobrescreva a vontade do usuário.
+  const [empresaTouched, setEmpresaTouched] = useState(false);
   const [compradorNome, setCompradorNome] = useState(draft.current?.compradorNome ?? "");
   const [vendedorNome, setVendedorNome] = useState(draft.current?.vendedorNome ?? "");
   const [searchContacts, setSearchContacts] = useState("");
@@ -514,6 +518,14 @@ const NovoContrato = () => {
   const comprador = contacts.find((c) => c.id === compradorId);
   const vendedor = contacts.find((c) => c.id === vendedorId);
   const empresa = companies.find((c) => c.id === empresaId);
+
+  // Auto-seleciona a empresa do tenant quando há exatamente uma (escopo 1-company).
+  // Respeita seleção/deseleção manual (empresaTouched) e rascunho com empresa
+  // explícita (guard currentEmpresaId no helper). Não age durante o load.
+  useEffect(() => {
+    const id = resolveDefaultCompanyId(companies, empresaId, empresaTouched, loadingCompanies);
+    if (id) setEmpresaId(id);
+  }, [companies, empresaId, empresaTouched, loadingCompanies]);
   const selectedClauses = clauses.filter((c) => selectedClauseIds.includes(c.id));
   const activeTemplates = templates.filter((t) => t.status !== "arquivado");
 
@@ -1548,7 +1560,7 @@ const NovoContrato = () => {
             </div>
             <div className="grid gap-2 max-h-48 overflow-y-auto sm:grid-cols-2">
               {filteredCompanies.map((c) => (
-                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${empresaId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => setEmpresaId(empresaId === c.id ? null : c.id)}>
+                <Card key={c.id} className={`cursor-pointer p-3 transition-all hover:shadow-card ${empresaId === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`} onClick={() => { setEmpresaTouched(true); setEmpresaId(empresaId === c.id ? null : c.id); }}>
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <div>
