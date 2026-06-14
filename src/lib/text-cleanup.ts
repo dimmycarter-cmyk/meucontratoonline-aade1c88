@@ -83,3 +83,82 @@ export function cleanOrphanPunctuation(text: string): string {
 
   return curr;
 }
+
+// ============================================================================
+// suppressEmptyFieldScaffold — supressão de sub-cláusula de qualificação vazia
+// ============================================================================
+
+/**
+ * Remove o SCAFFOLD inteiro (rótulo + separadores + vírgula final) deixado
+ * quando os campos RG/órgão, CPF ou e-mail do participante renderizam vazios
+ * no bloco de qualificação.
+ *
+ * Diferente de `cleanOrphanPunctuation` (que só tira pontuação solta), aqui
+ * derrubamos a sub-cláusula completa — senão sobra "inscrito no CPF sob o nº ,"
+ * (rótulo pendurado), que limpeza de vírgula sozinha não resolve.
+ *
+ * ÂNCORA EM `<strong>…</strong>` VAZIO: campo omitido vira `<strong></strong>`;
+ * campo preenchido tem conteúdo dentro do `<strong>` e NUNCA casa. Assim a
+ * pontuação e os hífens legítimos (ex.: o "-" de um CPF formatado
+ * `887.616.656-49` e a vírgula que o segue) são SEMPRE preservados.
+ *
+ * Chamada por-item em `renderEachItem` (placeholder.ts), onde os campos do
+ * participante e os tokens de concordância (`c_portador`/`c_inscrito`) já
+ * estão resolvidos para texto. Função pura e idempotente; normaliza o próprio
+ * whitespace (não depende da ordem com `cleanOrphanPunctuation`).
+ *
+ * ESCOPO: RG/órgão, CPF, e-mail. Endereço (variante granular) NÃO é tratado
+ * aqui — some na migração granular→composto (`{{endereco}}`, já omitido vazio
+ * pelo agreement L1).
+ *
+ * Regra de assimetria do RG (decisão de negócio): RG (número) vazio suprime a
+ * cláusula INTEIRA mesmo com órgão preenchido — apresentar o órgão expedidor
+ * como se fosse o número seria erro semântico. Já órgão vazio com RG presente
+ * apenas remove o hífen pendurado, mantendo o número.
+ */
+export function suppressEmptyFieldScaffold(text: string): string {
+  if (!text) return text;
+
+  // Campo omitido (entre as tags, só whitespace) e campo com conteúdo.
+  const EMPTY = "<strong[^>]*>\\s*<\\/strong>";
+  const ANY = "<strong[^>]*>[^<]*?<\\/strong>"; // vazio OU preenchido
+  const FILLED = "<strong[^>]*>[^<]*?\\S[^<]*?<\\/strong>"; // exige conteúdo
+
+  let out = text;
+
+  // R1a' — RG (1º <strong>) VAZIO ⇒ suprime "portador da Carteira … nº <rg> - <órgão>,"
+  // independentemente do órgão (2º <strong> com conteúdo qualquer). Assimetria.
+  out = out.replace(
+    new RegExp(
+      `\\b(?:portadora?) da Carteira de Identidade nº ${EMPTY}\\s*-\\s*${ANY}\\s*,`,
+      "gi"
+    ),
+    ""
+  );
+
+  // R1b — RG preenchido + órgão VAZIO ⇒ remove só o hífen pendurado + <strong> vazio.
+  out = out.replace(
+    new RegExp(`(Carteira de Identidade nº ${FILLED})\\s*-\\s*${EMPTY}`, "gi"),
+    "$1"
+  );
+
+  // R2 — CPF VAZIO ⇒ suprime "inscrito no CPF sob o nº <cpf>,".
+  // `inscrit[oa]` cobre masculino (inscrito) E feminino (inscrita) — NÃO use
+  // `inscrita?`, que casaria "inscrit" e deixaria o "o" de "inscrito" pendurado.
+  out = out.replace(
+    new RegExp(`\\b(?:inscrit[oa]) no CPF sob o nº ${EMPTY}\\s*,`, "gi"),
+    ""
+  );
+
+  // R3 — e-mail VAZIO ⇒ suprime "endereço eletrônico: <email>,".
+  out = out.replace(
+    new RegExp(`endere[çc]o eletr[ôo]nico:\\s*${EMPTY}\\s*,`, "gi"),
+    ""
+  );
+
+  // Normaliza o gap (espaço duplo) que a supressão deixa. Self-contained: não
+  // dependemos do cleanOrphanPunctuation downstream para a correção da função.
+  out = out.replace(/[ \t]{2,}/g, " ");
+
+  return out;
+}

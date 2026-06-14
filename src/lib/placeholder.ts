@@ -8,7 +8,7 @@
  */
 
 import { applyFallback, getFallbackStrategy, type FallbackStrategy } from "./placeholder-fallback";
-import { cleanOrphanPunctuation } from "./text-cleanup";
+import { cleanOrphanPunctuation, suppressEmptyFieldScaffold } from "./text-cleanup";
 
 export const LEGACY_BRACKET_MAP: Record<string, string> = {
   // ===== Comprador (índice padrão) =====
@@ -368,7 +368,10 @@ function renderEachItem(inner: string, item: Record<string, string>): string {
     if (Object.prototype.hasOwnProperty.call(item, key)) return item[key] ?? "";
     return full;
   });
-  return cleanOrphanPunctuation(out);
+  // Suprime sub-cláusulas de qualificação cujo campo (RG/órgão, CPF, e-mail)
+  // ficou vazio ANTES do cleanup de pontuação — o scaffold inteiro sai, não só
+  // a vírgula. Ordem: suprime → normaliza pontuação remanescente.
+  return cleanOrphanPunctuation(suppressEmptyFieldScaffold(out));
 }
 
 /**

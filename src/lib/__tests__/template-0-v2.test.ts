@@ -285,6 +285,60 @@ describe("template [0] V2 — render ponta-a-ponta", () => {
     expect(out).not.toContain("intermediadora2");
   });
 
+  it("multi-participante: vendedor completo mantém RG/CPF/e-mail; vazio sai limpo (4.D)", () => {
+    // O regression que {{#if}} global causaria: aqui um item tem dados e o
+    // outro não. A supressão é POR-ITEM, então o completo NÃO pode perder a
+    // vírgula nem o "-" do CPF, e o vazio NÃO pode deixar scaffold pendurado.
+    const out = render(
+      TPL,
+      [
+        mk("vendedor", "João Silva", {
+          genero: "M",
+          cpf: "11111111111",
+          rg: "MG-1",
+          orgao_expedidor: "SSP/MG",
+          profissao: "engenheiro",
+          email: "joao@x.com",
+          rua: "Rua das Flores",
+          numero: "10",
+          bairro: "Centro",
+          cidade: "Belo Horizonte",
+          estado: "mg",
+          cep: "30130000",
+        }),
+        mk("vendedor", "Carlos Vazio", {
+          genero: "M",
+          // SEM rg / orgao_expedidor / cpf / email — só nome + endereço.
+          profissao: "corretor",
+          rua: "Rua B",
+          numero: "20",
+          bairro: "Savassi",
+          cidade: "Belo Horizonte",
+          estado: "mg",
+          cep: "30140000",
+        }),
+      ],
+      {
+        ...baseGlobals(),
+        vendedor_nome: "João Silva",
+        vendedor2_nome: "Carlos Vazio",
+        comprador_nome: "Maria Souza",
+      }
+    );
+
+    // Completo: CPF formatado + vírgula + o "-" interno do CPF preservados.
+    expect(out).toContain("inscrito no CPF sob o nº <strong>111.111.111-11</strong>,");
+    // Completo: hífen RG–órgão preservado.
+    expect(out).toContain("<strong>MG-1</strong> - <strong>SSP/MG</strong>");
+    // Completo: e-mail preservado.
+    expect(out).toContain("endereço eletrônico: <strong>joao@x.com</strong>");
+
+    // Vazio: nenhum scaffold de campo vazio sobrou.
+    expect(out).not.toContain("CPF sob o nº <strong></strong>");
+    expect(out).not.toContain("endereço eletrônico: <strong></strong>");
+    expect(out).not.toMatch(/Carteira de Identidade nº <strong>\s*<\/strong>/);
+  });
+
   it("não duplica prefixo monetário (BUG 2: nunca \"R$ R$\")", () => {
     const out = render(
       TPL,
