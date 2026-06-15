@@ -107,9 +107,10 @@ export function cleanOrphanPunctuation(text: string): string {
  * estão resolvidos para texto. Função pura e idempotente; normaliza o próprio
  * whitespace (não depende da ordem com `cleanOrphanPunctuation`).
  *
- * ESCOPO: RG/órgão, CPF, e-mail. Endereço (variante granular) NÃO é tratado
- * aqui — some na migração granular→composto (`{{endereco}}`, já omitido vazio
- * pelo agreement L1).
+ * ESCOPO: RG/órgão, CPF, e-mail (R1-R3) e o tail "domiciliado em" do endereço
+ * COMPOSTO vazio (R4). A variante granular de endereço NÃO é tratada aqui — é
+ * migrada para a composta (`{{endereco}}`, montada por `composeEnderecoCanonico`
+ * omitindo segmentos vazios); R4 fecha o resíduo todo-vazio que a composta deixa.
  *
  * Regra de assimetria do RG (decisão de negócio): RG (número) vazio suprime a
  * cláusula INTEIRA mesmo com órgão preenchido — apresentar o órgão expedidor
@@ -155,6 +156,15 @@ export function suppressEmptyFieldScaffold(text: string): string {
     new RegExp(`endere[çc]o eletr[ôo]nico:\\s*${EMPTY}\\s*,`, "gi"),
     ""
   );
+
+  // R4 — endereço COMPOSTO vazio ⇒ suprime ", domiciliado em" no FIM do item.
+  // Na variante composta ({{c_domiciliado}} em {{endereco}}), endereco="" deixa
+  // "…, domiciliado em " pendurado no fim do item (endereco é o ULTIMO elemento).
+  // Ancora em fim-de-string ($): item preenchido tem texto apos "em" (ex.: "em
+  // Rua X, nº 10…" cheio, "em Rua X, s/n…" parcial) → \s*$ falha → nao casa.
+  // composeEnderecoCanonico ja monta parcial juntando so segmentos nao-vazios;
+  // R4 so pega o todo-vazio. Remove a virgula lider junto.
+  out = out.replace(/,\s*domiciliad[oa] em\s*$/i, "");
 
   // Normaliza o gap (espaço duplo) que a supressão deixa. Self-contained: não
   // dependemos do cleanOrphanPunctuation downstream para a correção da função.
