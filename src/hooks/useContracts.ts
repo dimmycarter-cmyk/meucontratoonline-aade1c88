@@ -17,6 +17,8 @@ export interface Contract {
   vendedor_id: string | null;
   empresa_id: string | null;
   dados: Record<string, string>;
+  /** Snapshot do wizard p/ retomada de rascunho (NULL em finalizados/legados). */
+  wizard_state?: Record<string, unknown> | null;
   conteudo_final: string;
   clausulas_ids: string[];
   valor_total: number | null;

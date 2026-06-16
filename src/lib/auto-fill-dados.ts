@@ -19,6 +19,7 @@
  * derivados (extenso, data) e injeção dos dados da empresa.
  */
 import type { ManualParticipantData } from "@/components/contract/manual-participant";
+import { MANUAL_ROLE_LABELS, emptyParticipant } from "@/components/contract/manual-participant";
 import type { ParticipantRole } from "@/components/contract/ParticipantCard";
 import { enrichDados, type CompanyData } from "./contract-enrichment";
 import { composeEnderecoCanonico, formatCPF, isValidCep } from "./contract-formatters";
@@ -218,4 +219,63 @@ export function buildParticipantsByRole(
     (byRole[plural] ??= []).push(participantToEachItem(p));
   }
   return byRole;
+}
+
+/**
+ * INVERSO (best-effort) de `autoFillDadosFromParticipants`: reconstrói
+ * `ManualParticipantData[]` a partir das chaves planas indexadas de um `dados`
+ * legado (`vendedor_nome`, `vendedor2_cpf`, `comprador_email`, …).
+ *
+ * Ponte one-time para rascunhos legados sem `wizard_state` (shape plano). LOSSY
+ * por natureza:
+ *   - `endereco` está COMPOSTO num único string (`composeEnderecoCanonico`) e NÃO
+ *     reverte para rua/numero/bairro/cidade/estado/cep — os campos granulares
+ *     ficam vazios (o usuário reinforma; a UI avisa via toast).
+ *   - `documents` não existem no plano.
+ * Restaura a IDENTIDADE escalar (nome/cpf/rg/email/genero/etc.) para o wizard não
+ * abrir em branco. Rascunhos novos usam `wizard_state` e são lossless.
+ *
+ * Varre cada papel sequencialmente (idx 0,1,…) enquanto `${prefix}_nome` existir;
+ * teto defensivo de 10 por papel (acima de qualquer SLOT_LIMIT real).
+ */
+export function reconstructParticipantsFromPlano(
+  plano: Record<string, string>
+): ManualParticipantData[] {
+  const out: ManualParticipantData[] = [];
+  if (!plano || typeof plano !== "object") return out;
+
+  const roles = Object.keys(MANUAL_ROLE_LABELS) as ParticipantRole[];
+  for (const role of roles) {
+    for (let idx = 0; idx < 10; idx++) {
+      const prefix = idx === 0 ? role : `${role}${idx + 1}`;
+      const nome = plano[`${prefix}_nome`];
+      if (!nome || !String(nome).trim()) {
+        if (idx === 0) break; // papel ausente — próximo papel
+        break; // fim da sequência desse papel
+      }
+      const get = (suffix: string) => plano[`${prefix}_${suffix}`] ?? "";
+      out.push({
+        ...emptyParticipant(role),
+        nome: String(nome),
+        cpf: get("cpf"),
+        rg: get("rg"),
+        orgao_expedidor: get("orgao_expedidor"),
+        profissao: get("profissao"),
+        whatsapp: get("whatsapp"),
+        email: get("email"),
+        nacionalidade: get("nacionalidade") || "Brasileiro(a)",
+        estado_civil: get("estado_civil"),
+        genero: (plano[`${prefix}_genero`] as any) || undefined,
+        data_nascimento: get("data_nascimento"),
+        oab: get("oab"),
+        regime_bens: get("regime_bens"),
+        banco: get("banco"),
+        agencia: get("agencia"),
+        conta: get("conta"),
+        pix: get("pix"),
+        // endereço granular e documents: perda assumida (ver doc acima).
+      });
+    }
+  }
+  return out;
 }

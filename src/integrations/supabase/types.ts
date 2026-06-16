@@ -595,6 +595,7 @@ export type Database = {
           valor_sinal: number | null
           valor_total: number | null
           vendedor_id: string | null
+          wizard_state: Json | null
         }
         Insert: {
           clausulas_ids?: Json
@@ -615,6 +616,7 @@ export type Database = {
           valor_sinal?: number | null
           valor_total?: number | null
           vendedor_id?: string | null
+          wizard_state?: Json | null
         }
         Update: {
           clausulas_ids?: Json
@@ -635,6 +637,7 @@ export type Database = {
           valor_sinal?: number | null
           valor_total?: number | null
           vendedor_id?: string | null
+          wizard_state?: Json | null
         }
         Relationships: [
           {
