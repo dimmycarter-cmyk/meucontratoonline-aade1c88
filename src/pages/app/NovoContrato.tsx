@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useWizardAutosave } from "@/hooks/useWizardAutosave";
+import { selectHydration, autosaveEnabled, buildContractDraftWrite } from "@/lib/wizard-draft";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
   ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
@@ -232,89 +233,15 @@ const NovoContrato = () => {
   // ===== Autosave + Retomada por :id =====
   const { id: contratoIdParam } = useParams<{ id?: string }>();
   const [loadedContract, setLoadedContract] = useState<any>(null);
+  // Guard anti-clobber: só libera autosave DEPOIS da hidratação concluir, para o
+  // estado vazio inicial nunca sobrescrever a linha persistida. Contrato novo
+  // (sem :id) não tem o que hidratar → hydrated=true imediatamente.
+  const [hydrated, setHydrated] = useState(!contratoIdParam);
 
-  const autosavePayload = useMemo(
-    () => ({
-      flowMode,
-      currentStepIndex,
-      selectedTemplateId,
-      dados,
-      selectedClauseIds,
-      conteudoFinal,
-      nomeContrato,
-      compradorId,
-      vendedorId,
-      empresaId,
-      compradorNome,
-      vendedorNome,
-      checkedDocs,
-      manualParticipants,
-      participants,
-      aiReviewSubStep,
-      conteudoFinalDirty,
-      dadosDirty: Array.from(dadosDirty),
-      aiReviewDirty,
-    }),
-    [
-      flowMode, currentStepIndex, selectedTemplateId, dados, selectedClauseIds,
-      conteudoFinal, nomeContrato, compradorId, vendedorId, empresaId,
-      compradorNome, vendedorNome, checkedDocs, manualParticipants, participants,
-      aiReviewSubStep,
-      conteudoFinalDirty, dadosDirty, aiReviewDirty,
-    ]
-  );
-
-  const stepsForAutosave = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
-  const { saveNow } = useWizardAutosave({
-    contratoId: contratoIdParam ?? null,
-    dados: autosavePayload,
-    currentStep: mapStepIdToCurrentStep(stepsForAutosave[currentStepIndex]?.id),
-    enabled: !!contratoIdParam && loadedContract?.status === "rascunho",
-  });
-
-  useEffect(() => {
-    if (!contratoIdParam) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from("contracts")
-        .select("*")
-        .eq("id", contratoIdParam)
-        .eq("status", "rascunho")
-        .maybeSingle();
-
-      if (error || !data) {
-        toast({ title: "Rascunho não encontrado", variant: "destructive" });
-        navigate("/app/contratos");
-        return;
-      }
-
-      setLoadedContract(data);
-      const snap = (data.dados ?? {}) as Record<string, any>;
-      if (snap.flowMode) setFlowMode(snap.flowMode);
-      if (typeof snap.currentStepIndex === "number") setCurrentStepIndex(snap.currentStepIndex);
-      if (snap.selectedTemplateId) setSelectedTemplateId(snap.selectedTemplateId);
-      if (snap.dados) setDados(snap.dados);
-      if (snap.selectedClauseIds) setSelectedClauseIds(snap.selectedClauseIds);
-      if (snap.conteudoFinal) setConteudoFinal(snap.conteudoFinal);
-      if (snap.nomeContrato) setNomeContrato(snap.nomeContrato);
-      if (snap.compradorId) setCompradorId(snap.compradorId);
-      if (snap.vendedorId) setVendedorId(snap.vendedorId);
-      if (snap.empresaId) setEmpresaId(snap.empresaId);
-      if (snap.compradorNome) setCompradorNome(snap.compradorNome);
-      if (snap.vendedorNome) setVendedorNome(snap.vendedorNome);
-      if (snap.checkedDocs) setCheckedDocs(snap.checkedDocs);
-      if (snap.manualParticipants) setManualParticipants(snap.manualParticipants);
-      if (snap.participants) setParticipants(snap.participants);
-      if (snap.aiReviewSubStep) setAiReviewSubStep(snap.aiReviewSubStep);
-      if (typeof snap.conteudoFinalDirty === "boolean") setConteudoFinalDirty(snap.conteudoFinalDirty);
-      if (Array.isArray(snap.dadosDirty)) setDadosDirty(new Set(snap.dadosDirty));
-      if (typeof snap.aiReviewDirty === "boolean") setAiReviewDirty(snap.aiReviewDirty);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contratoIdParam]);
-
-  // Build draft payload
-  const buildDraftPayload = useCallback(() => ({
+  // SNAPSHOT canônico do wizard (fonte ÚNICA: autosave, localStorage e Salvar
+  // Rascunho consomem este memo — sem divergência de deps). `wizard_state` recebe
+  // este objeto; `contracts.dados` recebe apenas `wizardSnapshot.dados` (plano).
+  const wizardSnapshot = useMemo(() => ({
     flowMode,
     currentStepIndex,
     selectedTemplateId,
@@ -348,12 +275,78 @@ const NovoContrato = () => {
     conteudoFinalDirty, dadosDirty, aiReviewDirty,
   ]);
 
-  // Persist state to localStorage with debounce
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draftPayloadRef = useRef(buildDraftPayload());
+  const stepsForAutosave = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
+  const { saveNow } = useWizardAutosave({
+    contratoId: contratoIdParam ?? null,
+    dadosPlano: dados,
+    wizardState: wizardSnapshot,
+    currentStep: mapStepIdToCurrentStep(stepsForAutosave[currentStepIndex]?.id),
+    enabled: autosaveEnabled({ contratoId: contratoIdParam, status: loadedContract?.status, hydrated }),
+  });
 
   useEffect(() => {
-    draftPayloadRef.current = buildDraftPayload();
+    if (!contratoIdParam) { setHydrated(true); return; }
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("contracts")
+          .select("*")
+          .eq("id", contratoIdParam)
+          .eq("status", "rascunho")
+          .maybeSingle();
+
+        if (error || !data) {
+          toast({ title: "Rascunho não encontrado", variant: "destructive" });
+          navigate("/app/contratos");
+          return;
+        }
+
+        setLoadedContract(data);
+        // Cobre os 3 shapes (wizard_state / snapshot-em-dados / plano legado).
+        const { state, source, lossy } = selectHydration(data);
+        if (state.flowMode !== undefined) setFlowMode(state.flowMode as FlowMode);
+        if (typeof state.currentStepIndex === "number") setCurrentStepIndex(state.currentStepIndex);
+        if (state.selectedTemplateId !== undefined) setSelectedTemplateId(state.selectedTemplateId);
+        if (state.dados) setDados(state.dados);
+        if (state.selectedClauseIds) setSelectedClauseIds(state.selectedClauseIds);
+        if (state.conteudoFinal !== undefined) setConteudoFinal(state.conteudoFinal);
+        if (state.nomeContrato) setNomeContrato(state.nomeContrato);
+        if (state.compradorId) setCompradorId(state.compradorId);
+        if (state.vendedorId) setVendedorId(state.vendedorId);
+        if (state.empresaId) setEmpresaId(state.empresaId);
+        if (state.compradorNome) setCompradorNome(state.compradorNome);
+        if (state.vendedorNome) setVendedorNome(state.vendedorNome);
+        if (state.checkedDocs) setCheckedDocs(state.checkedDocs);
+        if (state.manualParticipants) setManualParticipants(state.manualParticipants);
+        if (state.participants) setParticipants(state.participants as Participant[]);
+        if (state.aiReviewSubStep) setAiReviewSubStep(state.aiReviewSubStep);
+        if (typeof state.conteudoFinalDirty === "boolean") setConteudoFinalDirty(state.conteudoFinalDirty);
+        if (Array.isArray(state.dadosDirty)) setDadosDirty(new Set(state.dadosDirty));
+        if (typeof state.aiReviewDirty === "boolean") setAiReviewDirty(state.aiReviewDirty);
+
+        if (lossy) {
+          toast({
+            title: "Rascunho legado recuperado",
+            description: "Endereço detalhado e documentos anexados podem precisar ser reinformados.",
+          });
+        }
+        if (import.meta.env.DEV) console.info("[retomada] shape:", source);
+      } finally {
+        // Só libera o autosave após aplicar a hidratação (mesmo em erro/early-return
+        // o componente já navegou para fora; aqui garante que o caminho feliz captura
+        // o estado JÁ hidratado, nunca o vazio inicial).
+        setHydrated(true);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contratoIdParam]);
+
+  // Persist state to localStorage with debounce
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftPayloadRef = useRef(wizardSnapshot);
+
+  useEffect(() => {
+    draftPayloadRef.current = wizardSnapshot;
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
@@ -364,7 +357,7 @@ const NovoContrato = () => {
     }, 400);
 
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
-  }, [buildDraftPayload, profile?.tenant_id, user?.id]);
+  }, [wizardSnapshot, profile?.tenant_id, user?.id]);
 
   // Flush draft on tab hide / page unload
   useEffect(() => {
@@ -472,12 +465,16 @@ const NovoContrato = () => {
     }
     setIsSavingDraft(true);
     try {
+      // `dados` permanece PLANO (leitores); o snapshot completo vai em `wizard_state`
+      // (retomada lossless). Fonte única do invariante de escrita.
+      const draftWrite = buildContractDraftWrite(wizardSnapshot);
       await createContract({
         nome: contractName,
         status: "rascunho",
         current_step: mapStepIdToCurrentStep(steps[currentStepIndex]?.id),
         template_id: selectedTemplateId ?? null,
-        dados,
+        dados: draftWrite.dados,
+        wizard_state: draftWrite.wizard_state,
         clausulas_ids: selectedClauseIds,
         conteudo_final: conteudoFinal || "",
         comprador_id: compradorId ?? null,
@@ -509,7 +506,7 @@ const NovoContrato = () => {
   }, [
     profile?.tenant_id, user?.id, createContract, selectedTemplateId, dados,
     selectedClauseIds, conteudoFinal, compradorId, vendedorId, empresaId,
-    proceedPendingNav, navigate, toast,
+    wizardSnapshot, proceedPendingNav, navigate, toast,
   ]);
 
   const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
