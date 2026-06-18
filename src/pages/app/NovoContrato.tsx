@@ -3,6 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useWizardAutosave } from "@/hooks/useWizardAutosave";
 import { selectHydration, autosaveEnabled, buildContractDraftWrite } from "@/lib/wizard-draft";
 import {
+  resolveSaveMode,
+  buildDraftContractPayload,
+  buildFinalContractPayload,
+  buildParticipantRows,
+  diffParticipants,
+} from "@/lib/contract-save";
+import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
   ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
 } from "lucide-react";
@@ -162,7 +169,7 @@ const NovoContrato = () => {
   const { contacts, isLoading: loadingContacts } = useContacts();
   const { companies, isLoading: loadingCompanies } = useCompanies();
   const { clauses, isLoading: loadingClauses } = useClauses();
-  const { createContract, isCreating } = useContracts();
+  const { createContract, updateContract, isCreating } = useContracts();
   const { profile, user } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -466,21 +473,26 @@ const NovoContrato = () => {
     setIsSavingDraft(true);
     try {
       // `dados` permanece PLANO (leitores); o snapshot completo vai em `wizard_state`
-      // (retomada lossless). Fonte única do invariante de escrita.
+      // (retomada lossless). UPSERT: numa retomada (contratoIdParam) ATUALIZA a linha
+      // em vez de inserir — evita duplicata (bug 0018). Sem :id → INSERT.
       const draftWrite = buildContractDraftWrite(wizardSnapshot);
-      await createContract({
+      const draftPayload = buildDraftContractPayload({
         nome: contractName,
-        status: "rascunho",
-        current_step: mapStepIdToCurrentStep(steps[currentStepIndex]?.id),
-        template_id: selectedTemplateId ?? null,
+        currentStep: mapStepIdToCurrentStep(steps[currentStepIndex]?.id),
+        templateId: selectedTemplateId ?? null,
         dados: draftWrite.dados,
-        wizard_state: draftWrite.wizard_state,
-        clausulas_ids: selectedClauseIds,
-        conteudo_final: conteudoFinal || "",
-        comprador_id: compradorId ?? null,
-        vendedor_id: vendedorId ?? null,
-        empresa_id: empresaId ?? null,
-      } as any);
+        wizardState: draftWrite.wizard_state,
+        clausulasIds: selectedClauseIds,
+        conteudoFinal: conteudoFinal || "",
+        compradorId: compradorId ?? null,
+        vendedorId: vendedorId ?? null,
+        empresaId: empresaId ?? null,
+      });
+      if (resolveSaveMode(contratoIdParam) === "update") {
+        await updateContract({ id: contratoIdParam, ...draftPayload } as any);
+      } else {
+        await createContract(draftPayload as any);
+      }
 
       // Limpa o autosave local ANTES de navegar
       clearDraft(profile.tenant_id, user?.id);
@@ -504,7 +516,8 @@ const NovoContrato = () => {
       setIsSavingDraft(false);
     }
   }, [
-    profile?.tenant_id, user?.id, createContract, selectedTemplateId, dados,
+    profile?.tenant_id, user?.id, createContract, updateContract, contratoIdParam,
+    selectedTemplateId, dados,
     selectedClauseIds, conteudoFinal, compradorId, vendedorId, empresaId,
     wizardSnapshot, proceedPendingNav, navigate, toast,
   ]);
@@ -1073,144 +1086,113 @@ const NovoContrato = () => {
       }
 
       const contractName = nomeContrato || `Contrato - ${mergedDados.comprador_nome || comprador?.nome || compradorNome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || "Novo"}`;
-      const contract = await createContract({
+      // UPSERT: numa retomada (contratoIdParam) ATUALIZA a linha; senão INSERE.
+      // `wizard_state` (snapshot) agora SEMPRE gravado — antes este caminho criava
+      // plano-legado (bug 0018, wizard_state=NULL).
+      const saveMode = resolveSaveMode(contratoIdParam);
+      const finalPayload = buildFinalContractPayload({
         nome: contractName,
-        template_id: selectedTemplateId,
-        comprador_id: compradorId,
-        vendedor_id: vendedorId,
-        empresa_id: empresaId,
-        dados: mergedDados as any,
-        conteudo_final: fullContent,
-        clausulas_ids: selectedClauseIds as any,
-        status: "rascunho",
-        current_step: "concluido",
-        valor_total: mergedDados.valor_total ? parseFloat(mergedDados.valor_total.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
-        valor_sinal: mergedDados.valor_sinal ? parseFloat(mergedDados.valor_sinal.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
-        valor_financiamento: mergedDados.valor_financiamento ? parseFloat(mergedDados.valor_financiamento.replace(/[^\d.,]/g, "").replace(",", ".")) : null,
-      } as any);
+        templateId: selectedTemplateId,
+        compradorId,
+        vendedorId,
+        empresaId,
+        dados: mergedDados,
+        wizardState: buildContractDraftWrite(wizardSnapshot).wizard_state,
+        conteudoFinal: fullContent,
+        clausulasIds: selectedClauseIds,
+      });
 
-      if (!contract?.id) {
-        toast({ title: "Erro", description: "Não foi possível criar o contrato.", variant: "destructive" });
+      let contractId: string | undefined;
+      if (saveMode === "update") {
+        await updateContract({ id: contratoIdParam, ...finalPayload } as any);
+        contractId = contratoIdParam;
+      } else {
+        const created = await createContract(finalPayload as any);
+        contractId = created?.id;
+      }
+
+      if (!contractId) {
+        toast({ title: "Erro", description: "Não foi possível salvar o contrato.", variant: "destructive" });
         return;
       }
 
-      // Save participants for BOTH AI and manual flows
+      // Save participants (relacional) — UPSERT reconciliado para BOTH AI e manual.
       if (profile?.tenant_id) {
-        // Reverse mapping: dados key → participant field
-        const DADOS_TO_PARTICIPANT: Record<string, string> = {
-          cpf: "cpf", rg: "rg", orgao_expedidor: "issuing_agency",
-          profissao: "profession", nacionalidade: "nationality",
-          estado_civil: "marital_status", email: "email", whatsapp: "whatsapp",
-          genero: "gender",
-        };
-        const addrMap: Record<string, string> = {
-          endereco_rua: "address_street", endereco_numero: "address_number",
-          endereco_complemento: "address_complement", endereco_bairro: "address_neighborhood",
-          endereco_cidade: "address_city", endereco_estado: "address_state",
-          endereco_cep: "address_zipcode",
-        };
+        const desiredParticipants = buildParticipantRows({
+          flowMode, participants, manualParticipants, mergedDados, extractedData,
+        });
 
-        if (flowMode === "ai" && participants.length > 0) {
-          // AI flow: save each participant with extracted + form data
-          for (const p of participants) {
-            const pData = extractedData.find((ed) => ed.participantId === p.id);
-            const fieldMap: Record<string, string> = {};
-            pData?.fields.forEach((f) => { fieldMap[f.key] = f.value; });
+        if (saveMode === "update") {
+          // Retomada: reconcilia por (role, ordinal). UPDATE in-place preserva o id
+          // → NÃO cascateia participant_documents (OCR). `toDelete` é IGNORADO nesta
+          // fase (órfão temporário tolerado) — Fase 2: RPC transacional com
+          // DELETE+cascade. Ver src/lib/contract-save.ts.
+          const { data: existing } = await supabase
+            .from("contract_participants")
+            .select("id, role")
+            .eq("contract_id", contractId)
+            .order("created_at", { ascending: true });
+          const { toUpdate, toInsert } = diffParticipants((existing ?? []) as any, desiredParticipants);
 
-            const prefix = p.role + "_";
-            Object.entries(DADOS_TO_PARTICIPANT).forEach(([dadosSuffix, participantField]) => {
-              const dadosKey = prefix + dadosSuffix;
-              if (mergedDados[dadosKey] && !fieldMap[participantField]) {
-                fieldMap[participantField] = mergedDados[dadosKey];
-              }
-            });
-            Object.entries(addrMap).forEach(([dadosSuffix, participantField]) => {
-              const dadosKey = prefix + dadosSuffix;
-              if (mergedDados[dadosKey] && !fieldMap[participantField]) {
-                fieldMap[participantField] = mergedDados[dadosKey];
-              }
-            });
-
-            const { error: partError } = await supabase.from("contract_participants").insert({
-              contract_id: contract.id,
-              tenant_id: profile.tenant_id,
-              role: p.role,
-              full_name: pData?.full_name || p.full_name || mergedDados[prefix + "nome"] || "",
-              cpf: fieldMap.cpf || null,
-              rg: fieldMap.rg || null,
-              issuing_agency: fieldMap.issuing_agency || null,
-              profession: fieldMap.profession || null,
-              nationality: fieldMap.nationality || null,
-              marital_status: fieldMap.marital_status || null,
-              email: fieldMap.email || null,
-              whatsapp: fieldMap.whatsapp || null,
-              gender: fieldMap.gender || null,
-              address_street: fieldMap.address_street || null,
-              address_number: fieldMap.address_number || null,
-              address_complement: fieldMap.address_complement || null,
-              address_neighborhood: fieldMap.address_neighborhood || null,
-              address_city: fieldMap.address_city || null,
-              address_state: fieldMap.address_state || null,
-              address_zipcode: fieldMap.address_zipcode || null,
-            } as any);
-
-            if (partError) {
-              console.error("[NovoContrato] Erro ao salvar participante:", partError);
-              toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
+          for (const u of toUpdate) {
+            const { error } = await supabase.from("contract_participants").update(u.fields as any).eq("id", u.id);
+            if (error) {
+              console.error("[NovoContrato] Erro ao atualizar participante:", error);
+              toast({ title: "Erro ao atualizar participante", description: error.message, variant: "destructive" });
             } else {
+              // Auditoria granular: 1 evento por participante.
               logAction({
                 tenantId: profile.tenant_id,
-                action: "participant.created",
+                action: "participant.updated",
                 entityType: "participant",
-                metadata: { contract_id: contract.id, role: p.role, source: "ai" },
+                metadata: { contract_id: contractId, role: u.fields.role, source: flowMode },
               });
             }
           }
-        } else if (flowMode === "manual") {
-          // Manual flow: create participants from manualParticipants state
-          for (const mp of manualParticipants) {
-            if (!mp.nome.trim()) continue;
-
-            const { error: partError } = await supabase.from("contract_participants").insert({
-              contract_id: contract.id,
-              tenant_id: profile.tenant_id,
-              role: mp.role,
-              full_name: mp.nome,
-              cpf: mp.cpf || null,
-              rg: mp.rg || null,
-              issuing_agency: mp.orgao_expedidor || null,
-              profession: mp.profissao || null,
-              nationality: mp.nacionalidade || null,
-              marital_status: mp.estado_civil || null,
-              email: mp.email || null,
-              whatsapp: mp.whatsapp || null,
-              gender: mp.genero || null,
-              address_street: mp.rua || null,
-              address_number: mp.numero || null,
-              address_complement: mp.complemento || null,
-              address_neighborhood: mp.bairro || null,
-              address_city: mp.cidade || null,
-              address_state: mp.estado || null,
-              address_zipcode: mp.cep || null,
-            } as any);
-
-            if (partError) {
-              console.error("[NovoContrato] Erro ao salvar participante manual:", partError);
-              toast({ title: "Erro ao salvar participante", description: partError.message, variant: "destructive" });
+          if (toInsert.length > 0) {
+            const { error } = await supabase.from("contract_participants").insert(
+              toInsert.map((r) => ({ ...r, contract_id: contractId, tenant_id: profile.tenant_id })) as any
+            );
+            if (error) {
+              console.error("[NovoContrato] Erro ao inserir participantes:", error);
+              toast({ title: "Erro ao salvar participante", description: error.message, variant: "destructive" });
             } else {
-              logAction({
-                tenantId: profile.tenant_id,
-                action: "participant.created",
-                entityType: "participant",
-                metadata: { contract_id: contract.id, role: mp.role, source: "manual" },
-              });
+              for (const r of toInsert) {
+                logAction({
+                  tenantId: profile.tenant_id,
+                  action: "participant.created",
+                  entityType: "participant",
+                  metadata: { contract_id: contractId, role: r.role, source: flowMode },
+                });
+              }
             }
           }
+        } else {
+          // Primeiro save (INSERT): grava todos os desejados.
+          if (desiredParticipants.length > 0) {
+            const { error } = await supabase.from("contract_participants").insert(
+              desiredParticipants.map((r) => ({ ...r, contract_id: contractId, tenant_id: profile.tenant_id })) as any
+            );
+            if (error) {
+              console.error("[NovoContrato] Erro ao salvar participantes:", error);
+              toast({ title: "Erro ao salvar participante", description: error.message, variant: "destructive" });
+            } else {
+              for (const r of desiredParticipants) {
+                logAction({
+                  tenantId: profile.tenant_id,
+                  action: "participant.created",
+                  entityType: "participant",
+                  metadata: { contract_id: contractId, role: r.role, source: flowMode },
+                });
+              }
+            }
+          }
+        }
 
-          // Persistência silenciosa no histórico de contatos (tabela `contacts`).
-          // Para cada participante manual sem contact_id vinculado e com CPF,
-          // grava como contato do tenant se ainda não existir (dedupe por CPF).
-          // Falhas são engolidas — não interromper o fluxo do wizard.
+        // Persistência silenciosa no histórico de contatos (tabela `contacts`) — só
+        // manual. Para cada participante sem contact_id e com CPF, grava como contato
+        // do tenant se ainda não existir (dedupe por CPF). Falhas engolidas.
+        if (flowMode === "manual") {
           try {
             const existingCpfs = new Set(
               contacts.map((c) => (c.cpf || "").replace(/\D/g, "")).filter(Boolean)
@@ -1250,7 +1232,7 @@ const NovoContrato = () => {
       if (uploadedFiles.length > 0 && profile?.tenant_id) {
         for (const file of uploadedFiles) {
           const { error: docError } = await supabase.from("contract_documents").insert({
-            contract_id: contract.id,
+            contract_id: contractId,
             tenant_id: profile.tenant_id,
             file_name: file.name,
             file_path: file.path,
