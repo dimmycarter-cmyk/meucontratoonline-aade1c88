@@ -77,7 +77,7 @@ export interface FinalPayloadInput {
 /** "BRL string" → number | null (ex.: "R$ 1.234,56" → 1234.56). */
 function parseValor(v: string | undefined): number | null {
   if (!v) return null;
-  const n = parseFloat(v.replace(/[^\d.,]/g, "").replace(",", "."));
+  const n = parseFloat(v.replace(/[^\d.,]/g, "").replace(/\./g, "").replace(",", "."));
   return Number.isFinite(n) ? n : null;
 }
 
