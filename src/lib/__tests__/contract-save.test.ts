@@ -34,9 +34,8 @@ describe("wizard_state presente nos DOIS caminhos de save", () => {
   });
 
   it("buildFinalContractPayload inclui wizard_state + parseia valores", () => {
-    // Nota: parsing herda o comportamento original do handleSave — trata vírgula
-    // decimal ("450,50"→450.5), mas NÃO separador de milhar BR (quirk pré-existente,
-    // fora de escopo). Testamos o caso suportado.
+    // parseValor trata vírgula decimal ("450,50"→450.5) e separador de milhar BR
+    // ("350.000,00"→350000) — ver bateria de regressão dedicada abaixo.
     const p = buildFinalContractPayload({
       nome: "C", templateId: "t1", compradorId: null, vendedorId: null, empresaId: null,
       dados: { vendedor_nome: "Geronimo", valor_total: "R$ 450,50", valor_sinal: "" },
@@ -47,6 +46,28 @@ describe("wizard_state presente nos DOIS caminhos de save", () => {
     expect(p.current_step).toBe("concluido");
     expect(p.valor_total).toBe(450.5);
     expect(p.valor_sinal).toBe(null);
+  });
+});
+
+describe("parseValor (via buildFinalContractPayload.valor_total) — separador de milhar BR", () => {
+  const parse = (valor: string | undefined) =>
+    buildFinalContractPayload({
+      nome: "C", templateId: null, compradorId: null, vendedorId: null, empresaId: null,
+      dados: valor === undefined ? {} : { valor_total: valor },
+      wizardState: {}, conteudoFinal: "", clausulasIds: [],
+    }).valor_total;
+
+  it.each([
+    ["R$ 350.000,00", 350000],
+    ["R$ 1.234.567,89", 1234567.89],
+    ["R$ 950,00", 950],
+    ["1000", 1000],
+    ["", null],
+    [undefined, null],
+    ["abc", null],
+    ["R$ 0,00", 0],
+  ])("%j → %j", (entrada, esperado) => {
+    expect(parse(entrada as string | undefined)).toBe(esperado);
   });
 });
 
