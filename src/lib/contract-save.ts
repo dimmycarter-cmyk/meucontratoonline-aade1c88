@@ -30,6 +30,74 @@ export function resolveSaveMode(contratoId: string | null | undefined): SaveMode
   return contratoId ? "update" : "insert";
 }
 
+/**
+ * Id efetivo do rascunho para o botão persistente / modal:
+ *  - `routeId`        — retomada por rota `/contratos/:id` (Fase 1).
+ *  - `createdDraftId` — id capturado do 1º INSERT nesta sessão (ref na tela).
+ *
+ * REQUISITO DE IDEMPOTÊNCIA: sem `createdDraftId`, o 2º clique num contrato
+ * NOVO (sem :id) faria outro INSERT → rascunho duplicado (bug da Fase 1).
+ * A rota vence a ref (retomada é a fonte canônica).
+ */
+export function effectiveDraftId(
+  routeId: string | null | undefined,
+  createdDraftId: string | null | undefined,
+): string | null {
+  return routeId ?? createdDraftId ?? null;
+}
+
+/** Modo de save do rascunho considerando rota + id capturado do 1º INSERT. */
+export function resolveDraftSaveMode(
+  routeId: string | null | undefined,
+  createdDraftId: string | null | undefined,
+): SaveMode {
+  return resolveSaveMode(effectiveDraftId(routeId, createdDraftId));
+}
+
+// ===== Habilitação do "Salvar Rascunho" persistente (anti-lixo) =====
+
+/**
+ * "Dado mínimo" para não gravar rascunho-lixo no banco: pelo menos UM
+ * participante com nome real (manual ou IA) OU algum valor plano preenchido.
+ */
+export function hasMinimalDraftData(input: {
+  manualParticipants?: Array<{ nome?: string }>;
+  participants?: Array<{ full_name?: string }>;
+  dados?: Record<string, string>;
+}): boolean {
+  const manualNamed = (input.manualParticipants ?? []).some((p) => p?.nome?.trim());
+  const aiNamed = (input.participants ?? []).some((p) => p?.full_name?.trim());
+  const anyDado = Object.values(input.dados ?? {}).some(
+    (v) => typeof v === "string" && v.trim().length > 0,
+  );
+  return !!(manualNamed || aiNamed || anyDado);
+}
+
+export interface CanSaveDraftInput {
+  hasTenant: boolean;
+  currentStepIndex: number;
+  selectedTemplateId: string | null;
+  hasMinimalData: boolean;
+  isDirty: boolean;
+  isSavingDraft: boolean;
+}
+
+/**
+ * Regra de habilitação do botão persistente. Só habilita a partir da 2ª etapa
+ * (index >= 1, já há um modelo escolhido), com tenant, dado mínimo, form sujo e
+ * sem save em voo. Pura → testável isoladamente.
+ */
+export function canSaveDraft(i: CanSaveDraftInput): boolean {
+  return (
+    i.hasTenant &&
+    i.currentStepIndex >= 1 &&
+    !!i.selectedTemplateId &&
+    i.hasMinimalData &&
+    i.isDirty &&
+    !i.isSavingDraft
+  );
+}
+
 // ===== Payloads de contrato (sempre com wizard_state) =====
 
 export interface DraftPayloadInput {
