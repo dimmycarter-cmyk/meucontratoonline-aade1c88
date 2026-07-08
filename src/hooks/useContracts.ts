@@ -5,6 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantLimits } from "@/hooks/useTenantLimits";
 import { logAction } from "@/lib/audit";
 import { parseSupabaseError } from "@/lib/supabase-errors";
+import { resolveSaveMode, buildDraftContractPayload } from "@/lib/contract-save";
+import { buildContractDraftWrite } from "@/lib/wizard-draft";
 
 export interface Contract {
   id: string;
@@ -26,6 +28,22 @@ export interface Contract {
   valor_financiamento: number | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Entrada da mutação dedicada de rascunho persistente. */
+export interface SaveDraftInput {
+  /** Id efetivo (rota :id ou capturado do 1º INSERT). null → INSERT. */
+  id: string | null;
+  nome: string;
+  currentStep: string;
+  templateId: string | null;
+  /** Snapshot canônico do wizard (`wizardSnapshot`). */
+  snapshot: Record<string, unknown>;
+  clausulasIds: string[];
+  conteudoFinal: string;
+  compradorId: string | null;
+  vendedorId: string | null;
+  empresaId: string | null;
 }
 
 export const useContracts = () => {
@@ -148,6 +166,65 @@ export const useContracts = () => {
     },
   });
 
+  // Rascunho persistente (botão do wizard + modal de saída). Mutação DEDICADA:
+  // isPending próprio (isSavingDraft) e toast "Rascunho salvo", desacoplados dos
+  // toasts genéricos de create/update. Usa o MESMO core UPSERT-by-ID.
+  const saveDraftMutation = useMutation({
+    mutationFn: async (input: SaveDraftInput) => {
+      const draftWrite = buildContractDraftWrite(input.snapshot);
+      const payload = buildDraftContractPayload({
+        nome: input.nome,
+        currentStep: input.currentStep,
+        templateId: input.templateId,
+        dados: draftWrite.dados,
+        wizardState: draftWrite.wizard_state,
+        clausulasIds: input.clausulasIds,
+        conteudoFinal: input.conteudoFinal,
+        compradorId: input.compradorId,
+        vendedorId: input.vendedorId,
+        empresaId: input.empresaId,
+      });
+
+      const mode = resolveSaveMode(input.id);
+      let row: any;
+      if (mode === "update") {
+        const { data, error } = await supabase
+          .from("contracts")
+          .update({ ...payload, updated_at: new Date().toISOString() } as any)
+          .eq("id", input.id!)
+          .select()
+          .single();
+        if (error) throw error;
+        row = data;
+      } else {
+        const { data, error } = await supabase
+          .from("contracts")
+          .insert({ ...payload, tenant_id: effectiveTenantId } as any)
+          .select()
+          .single();
+        if (error) throw error;
+        row = data;
+      }
+
+      logAction({
+        tenantId: effectiveTenantId,
+        action: mode === "update" ? "contract.updated" : "contract.created",
+        entityType: "contract",
+        entityId: row?.id,
+        metadata: { status: "rascunho", via: "draft", internal_code: row?.internal_code },
+      });
+      return row;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["tenant-limits"] });
+      toast({ title: "Rascunho salvo" });
+    },
+    onError: (error) => {
+      toast({ title: "Erro ao salvar rascunho", description: parseSupabaseError(error), variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("contracts").delete().eq("id", id);
@@ -174,9 +251,11 @@ export const useContracts = () => {
     isLoading: query.isLoading,
     createContract: createMutation.mutateAsync,
     updateContract: updateMutation.mutateAsync,
+    saveDraftContract: saveDraftMutation.mutateAsync,
     deleteContract: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isSaving: updateMutation.isPending,
+    isSavingDraft: saveDraftMutation.isPending,
     canCreateContract,
     limits,
   };

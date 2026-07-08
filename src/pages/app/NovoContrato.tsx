@@ -4,10 +4,12 @@ import { useWizardAutosave } from "@/hooks/useWizardAutosave";
 import { selectHydration, autosaveEnabled, buildContractDraftWrite } from "@/lib/wizard-draft";
 import {
   resolveSaveMode,
-  buildDraftContractPayload,
   buildFinalContractPayload,
   buildParticipantRows,
   diffParticipants,
+  effectiveDraftId,
+  canSaveDraft,
+  hasMinimalDraftData,
 } from "@/lib/contract-save";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
@@ -169,7 +171,7 @@ const NovoContrato = () => {
   const { contacts, isLoading: loadingContacts } = useContacts();
   const { companies, isLoading: loadingCompanies } = useCompanies();
   const { clauses, isLoading: loadingClauses } = useClauses();
-  const { createContract, updateContract, isCreating } = useContracts();
+  const { createContract, updateContract, saveDraftContract, isCreating, isSaving, isSavingDraft } = useContracts();
   const { profile, user } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -407,26 +409,41 @@ const NovoContrato = () => {
   ]);
 
   const [draftModalOpen, setDraftModalOpen] = useState(false);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  // Id capturado do 1º INSERT de rascunho nesta sessão. Sem :id na rota (contrato
+  // novo), o 2º save reusa este id → UPDATE, evitando linha duplicada (idempotência).
+  const createdDraftIdRef = useRef<string | null>(null);
+  // "Salvo e nada mudou desde então" — governa só o botão persistente (label/disable),
+  // sem tocar nas flags protetivas (conteudoFinalDirty/dadosDirty/aiReviewDirty).
+  const [draftSavedClean, setDraftSavedClean] = useState(false);
   const allowExitRef = useRef(false);
   const pendingNavRef = useRef<string | number | null>(null);
 
-  // Aviso nativo ao fechar/recarregar a aba
+  // Qualquer mudança real no snapshot do wizard invalida o "salvo limpo" → o botão
+  // "Salvar Rascunho" reabilita. persistDraft() não altera wizardSnapshot, então
+  // marcar clean=true após salvar não é revertido até a próxima edição.
+  useEffect(() => {
+    setDraftSavedClean(false);
+  }, [wizardSnapshot]);
+
+  // Aviso nativo ao fechar/recarregar a aba. `draftSavedClean` suprime o aviso
+  // logo após um save bem-sucedido (nada sujo a perder até a próxima edição).
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty && !allowExitRef.current) {
+      if (isDirty && !draftSavedClean && !allowExitRef.current) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [isDirty]);
+  }, [isDirty, draftSavedClean]);
 
   // Intercepta cliques em links internos (sidebar/menu) quando o form está sujo.
   // Substitui useBlocker (não suportado em <BrowserRouter> legacy).
+  // `draftSavedClean`: acabou de salvar e nada mudou → deixa navegar direto,
+  // sem o modal de "salvar rascunho" (Decisão 1). Reativa na próxima edição.
   useEffect(() => {
-    if (!isDirty) return;
+    if (!isDirty || draftSavedClean) return;
     const onClickCapture = (e: MouseEvent) => {
       if (allowExitRef.current) return;
       if (e.defaultPrevented || e.button !== 0) return;
@@ -445,7 +462,7 @@ const NovoContrato = () => {
     };
     document.addEventListener("click", onClickCapture, true);
     return () => document.removeEventListener("click", onClickCapture, true);
-  }, [isDirty]);
+  }, [isDirty, draftSavedClean]);
 
   const proceedPendingNav = useCallback(() => {
     const dest = pendingNavRef.current;
@@ -465,65 +482,92 @@ const NovoContrato = () => {
     }
   }, [profile?.tenant_id, user?.id, navigate, proceedPendingNav]);
 
-  const handleSaveDraftFromModal = useCallback(async (contractName: string) => {
+  // Persistência PURA do rascunho (não navega, não fecha modal). Reusada pelo
+  // botão persistente (fica na página) e pelo modal de saída (que adiciona a
+  // navegação). Toda a decisão INSERT vs UPDATE fica no core (hook + contract-save).
+  // Retorna o id salvo, ou null em falha/tenant ausente.
+  const persistDraft = useCallback(async (nameOverride?: string): Promise<string | null> => {
     if (!profile?.tenant_id) {
       toast({ title: "Erro", description: "Tenant não identificado.", variant: "destructive" });
-      return;
+      return null;
     }
-    setIsSavingDraft(true);
+    // Idempotência: rota :id (retomada) OU id capturado do 1º INSERT desta sessão.
+    const idForSave = effectiveDraftId(contratoIdParam, createdDraftIdRef.current);
+    const fallbackNome = `Contrato - ${
+      dados.comprador_nome ||
+      manualParticipants.find((p) => p.role === "comprador")?.nome ||
+      participants.find((p) => p.role === "comprador")?.full_name ||
+      "Novo"
+    }`;
+    const nome = (nameOverride ?? nomeContrato)?.trim() || fallbackNome;
     try {
-      // `dados` permanece PLANO (leitores); o snapshot completo vai em `wizard_state`
-      // (retomada lossless). UPSERT: numa retomada (contratoIdParam) ATUALIZA a linha
-      // em vez de inserir — evita duplicata (bug 0018). Sem :id → INSERT.
-      const draftWrite = buildContractDraftWrite(wizardSnapshot);
-      const draftPayload = buildDraftContractPayload({
-        nome: contractName,
+      // Rascunho grava SÓ snapshot (dados plano + wizard_state). NÃO reconcilia
+      // contract_participants — paridade com a Fase 1; a projeção relacional fica
+      // exclusivamente no "Salvar Contrato" final (handleSave).
+      const saved = await saveDraftContract({
+        id: idForSave,
+        nome,
         currentStep: mapStepIdToCurrentStep(steps[currentStepIndex]?.id),
         templateId: selectedTemplateId ?? null,
-        dados: draftWrite.dados,
-        wizardState: draftWrite.wizard_state,
+        snapshot: wizardSnapshot,
         clausulasIds: selectedClauseIds,
         conteudoFinal: conteudoFinal || "",
         compradorId: compradorId ?? null,
         vendedorId: vendedorId ?? null,
         empresaId: empresaId ?? null,
       });
-      if (resolveSaveMode(contratoIdParam) === "update") {
-        await updateContract({ id: contratoIdParam, ...draftPayload } as any);
-      } else {
-        await createContract(draftPayload as any);
-      }
-
-      // Limpa o autosave local ANTES de navegar
-      clearDraft(profile.tenant_id, user?.id);
-      setNomeContrato(contractName);
-      setDraftModalOpen(false);
-      allowExitRef.current = true;
-
-      if (pendingNavRef.current !== null) {
-        proceedPendingNav();
-      } else {
-        navigate("/app/contratos");
-      }
-    } catch (e: any) {
+      const savedId = (saved as any)?.id ?? idForSave ?? null;
+      // Captura o id do 1º INSERT → próximos saves viram UPDATE (sem duplicar).
+      if (!idForSave && savedId) createdDraftIdRef.current = savedId;
+      // 2e: com o rascunho no banco, o autosave local vira redundante. Limpá-lo
+      // impede que qualquer saída (link suprimido pelo 2d, fechar aba, back) deixe
+      // conteúdo stale que re-hidrate com createdDraftIdRef=null → INSERT duplicado.
+      clearDraft(profile?.tenant_id, user?.id);
+      setDraftSavedClean(true);
+      return savedId;
+    } catch (e) {
+      // Toast de erro já exibido pelo onError da mutação dedicada.
       console.error("[NovoContrato] Erro ao salvar rascunho:", e);
-      toast({
-        title: "Erro ao salvar rascunho",
-        description: e?.message || "Erro desconhecido",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSavingDraft(false);
+      return null;
     }
   }, [
-    profile?.tenant_id, user?.id, createContract, updateContract, contratoIdParam,
-    selectedTemplateId, dados,
-    selectedClauseIds, conteudoFinal, compradorId, vendedorId, empresaId,
-    wizardSnapshot, proceedPendingNav, navigate, toast,
+    profile?.tenant_id, user?.id, contratoIdParam, saveDraftContract, wizardSnapshot,
+    nomeContrato, selectedTemplateId, selectedClauseIds, conteudoFinal,
+    compradorId, vendedorId, empresaId, currentStepIndex, dados,
+    manualParticipants, participants, toast,
   ]);
+
+  const handleSaveDraftFromModal = useCallback(async (contractName: string) => {
+    const savedId = await persistDraft(contractName);
+    if (!savedId) return; // falha/tenant ausente — toast já exibido, não navega.
+
+    setNomeContrato(contractName);
+    // Limpa o autosave local ANTES de navegar.
+    clearDraft(profile?.tenant_id, user?.id);
+    setDraftModalOpen(false);
+    allowExitRef.current = true;
+
+    if (pendingNavRef.current !== null) {
+      proceedPendingNav();
+    } else {
+      navigate("/app/contratos");
+    }
+  }, [persistDraft, profile?.tenant_id, user?.id, proceedPendingNav, navigate]);
 
   const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
   const currentStep = steps[currentStepIndex];
+
+  // Habilitação do "Salvar Rascunho" persistente. `!draftSavedClean` desabilita
+  // logo após um save bem-sucedido e reabilita na próxima edição (efeito acima).
+  const canSaveDraftNow =
+    canSaveDraft({
+      hasTenant: !!profile?.tenant_id,
+      currentStepIndex,
+      selectedTemplateId: selectedTemplateId ?? null,
+      hasMinimalData: hasMinimalDraftData({ manualParticipants, participants, dados }),
+      isDirty,
+      isSavingDraft,
+    }) && !draftSavedClean;
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
   const comprador = contacts.find((c) => c.id === compradorId);
@@ -1669,6 +1713,11 @@ const NovoContrato = () => {
         blockReason={getBlockReason()}
         onBack={handleBack}
         onNext={handleNext}
+        canSaveDraft={canSaveDraftNow}
+        onSaveDraft={() => { void persistDraft(); }}
+        isSavingDraft={isSavingDraft}
+        isCreating={isCreating}
+        isSaving={isSaving}
       />
 
       {/* Inline Create Template Dialog */}
