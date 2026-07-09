@@ -54,6 +54,40 @@ export function resolveDraftSaveMode(
   return resolveSaveMode(effectiveDraftId(routeId, createdDraftId));
 }
 
+/**
+ * Idempotência cross-mount: após o 1º INSERT bem-sucedido de um contrato NOVO,
+ * sincronizar a URL para a rota de retomada (`/novo-contrato/:id`) faz o id viver
+ * na URL — não só na `createdDraftIdRef` (que se perde ao sair e voltar à página).
+ *
+ * `true` SOMENTE quando o save foi um INSERT (não havia `effectiveDraftId` ANTES
+ * do save) E veio um `savedId`. Numa retomada (rota já tinha `:id`) ou num 2º save
+ * (id já capturado) → `false`: a URL já reflete o rascunho, nada a sincronizar.
+ */
+export function shouldSyncDraftUrl(
+  routeId: string | null | undefined,
+  createdDraftId: string | null | undefined,
+  savedId: string | null | undefined,
+): boolean {
+  const hadIdBeforeSave = !!effectiveDraftId(routeId, createdDraftId);
+  return !hadIdBeforeSave && !!savedId;
+}
+
+/**
+ * Guard anti-race da re-hidratação: o `:id` da rota corresponde ao rascunho que
+ * ESTE mount vivo acabou de inserir (id capturado em `createdDraftIdRef`).
+ *
+ * Quando `true`, o estado em memória JÁ é a fonte da verdade (acabou de ser
+ * gravado) → pular o fetch + re-aplicação evita (a) sobrescrever teclas digitadas
+ * na janela entre o save e o fetch e (b) toast/flicker de retomada indevidos.
+ * Numa retomada fria (`createdDraftId` nulo) → `false`: hidrata normalmente do banco.
+ */
+export function isSelfSavedDraft(
+  routeId: string | null | undefined,
+  createdDraftId: string | null | undefined,
+): boolean {
+  return !!routeId && routeId === createdDraftId;
+}
+
 // ===== Habilitação do "Salvar Rascunho" persistente (anti-lixo) =====
 
 /**

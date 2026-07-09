@@ -5,6 +5,8 @@ import {
   canSaveDraft,
   hasMinimalDraftData,
   buildDraftContractPayload,
+  shouldSyncDraftUrl,
+  isSelfSavedDraft,
   type CanSaveDraftInput,
 } from "../contract-save";
 
@@ -25,6 +27,44 @@ describe("idempotência do rascunho persistente (createdDraftIdRef)", () => {
   it("retomada por rota :id sempre update e vence o id capturado", () => {
     expect(resolveDraftSaveMode("route-id", null)).toBe("update");
     expect(effectiveDraftId("route-id", "other-id")).toBe("route-id");
+  });
+});
+
+// (a.2) Idempotência cross-mount — sincronizar URL após o 1º INSERT e pular a
+// re-hidratação do rascunho recém-salvo por este mount.
+describe("shouldSyncDraftUrl — leva o id do rascunho para a URL após o 1º INSERT", () => {
+  it("contrato novo (sem rota, sem id capturado) + savedId → sincroniza", () => {
+    expect(shouldSyncDraftUrl(null, null, "draft-1")).toBe(true);
+  });
+
+  it("INSERT sem savedId (falha) → não sincroniza", () => {
+    expect(shouldSyncDraftUrl(null, null, null)).toBe(false);
+  });
+
+  it("2º save (id já capturado no mount) → não sincroniza (URL já refletiria após o replace)", () => {
+    expect(shouldSyncDraftUrl(null, "draft-1", "draft-1")).toBe(false);
+  });
+
+  it("retomada por rota :id → não sincroniza (URL já tem o id)", () => {
+    expect(shouldSyncDraftUrl("route-id", null, "route-id")).toBe(false);
+  });
+});
+
+describe("isSelfSavedDraft — guard anti-race da re-hidratação", () => {
+  it("rota :id == id inserido por este mount → pula re-hidratação", () => {
+    expect(isSelfSavedDraft("draft-1", "draft-1")).toBe(true);
+  });
+
+  it("retomada fria (sem id capturado) → hidrata do banco", () => {
+    expect(isSelfSavedDraft("route-id", null)).toBe(false);
+  });
+
+  it("sem rota :id → não é auto-salvo (contrato novo em memória)", () => {
+    expect(isSelfSavedDraft(null, "draft-1")).toBe(false);
+  });
+
+  it("rota :id diferente do capturado (retomada de outro rascunho) → hidrata do banco", () => {
+    expect(isSelfSavedDraft("route-id", "draft-1")).toBe(false);
   });
 });
 

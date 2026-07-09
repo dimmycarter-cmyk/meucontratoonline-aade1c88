@@ -10,6 +10,8 @@ import {
   effectiveDraftId,
   canSaveDraft,
   hasMinimalDraftData,
+  shouldSyncDraftUrl,
+  isSelfSavedDraft,
 } from "@/lib/contract-save";
 import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
@@ -164,7 +166,7 @@ function clearDraft(tenantId?: string, userId?: string) {
   sessionStorage.removeItem(OLD_STORAGE_KEY);
 }
 
-const NovoContrato = () => {
+const NovoContratoWizard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { templates, isLoading: loadingTemplates, createTemplate, isCreating: isCreatingTemplate } = useTemplates();
@@ -295,6 +297,15 @@ const NovoContrato = () => {
 
   useEffect(() => {
     if (!contratoIdParam) { setHydrated(true); return; }
+    // Idempotência cross-mount: quando o `:id` da rota é o rascunho que ESTE mount
+    // acabou de inserir (navegação com replace pós-1º save), o estado em memória já
+    // é a fonte da verdade — reler do banco só reintroduz race (sobrescrever teclas
+    // digitadas) e toast/flicker. `persistDraft` já setou `loadedContract` (autosave
+    // segue habilitado) e `hydrated` já é true neste mount. Pula fetch + re-aplicação.
+    if (isSelfSavedDraft(contratoIdParam, createdDraftIdRef.current)) {
+      setHydrated(true);
+      return;
+    }
     (async () => {
       try {
         const { data, error } = await supabase
@@ -518,7 +529,14 @@ const NovoContrato = () => {
       });
       const savedId = (saved as any)?.id ?? idForSave ?? null;
       // Captura o id do 1º INSERT → próximos saves viram UPDATE (sem duplicar).
-      if (!idForSave && savedId) createdDraftIdRef.current = savedId;
+      if (!idForSave && savedId) {
+        createdDraftIdRef.current = savedId;
+        // A navegação replace (botão persistente) leva o `:id` à URL e re-dispara o
+        // efeito de hidratação, que agora PULA o fetch (isSelfSavedDraft). Sem reler
+        // o banco, `loadedContract` ficaria null → autosave desabilitado. A linha
+        // recém-inserida (retorno do INSERT, com status "rascunho") supre isso sem I/O.
+        setLoadedContract(saved as any);
+      }
       // 2e: com o rascunho no banco, o autosave local vira redundante. Limpá-lo
       // impede que qualquer saída (link suprimido pelo 2d, fechar aba, back) deixe
       // conteúdo stale que re-hidrate com createdDraftIdRef=null → INSERT duplicado.
@@ -553,6 +571,20 @@ const NovoContrato = () => {
       navigate("/app/contratos");
     }
   }, [persistDraft, profile?.tenant_id, user?.id, proceedPendingNav, navigate]);
+
+  // Botão persistente (fica na página). Diferente do modal de saída, aqui SÍNCRONIA
+  // a URL com a rota de retomada após o 1º INSERT: o id do rascunho passa a viver na
+  // URL (`/novo-contrato/:id`), não só na `createdDraftIdRef` (que se perde ao sair e
+  // voltar → risco de INSERT duplicado). `replace` para não empilhar histórico.
+  const handleSaveDraftPersistent = useCallback(async () => {
+    // Captura ANTES do save: persistDraft muta createdDraftIdRef ao capturar o INSERT.
+    const routeIdBefore = contratoIdParam ?? null;
+    const createdBefore = createdDraftIdRef.current;
+    const savedId = await persistDraft();
+    if (shouldSyncDraftUrl(routeIdBefore, createdBefore, savedId)) {
+      navigate(`/app/novo-contrato/${savedId}`, { replace: true });
+    }
+  }, [persistDraft, contratoIdParam, navigate]);
 
   const steps = flowMode === "ai" ? aiSteps : flowMode === "manual" ? manualSteps : initialSteps;
   const currentStep = steps[currentStepIndex];
@@ -1714,7 +1746,7 @@ const NovoContrato = () => {
         onBack={handleBack}
         onNext={handleNext}
         canSaveDraft={canSaveDraftNow}
-        onSaveDraft={() => { void persistDraft(); }}
+        onSaveDraft={() => { void handleSaveDraftPersistent(); }}
         isSavingDraft={isSavingDraft}
         isCreating={isCreating}
         isSaving={isSaving}
@@ -1798,6 +1830,42 @@ const NovoContrato = () => {
       />
     </div>
   );
+};
+
+/**
+ * Wrapper de rota. Remonta o wizard SOMENTE na transição `:id → undefined`
+ * (ex.: usuário salva → URL vira `/novo-contrato/:id` → clica "Novo Contrato" no
+ * menu → URL volta a `/novo-contrato`). Como a rota é `novo-contrato/:id?` (param
+ * opcional, MESMO element), o React não remontaria sozinho nessa transição: o
+ * formulário continuaria com os dados do rascunho anterior e `createdDraftIdRef`
+ * ainda apontaria para ele → um "contrato novo" faria UPDATE silencioso no antigo.
+ *
+ * A `key` é um CONTADOR (não o `:id`): assim a transição inversa `undefined → :id`
+ * (sincronização de URL pós-1º save) NÃO muda a key → sem remount → o estado em
+ * memória é preservado e o guard `isSelfSavedDraft` pula a re-hidratação (sem
+ * flicker). Só o caminho de reset incrementa o contador → remount limpo (todo o
+ * estado re-semeado do zero).
+ *
+ * Furo do localStorage: após salvar e CONTINUAR editando, o autosave-local regrava
+ * o snapshot; no remount, `loadDraft` (no mount do wizard) ressuscitaria o rascunho
+ * antigo. Por isso o reset limpa o localStorage ANTES de bumpar a key — como é
+ * síncrono, o novo mount lê o local já vazio → formulário em branco. Só ocorre
+ * vindo de um `:id` (trabalho já persistido no banco), então nada não-salvo se perde.
+ */
+const NovoContrato = () => {
+  const { id } = useParams<{ id?: string }>();
+  const { profile, user } = useAuth();
+  const [resetKey, setResetKey] = useState(0);
+  const prevIdRef = useRef(id);
+  useEffect(() => {
+    const wasId = !!prevIdRef.current;
+    prevIdRef.current = id;
+    if (wasId && !id) {
+      clearDraft(profile?.tenant_id, user?.id);
+      setResetKey((c) => c + 1);
+    }
+  }, [id, profile?.tenant_id, user?.id]);
+  return <NovoContratoWizard key={resetKey} />;
 };
 
 export default NovoContrato;
