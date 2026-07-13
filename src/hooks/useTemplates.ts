@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { logAction } from "@/lib/audit";
 import { parseSupabaseError } from "@/lib/supabase-errors";
+import { resolveTemplateOwnership } from "@/lib/template-ownership";
 
 export interface ContractTemplate {
   id: string;
@@ -50,14 +51,14 @@ export const useTemplates = () => {
 
   const createMutation = useMutation({
     mutationFn: async (template: Partial<ContractTemplate>) => {
-      const insertData: any = {
-        ...template,
-        tenant_id: isSuperAdmin ? (impersonatedTenantId || profile!.tenant_id) : profile!.tenant_id,
-      };
-      // If super_admin creating without impersonation, mark as global
-      if (isSuperAdmin && !impersonatedTenantId) {
-        insertData.is_global = true;
-      }
+      // Ownership puro (tenant_id + is_global) que SEMPRE satisfaz o CHECK
+      // contract_templates_tenant_or_global. Ver src/lib/template-ownership.ts.
+      const ownership = resolveTemplateOwnership({
+        isSuperAdmin,
+        impersonatedTenantId: impersonatedTenantId ?? null,
+        profileTenantId: profile?.tenant_id ?? null,
+      });
+      const insertData: any = { ...template, ...ownership };
       const { data, error } = await supabase
         .from("contract_templates")
         .insert(insertData)
