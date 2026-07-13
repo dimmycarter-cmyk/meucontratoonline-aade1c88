@@ -9,219 +9,26 @@
 
 import { applyFallback, getFallbackStrategy, type FallbackStrategy } from "./placeholder-fallback";
 import { cleanOrphanPunctuation, suppressEmptyFieldScaffold } from "./text-cleanup";
+import {
+  buildLegacyBracketMap,
+  GENERIC_FIELD_SUFFIXES,
+  ORDER_FALLBACK,
+  ROLE_KEYWORDS,
+} from "./import-catalog";
 
-export const LEGACY_BRACKET_MAP: Record<string, string> = {
-  // ===== Comprador (índice padrão) =====
-  "NOME COMPLETO DO(A) COMPRADOR(A)": "comprador_nome",
-  "NOME COMPLETO DO COMPRADOR": "comprador_nome",
-  "COMPRADOR": "comprador_nome",
-  "PROMISSÁRIO(A) COMPRADOR(A)": "comprador_nome",
-  "CPF DO(A) COMPRADOR(A)": "comprador_cpf",
-  "CPF DO COMPRADOR": "comprador_cpf",
-  "RG DO(A) COMPRADOR(A)": "comprador_rg",
-  "RG DO COMPRADOR": "comprador_rg",
-  "ÓRGÃO EXPEDIDOR (COMPRADOR)": "comprador_orgao_expedidor",
-  "PROFISSÃO DO(A) COMPRADOR(A)": "comprador_profissao",
-  "ESTADO CIVIL DO(A) COMPRADOR(A)": "comprador_estado_civil",
-  "NACIONALIDADE DO(A) COMPRADOR(A)": "comprador_nacionalidade",
-  "ENDEREÇO DO(A) COMPRADOR(A)": "comprador_endereco",
-
-  // ===== Comprador 2 =====
-  "NOME COMPLETO DO(A) COMPRADOR(A) 2": "comprador2_nome",
-  "NOME DO COMPRADOR 2": "comprador2_nome",
-  "CPF DO(A) COMPRADOR(A) 2": "comprador2_cpf",
-  "RG DO(A) COMPRADOR(A) 2": "comprador2_rg",
-  "ÓRGÃO EXPEDIDOR (COMPRADOR 2)": "comprador2_orgao_expedidor",
-  "PROFISSÃO DO(A) COMPRADOR(A) 2": "comprador2_profissao",
-  "ESTADO CIVIL DO(A) COMPRADOR(A) 2": "comprador2_estado_civil",
-  "ENDEREÇO DO(A) COMPRADOR(A) 2": "comprador2_endereco",
-
-  // ===== Vendedor (índice padrão) =====
-  "NOME COMPLETO DO(A) VENDEDOR(A)": "vendedor_nome",
-  "NOME COMPLETO DO VENDEDOR": "vendedor_nome",
-  "PROMITENTE VENDEDOR(A)": "vendedor_nome",
-  "VENDEDOR": "vendedor_nome",
-  "CPF DO(A) VENDEDOR(A)": "vendedor_cpf",
-  "CPF DO VENDEDOR": "vendedor_cpf",
-  "RG DO(A) VENDEDOR(A)": "vendedor_rg",
-  "RG DO VENDEDOR": "vendedor_rg",
-  "ÓRGÃO EXPEDIDOR (VENDEDOR)": "vendedor_orgao_expedidor",
-  "ÓRGÃO EXPEDIDOR DO VENDEDOR": "vendedor_orgao_expedidor",
-  "PROFISSÃO DO(A) VENDEDOR(A)": "vendedor_profissao",
-  "ESTADO CIVIL DO(A) VENDEDOR(A)": "vendedor_estado_civil",
-  "NACIONALIDADE DO(A) VENDEDOR(A)": "vendedor_nacionalidade",
-  "ENDEREÇO DO(A) VENDEDOR(A)": "vendedor_endereco",
-  "BANCO DO(A) VENDEDOR(A)": "vendedor_banco",
-  "AGÊNCIA DO(A) VENDEDOR(A)": "vendedor_agencia",
-  "CONTA DO(A) VENDEDOR(A)": "vendedor_conta",
-  "PIX DO(A) VENDEDOR(A)": "vendedor_pix",
-
-  // ===== Vendedores 2..4 =====
-  "NOME DO VENDEDOR 2": "vendedor2_nome",
-  "CPF DO VENDEDOR 2": "vendedor2_cpf",
-  "RG DO VENDEDOR 2": "vendedor2_rg",
-  "PROFISSÃO DO VENDEDOR 2": "vendedor2_profissao",
-  "ESTADO CIVIL DO VENDEDOR 2": "vendedor2_estado_civil",
-  "ENDEREÇO DO VENDEDOR 2": "vendedor2_endereco",
-  "BANCO DO VENDEDOR 2": "vendedor2_banco",
-  "AGÊNCIA DO VENDEDOR 2": "vendedor2_agencia",
-  "CONTA DO VENDEDOR 2": "vendedor2_conta",
-  "PIX DO VENDEDOR 2": "vendedor2_pix",
-
-  "NOME DO VENDEDOR 3": "vendedor3_nome",
-  "CPF DO VENDEDOR 3": "vendedor3_cpf",
-  "RG DO VENDEDOR 3": "vendedor3_rg",
-  "ENDEREÇO DO VENDEDOR 3": "vendedor3_endereco",
-
-  "NOME DO VENDEDOR 4": "vendedor4_nome",
-  "CPF DO VENDEDOR 4": "vendedor4_cpf",
-  "RG DO VENDEDOR 4": "vendedor4_rg",
-  "ENDEREÇO DO VENDEDOR 4": "vendedor4_endereco",
-
-  "NOME DO VENDEDOR 5": "vendedor5_nome",
-  "CPF DO VENDEDOR 5": "vendedor5_cpf",
-  "RG DO VENDEDOR 5": "vendedor5_rg",
-  "PROFISSÃO DO VENDEDOR 5": "vendedor5_profissao",
-  "ESTADO CIVIL DO VENDEDOR 5": "vendedor5_estado_civil",
-  "ENDEREÇO DO VENDEDOR 5": "vendedor5_endereco",
-  "BANCO DO VENDEDOR 5": "vendedor5_banco",
-  "AGÊNCIA DO VENDEDOR 5": "vendedor5_agencia",
-  "CONTA DO VENDEDOR 5": "vendedor5_conta",
-  "PIX DO VENDEDOR 5": "vendedor5_pix",
-
-  // ===== Cônjuge =====
-  "NOME DO(A) CÔNJUGE": "conjuge_nome",
-  "CPF DO(A) CÔNJUGE": "conjuge_cpf",
-  "RG DO(A) CÔNJUGE": "conjuge_rg",
-  "PROFISSÃO DO(A) CÔNJUGE": "conjuge_profissao",
-  "NOME DO(A) CÔNJUGE 2": "conjuge2_nome",
-  "CPF DO(A) CÔNJUGE 2": "conjuge2_cpf",
-  "RG DO(A) CÔNJUGE 2": "conjuge2_rg",
-
-  // ===== Anuente =====
-  "NOME DO(A) ANUENTE": "anuente_nome",
-  "CPF DO(A) ANUENTE": "anuente_cpf",
-  "RG DO(A) ANUENTE": "anuente_rg",
-  "ENDEREÇO DO(A) ANUENTE": "anuente_endereco",
-
-  // ===== Procurador (T6) =====
-  "NOME DO(A) PROCURADOR(A)": "procurador_nome",
-  "NOME COMPLETO DO(A) PROCURADOR(A)": "procurador_nome",
-  "CPF DO(A) PROCURADOR(A)": "procurador_cpf",
-  "RG DO(A) PROCURADOR(A)": "procurador_rg",
-  "OAB DO(A) PROCURADOR(A)": "procurador_oab",
-  "OAB DO PROCURADOR": "procurador_oab",
-  "PROFISSÃO DO(A) PROCURADOR(A)": "procurador_profissao",
-  "ESTADO CIVIL DO(A) PROCURADOR(A)": "procurador_estado_civil",
-  "NACIONALIDADE DO(A) PROCURADOR(A)": "procurador_nacionalidade",
-  "ENDEREÇO DO(A) PROCURADOR(A)": "procurador_endereco",
-  "OUTORGANTE": "procurador_outorgante",
-  "OUTORGANTE DA PROCURAÇÃO": "procurador_outorgante",
-  "DATA DA PROCURAÇÃO": "procurador_data_procuracao",
-  "CARTÓRIO DA PROCURAÇÃO": "procurador_cartorio_procuracao",
-  "LIVRO DA PROCURAÇÃO": "procurador_livro_procuracao",
-  "FOLHA DA PROCURAÇÃO": "procurador_folha_procuracao",
-
-  // ===== Genéricos sem qualificação (HEURÍSTICA BEST-EFFORT) =====
-  // Labels minúsculos sem qualificação ([nacionalidade], [profissão], [cpf], etc.)
-  // são resolvidos por heurística de ordem de aparição no template — vide
-  // resolveAmbiguousLabels() (a ser implementado na Leva 2 do importador .docx).
-  // Limitação conhecida: a heurística é best-effort. Templates importados pela
-  // Leva 3 (.docx) DEVEM usar labels qualificados explícitos (ex: "CPF DO VENDEDOR 2")
-  // — o importador alerta o usuário quando detecta labels genéricos sem qualificação.
-  // Os mapeamentos abaixo servem APENAS como fallback (1ª ocorrência = vendedor).
-  "CPF": "vendedor_cpf",
-  "RG": "vendedor_rg",
-  "RG/ÓRGÃO EMISSOR": "vendedor_rg",
-  "ÓRGÃO EMISSOR": "vendedor_orgao_expedidor",
-  "E-MAIL": "vendedor_email",
-  "EMAIL": "vendedor_email",
-  "ENDEREÇO COMPLETO": "vendedor_endereco",
-  "ENDEREÇO": "vendedor_endereco",
-  "NACIONALIDADE": "vendedor_nacionalidade",
-  "ESTADO CIVIL": "vendedor_estado_civil",
-  "PROFISSÃO": "vendedor_profissao",
-
-  // Variantes de assinatura (rodapé do contrato)
-  "NOME COMPLETO DO(A) PROMITENTE VENDEDOR(A)": "vendedor_nome",
-  "NOME COMPLETO DO(A) PROMISSÁRIO(A) COMPRADOR(A)": "comprador_nome",
-
-  // ===== Imóvel =====
-  "DESCRIÇÃO DO IMÓVEL": "imovel_descricao",
-  "DESCRIÇÃO COMPLETA DO IMÓVEL": "imovel_descricao",
-  "TIPO DO IMÓVEL": "imovel_tipo",
-  "ENDEREÇO DO IMÓVEL": "imovel_endereco",
-  "MATRÍCULA": "imovel_matricula",
-  "MATRÍCULA DO IMÓVEL": "imovel_matricula",
-  "NÚMERO DA MATRÍCULA": "imovel_matricula",
-  "CARTÓRIO": "imovel_cartorio",
-  "ÁREA PRIVATIVA": "imovel_area_privativa",
-  "ÁREA TOTAL": "imovel_area_total",
-  "ÁREA ACESSÓRIA": "imovel_area_acessoria",
-  "VAGAS DE GARAGEM": "imovel_vagas",
-  "INSCRIÇÃO/ÍNDICE CADASTRAL": "imovel_indice_cadastral",
-  "ÍNDICE CADASTRAL": "imovel_indice_cadastral",
-  "INSCRIÇÃO MUNICIPAL": "imovel_inscricao_municipal",
-
-  // ===== Financeiro =====
-  "VALOR TOTAL": "valor_total",
-  "VALOR TOTAL POR EXTENSO": "valor_total_extenso",
-  "VALOR DO SINAL": "valor_sinal",
-  "VALOR REMANESCENTE": "valor_remanescente",
-  "VALOR DO FINANCIAMENTO": "valor_financiamento",
-  "FORMA DE PAGAMENTO": "forma_pagamento",
-  "BANCO DO FINANCIAMENTO": "banco_financiamento",
-  "VALOR PARA O VENDEDOR": "valor_vendedor_sinal",
-  "VALOR DA CORRETAGEM": "valor_corretagem",
-  "PRAZO DE POSSE": "prazo_posse_dias",
-  "PRAZO DE POSSE EM DIAS": "prazo_posse_dias",
-  "MULTA DIÁRIA POR ATRASO": "multa_atraso_diaria",
-  "MULTA POR ATRASO": "multa_atraso_diaria",
-
-  // ===== Imobiliária / Empresa =====
-  "NOME DA AGÊNCIA": "empresa_nome",
-  "NOME DA IMOBILIÁRIA": "empresa_nome",
-  "CNPJ DA IMOBILIÁRIA": "empresa_cnpj",
-  "CRECI DA IMOBILIÁRIA": "empresa_creci",
-  "ENDEREÇO DA IMOBILIÁRIA": "empresa_endereco",
-  "NOME DO BANCO": "empresa_banco",
-  "NÚMERO DA CONTA": "empresa_conta",
-  "NÚMERO DA AGÊNCIA": "empresa_agencia",
-  "CNPJ": "empresa_cnpj",
-  "CPF/CNPJ": "empresa_cnpj",
-
-  // ===== Intermediadoras =====
-  "NOME DA INTERMEDIADORA I": "intermediadora1_nome",
-  "NOME DA INTERMEDIADORA 1": "intermediadora1_nome",
-  "CNPJ/CPF 1": "intermediadora1_cnpj",
-  "CNPJ/PIX 1": "intermediadora1_cnpj",
-  "NOME DA INTERMEDIADORA 2": "intermediadora2_nome",
-  "CNPJ/CPF 2": "intermediadora2_cnpj",
-  "CNPJ/PIX 2": "intermediadora2_cnpj",
-  "CNPJ OU CHAVE PIX": "intermediadora1_cnpj",
-  "VALOR DA INTERMEDIADORA 1": "intermediadora1_valor",
-  "VALOR DA INTERMEDIADORA 2": "intermediadora2_valor",
-
-  // ===== Testemunhas =====
-  "NOME DA TESTEMUNHA 1": "testemunha1_nome",
-  "CPF DA TESTEMUNHA 1": "testemunha1_cpf",
-  "CRECI DA TESTEMUNHA 1": "testemunha1_creci",
-  "E-MAIL DA TESTEMUNHA 1": "testemunha1_email",
-  "NOME DA TESTEMUNHA 2": "testemunha2_nome",
-  "CPF DA TESTEMUNHA 2": "testemunha2_cpf",
-  "CRECI DA TESTEMUNHA 2": "testemunha2_creci",
-  "E-MAIL DA TESTEMUNHA 2": "testemunha2_email",
-
-  // ===== Contrato / Local =====
-  "CIDADE/UF": "cidade_uf",
-  "CIDADE DO CONTRATO": "cidade_contrato",
-  "FORO": "foro",
-  "DIA": "data_dia",
-  "MÊS": "data_mes",
-  "ANO": "data_ano",
-  "DATA DO CONTRATO": "data_contrato",
-  "DATA DO CONTRATO POR EXTENSO": "data_contrato_extenso",
-};
+/**
+ * Dicionário legado label→chave (171 pares). Desde a Fase 1 (sessão 1.1)
+ * é DERIVADO do catálogo unificado em import-catalog.ts — fonte única de
+ * verdade (E1); não edite pares aqui, edite o IMPORT_CATALOG.
+ * A grade completa é validada contra o fixture congelado em
+ * __tests__/fixtures/legacy-bracket-map.fixture.ts (guarda anti-regressão).
+ *
+ * Nota herdada: os labels genéricos sem qualificação ([CPF], [ENDEREÇO]...)
+ * continuam mapeando para vendedor_* como fallback de 1ª ocorrência — a
+ * resolução por contexto de papel vive em resolveAmbiguousLabels (client)
+ * e no novo motor import-detection.ts.
+ */
+export const LEGACY_BRACKET_MAP: Record<string, string> = buildLegacyBracketMap();
 
 /**
  * Remove blocos condicionais {{#if FLAG}}…{{/if}} cuja FLAG não esteja
@@ -564,17 +371,8 @@ export interface ResolvedLabel extends AmbiguousLabel {
   confidence: "high" | "medium" | "low";
 }
 
-const ROLE_KEYWORDS: Array<{ role: string; rx: RegExp }> = [
-  { role: "vendedor", rx: /\bvendedor(?:a|es|as)?\b/i },
-  { role: "comprador", rx: /\bcomprador(?:a|es|as)?\b/i },
-  { role: "procurador", rx: /\bprocurador(?:a|es|as)?\b/i },
-  { role: "conjuge", rx: /\bc[ôo]njuges?\b/i },
-  { role: "anuente", rx: /\banuentes?\b/i },
-  { role: "testemunha", rx: /\btestemunhas?\b/i },
-];
-
-/** Ordem de fallback puro quando não há contexto: 1ª = vendedor, 2ª = comprador, 3ª = cônjuge. */
-const ORDER_FALLBACK = ["vendedor", "comprador", "conjuge", "anuente"];
+// ROLE_KEYWORDS e ORDER_FALLBACK agora vivem em import-catalog.ts (fonte
+// única, Fase 1/E1) e são importados no topo deste arquivo.
 
 /**
  * Mapeia o label genérico (sem qualificação) ao sufixo canônico.
@@ -583,24 +381,7 @@ const ORDER_FALLBACK = ["vendedor", "comprador", "conjuge", "anuente"];
  */
 function genericLabelToFieldSuffix(rawLabel: string): string | null {
   const upper = rawLabel.replace(/^\[|\]$/g, "").trim().toUpperCase();
-  const map: Record<string, string> = {
-    "CPF": "cpf",
-    "RG": "rg",
-    "RG/ÓRGÃO EMISSOR": "rg",
-    "ÓRGÃO EMISSOR": "orgao_expedidor",
-    "ÓRGÃO EXPEDIDOR": "orgao_expedidor",
-    "NOME": "nome",
-    "NOME COMPLETO": "nome",
-    "ENDEREÇO": "endereco",
-    "ENDEREÇO COMPLETO": "endereco",
-    "NACIONALIDADE": "nacionalidade",
-    "ESTADO CIVIL": "estado_civil",
-    "PROFISSÃO": "profissao",
-    "E-MAIL": "email",
-    "EMAIL": "email",
-    "TELEFONE": "telefone",
-  };
-  return map[upper] ?? null;
+  return GENERIC_FIELD_SUFFIXES[upper] ?? null;
 }
 
 /**
