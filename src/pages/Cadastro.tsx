@@ -31,25 +31,24 @@ const Cadastro = () => {
   useEffect(() => {
     if (token) {
       setInviteLoading(true);
-      supabase
-        .from("invitations")
-        .select("email, role, tenant_id, status, expires_at")
-        .eq("token", token)
-        .eq("status", "pending")
-        .maybeSingle()
-        .then(({ data, error }) => {
+      // Fase 0 (auditoria): a tabela invitations nao e mais legivel por anon
+      // (a policy USING(true) foi removida). A leitura por token agora passa
+      // pela RPC SECURITY DEFINER get_invitation_by_token, que ja filtra
+      // pending + nao-expirado no servidor e devolve so os campos da tela.
+      // Cast pontual: a RPC ainda nao esta em types.ts (regenera apos aplicar
+      // a migration da Fase 0). Ver docs/AUDITORIA_COMPLETA_2026-07.md.
+      (supabase.rpc as any)("get_invitation_by_token", { p_token: token }).then(
+        ({ data, error }: { data: InvitationInfo[] | null; error: unknown }) => {
           setInviteLoading(false);
-          if (error || !data) {
+          const invite = Array.isArray(data) ? data[0] : data;
+          if (error || !invite) {
             toast({ title: "Convite inválido ou expirado", variant: "destructive" });
             return;
           }
-          if (new Date(data.expires_at) < new Date()) {
-            toast({ title: "Este convite expirou", variant: "destructive" });
-            return;
-          }
-          setInvitation(data as InvitationInfo);
-          setForm((prev) => ({ ...prev, email: data.email }));
-        });
+          setInvitation(invite as InvitationInfo);
+          setForm((prev) => ({ ...prev, email: invite.email }));
+        }
+      );
     }
   }, [token]);
 

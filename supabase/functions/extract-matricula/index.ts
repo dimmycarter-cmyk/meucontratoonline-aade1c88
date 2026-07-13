@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,31 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Autenticação: exige JWT válido de usuário logado (qualquer role — a função
+    // serve o fluxo de contrato do tenant). Sem isso o endpoint fica público e
+    // vira proxy grátis do gateway de IA (denial-of-wallet). Ver Fase 0 da
+    // auditoria (docs/AUDITORIA_COMPLETA_2026-07.md). Padrão espelhado de
+    // seed-templates-leva1, porém SEM o gate de super_admin.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ success: false, error: "unauthenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } }
+    );
+    const { data: userData } = await userClient.auth.getUser();
+    if (!userData?.user) {
+      return new Response(JSON.stringify({ success: false, error: "unauthenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return new Response(JSON.stringify({ success: false, error: "invalid_body" }), {
