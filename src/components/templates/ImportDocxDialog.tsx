@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTemplates } from "@/hooks/useTemplates";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveAmbiguousLabels, extractVariables, type ResolvedLabel } from "@/lib/placeholder";
+import { resolveImportGate } from "@/lib/import-template-gate";
 
 const TIPOS = ["Compra e Venda", "Locação", "Proposta", "Intermediação", "Outro"];
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -63,6 +64,7 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
   const [resolved, setResolved] = useState<ResolvedLabel[]>([]);
   const [mapping, setMapping] = useState<Record<number, MappingDecision>>({});
   const [piiAcknowledged, setPiiAcknowledged] = useState(false);
+  const [zeroVarsAck, setZeroVarsAck] = useState(false);
   const [form, setForm] = useState({ nome: "", descricao: "", tipo: "Compra e Venda" });
 
   const reset = () => {
@@ -72,6 +74,7 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
     setResolved([]);
     setMapping({});
     setPiiAcknowledged(false);
+    setZeroVarsAck(false);
     setForm({ nome: "", descricao: "", tipo: "Compra e Venda" });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -166,6 +169,10 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
     [parseResult]
   );
 
+  // Variáveis do conteúdo final e o gate de "0 variáveis" (Fase 0 — item 3).
+  const variaveisFinais = useMemo(() => extractVariables(finalHtml), [finalHtml]);
+  const importGate = resolveImportGate(variaveisFinais.length, zeroVarsAck);
+
   // ----------------------------------------------------------------
   // Step 3 — PII
   // ----------------------------------------------------------------
@@ -189,7 +196,17 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
       return;
     }
     const nome = form.nome.startsWith("Modelo - ") ? form.nome.trim() : `Modelo - ${form.nome.trim()}`;
-    const variaveis = extractVariables(finalHtml);
+    const variaveis = variaveisFinais;
+
+    // Gate de "0 variáveis": criação bloqueada até confirmação explícita.
+    if (importGate.createBlocked) {
+      toast({
+        title: "Confirmação necessária",
+        description: "Marque a confirmação para criar um modelo sem variáveis.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       await createTemplate({
@@ -199,7 +216,15 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
         conteudo: finalHtml,
         variaveis,
       });
-      toast({ title: "Modelo importado", description: `${variaveis.length} variáveis detectadas.` });
+      if (variaveis.length === 0) {
+        toast({
+          title: "Modelo criado sem variáveis",
+          description: "Nenhum campo preenchível foi detectado — este modelo não substituirá dados.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Modelo importado", description: `${variaveis.length} variáveis detectadas.` });
+      }
       handleClose(false);
     } catch (err) {
       // O toast de erro amigável (PT-BR) já é emitido pelo onError de useTemplates.
@@ -458,9 +483,42 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
                   />
                 </ScrollArea>
                 <p className="text-[10px] text-muted-foreground">
-                  Variáveis detectadas: <strong>{extractVariables(finalHtml).length}</strong>
+                  Variáveis detectadas: <strong>{variaveisFinais.length}</strong>
                 </p>
               </div>
+
+              {/* Gate de "0 variáveis" (Fase 0 — item 3) */}
+              {importGate.showZeroVariablesWarning && (
+                <Alert className="border-destructive/50 bg-destructive/10">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <AlertTitle className="text-destructive">Nenhuma variável detectada</AlertTitle>
+                  <AlertDescription>
+                    <p className="text-xs">
+                      Este modelo não terá campos preenchíveis: ao gerar um contrato, nada será
+                      substituído automaticamente. Hoje o importador reconhece apenas dois formatos de
+                      campo:
+                    </p>
+                    <ul className="mt-2 list-disc pl-5 text-xs space-y-1">
+                      <li><code className="rounded bg-muted px-1">{"{{campo}}"}</code> — chave moderna em snake_case.</li>
+                      <li><code className="rounded bg-muted px-1">[CAMPO DO MAPA]</code> — rótulo legado em caixa alta reconhecido pelo sistema.</li>
+                    </ul>
+                    <p className="mt-2 text-xs">
+                      Lacunas com underscore (<code className="rounded bg-muted px-1">______</code>) ainda
+                      não são detectadas. Revise o documento ou continue por sua conta e risco.
+                    </p>
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 p-2">
+                      <Checkbox
+                        id="zero-vars-ack"
+                        checked={zeroVarsAck}
+                        onCheckedChange={(v) => setZeroVarsAck(v === true)}
+                      />
+                      <Label htmlFor="zero-vars-ack" className="text-xs leading-relaxed">
+                        Entendo que este modelo não tem campos preenchíveis e quero criá-lo mesmo assim.
+                      </Label>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           )}
         </div>
@@ -492,7 +550,11 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
             </Button>
           )}
           {step === 4 && (
-            <Button onClick={handleConfirm} disabled={isCreating || !form.nome.trim()}>
+            <Button
+              onClick={handleConfirm}
+              disabled={isCreating || !form.nome.trim() || importGate.createBlocked}
+              title={importGate.createBlocked ? "Marque a confirmação para criar um modelo sem variáveis" : undefined}
+            >
               {isCreating ? (<><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Salvando…</>) : (<><Check className="mr-1 h-4 w-4" /> Criar modelo</>)}
             </Button>
           )}
