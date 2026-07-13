@@ -202,8 +202,9 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
       toast({ title: "Modelo importado", description: `${variaveis.length} variáveis detectadas.` });
       handleClose(false);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Falha ao salvar.";
-      toast({ title: "Erro", description: msg, variant: "destructive" });
+      // O toast de erro amigável (PT-BR) já é emitido pelo onError de useTemplates.
+      // Aqui só registramos o detalhe técnico no console — sem toast duplicado.
+      console.error("[ImportDocx] falha ao criar modelo:", err);
     }
   };
 
@@ -212,8 +213,8 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
   // ----------------------------------------------------------------
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
             Importar modelo de .docx — Passo {step} de 4
@@ -226,7 +227,7 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-[320px]">
+        <div className="min-h-[320px] flex-1 overflow-y-auto pr-1">
           {/* ===================== Step 1 — Upload ===================== */}
           {step === 1 && (
             <div className="space-y-4">
@@ -464,7 +465,7 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 shrink-0">
           {step > 1 && (
             <Button variant="outline" onClick={() => setStep((s) => (s - 1) as 1 | 2 | 3 | 4)} disabled={isCreating}>
               <ChevronLeft className="mr-1 h-4 w-4" /> Voltar

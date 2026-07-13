@@ -21,5 +21,6 @@ export function parseSupabaseError(error: unknown): string {
   }
   if (code === "23503") return "Não é possível excluir — este item está em uso.";
   if (code === "23502") return "Campo obrigatório não preenchido.";
+  if (code === "23514") return "Não foi possível salvar: dados inconsistentes para este tipo de registro.";
   return String(e.message ?? "Erro ao processar a solicitação.");
 }
