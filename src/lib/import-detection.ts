@@ -129,6 +129,14 @@ const KNOWN_KEYS: Set<string> = (() => {
   return keys;
 })();
 
+/**
+ * Acesso read-only a KNOWN_KEYS (1.2 — indexação por paridade valida chaves
+ * indexadas antes de sugerir; nunca expõe o Set mutável).
+ */
+export function isKnownKey(key: string): boolean {
+  return KNOWN_KEYS.has(key);
+}
+
 // ============================================================================
 // Similaridade (fuzzy sem lib externa)
 // ============================================================================

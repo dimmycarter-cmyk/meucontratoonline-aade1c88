@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from "react";
 import DOMPurify from "dompurify";
 import {
-  Upload, FileText, AlertTriangle, Shield, Check, X, Loader2, ChevronRight, ChevronLeft,
+  Upload, FileText, AlertTriangle, Shield, Check, X, Loader2, ChevronRight, ChevronLeft, Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,26 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTemplates } from "@/hooks/useTemplates";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveAmbiguousLabels, extractVariables, type ResolvedLabel } from "@/lib/placeholder";
+import { extractVariables } from "@/lib/placeholder";
+import { detectTemplateFields, type MatchConfidence, type DetectionSyntax } from "@/lib/import-detection";
+import {
+  buildMappingRows, indexRepeatableRoles, summarizeMapping, canAdvanceMapping,
+  ignoreAllPending, applyMappingToHtml, buildImportMetadata, type MappingRow,
+} from "@/lib/import-mapping";
+import { TEMPLATE_VARIABLES } from "@/lib/template-variables";
 import { resolveImportGate } from "@/lib/import-template-gate";
 
 const TIPOS = ["Compra e Venda", "Locação", "Proposta", "Intermediação", "Outro"];
@@ -32,11 +44,6 @@ interface ParseResponse {
   ambiguousLabels: Array<{ raw: string; occurrenceIndex: number; context: string }>;
   piiMatches: Array<{ kind: string; value: string; index: number; hint: string }>;
   warnings: string[];
-}
-
-interface MappingDecision {
-  /** "" = ignorar (não substituir) */
-  targetKey: string;
 }
 
 interface Props {
@@ -53,6 +60,37 @@ const PII_LABELS: Record<string, string> = {
   valor_monetario_extenso: "Valor monetário",
 };
 
+const SYNTAX_LABELS: Record<DetectionSyntax, string> = {
+  curly: "{{ }}",
+  bracket: "[ ]",
+  underscore: "____",
+};
+
+const CONFIDENCE_LABELS: Record<MatchConfidence, string> = {
+  exact: "Exata",
+  high: "Alta",
+  medium: "Média",
+  none: "Sem sugestão",
+};
+
+const CONFIDENCE_VARIANTS: Record<MatchConfidence, "default" | "secondary" | "outline"> = {
+  exact: "default",
+  high: "default",
+  medium: "secondary",
+  none: "outline",
+};
+
+/** Catálogo completo agrupado por categoria para o Select (fallback manual). */
+const CATALOG_GROUPS: Array<{ category: string; keys: string[] }> = (() => {
+  const byCategory = new Map<string, string[]>();
+  for (const v of TEMPLATE_VARIABLES) {
+    const arr = byCategory.get(v.category) ?? [];
+    arr.push(v.key);
+    byCategory.set(v.category, arr);
+  }
+  return [...byCategory.entries()].map(([category, keys]) => ({ category, keys }));
+})();
+
 export default function ImportDocxDialog({ open, onOpenChange }: Props) {
   const { toast } = useToast();
   const { createTemplate, isCreating } = useTemplates();
@@ -61,8 +99,9 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isUploading, setIsUploading] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResponse | null>(null);
-  const [resolved, setResolved] = useState<ResolvedLabel[]>([]);
-  const [mapping, setMapping] = useState<Record<number, MappingDecision>>({});
+  const [rows, setRows] = useState<MappingRow[]>([]);
+  const [fileName, setFileName] = useState("");
+  const [bulkIgnoreOpen, setBulkIgnoreOpen] = useState(false);
   const [piiAcknowledged, setPiiAcknowledged] = useState(false);
   const [zeroVarsAck, setZeroVarsAck] = useState(false);
   const [form, setForm] = useState({ nome: "", descricao: "", tipo: "Compra e Venda" });
@@ -71,8 +110,9 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
     setStep(1);
     setIsUploading(false);
     setParseResult(null);
-    setResolved([]);
-    setMapping({});
+    setRows([]);
+    setFileName("");
+    setBulkIgnoreOpen(false);
     setPiiAcknowledged(false);
     setZeroVarsAck(false);
     setForm({ nome: "", descricao: "", tipo: "Compra e Venda" });
@@ -85,7 +125,7 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
   };
 
   // ----------------------------------------------------------------
-  // Step 1 — Upload
+  // Step 1 — Upload + detecção unificada (client-side, motor da 1.1)
   // ----------------------------------------------------------------
   const handleFileSelected = async (file: File) => {
     if (!/\.docx$/i.test(file.name)) {
@@ -109,16 +149,13 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
       if (error) throw error;
       const result = data as ParseResponse;
 
-      // Sugere mapeamento via heurística client-side
-      const resolvedList = resolveAmbiguousLabels(result.text, result.ambiguousLabels);
-      const initialMapping: Record<number, MappingDecision> = {};
-      resolvedList.forEach((r, i) => {
-        initialMapping[i] = { targetKey: r.suggestedKey };
-      });
-
+      // Motor unificado ({{curly}} + [brackets] + underscores) + indexação
+      // por paridade (testemunha/procurador). Nada é descartado: toda
+      // detecção vira linha da tela de mapeamento.
+      const detections = indexRepeatableRoles(detectTemplateFields(result.html, result.text));
       setParseResult(result);
-      setResolved(resolvedList);
-      setMapping(initialMapping);
+      setRows(buildMappingRows(detections));
+      setFileName(file.name);
 
       // Pré-preenche nome do template a partir do filename
       const baseName = file.name.replace(/\.docx$/i, "").trim();
@@ -133,36 +170,35 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
   };
 
   // ----------------------------------------------------------------
-  // Step 4 — Conteúdo final (substitui labels conforme mapeamento)
+  // Estado derivado do mapeamento
+  // ----------------------------------------------------------------
+  const summary = useMemo(() => summarizeMapping(rows), [rows]);
+  const mappingResolved = useMemo(() => canAdvanceMapping(rows), [rows]);
+
+  const detectionStats = useMemo(() => {
+    const bySyntax: Record<DetectionSyntax, number> = { curly: 0, bracket: 0, underscore: 0 };
+    for (const row of rows) bySyntax[row.detection.syntax]++;
+    return bySyntax;
+  }, [rows]);
+
+  const setRowDecision = (idx: number, value: string) => {
+    setRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== idx) return row;
+        if (value === "__ignore__") return { ...row, action: "ignore" as const, targetKey: "" };
+        return { ...row, action: "map" as const, targetKey: value };
+      })
+    );
+  };
+
+  // ----------------------------------------------------------------
+  // Step 4 — Conteúdo final (aplica o mapeamento aprovado no HTML)
   // ----------------------------------------------------------------
   const finalHtml = useMemo(() => {
     if (!parseResult) return "";
-
-    let html = parseResult.html;
-    // Aplica mapeamento de labels ambíguos. Para evitar substituir múltiplas
-    // ocorrências erroneamente, percorre `resolved` em ordem reversa (mais
-    // alto occurrenceIndex primeiro) usando split-and-join controlado.
-    const grouped = new Map<string, ResolvedLabel[]>();
-    resolved.forEach((r) => {
-      const arr = grouped.get(r.raw) ?? [];
-      arr.push(r);
-      grouped.set(r.raw, arr);
-    });
-
-    for (const [raw, items] of grouped.entries()) {
-      const escapedRaw = raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const re = new RegExp(escapedRaw, "g");
-      let n = 0;
-      html = html.replace(re, () => {
-        const decision = mapping[resolved.findIndex((r) => r === items[n])];
-        n++;
-        if (!decision || !decision.targetKey) return raw; // mantém original
-        return `{{${decision.targetKey}}}`;
-      });
-    }
-
+    const html = applyMappingToHtml(parseResult.html, rows);
     return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
-  }, [parseResult, resolved, mapping]);
+  }, [parseResult, rows]);
 
   const sanitizedRawPreview = useMemo(
     () => (parseResult ? DOMPurify.sanitize(parseResult.html, { USE_PROFILES: { html: true } }) : ""),
@@ -215,6 +251,12 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
         tipo: form.tipo,
         conteudo: finalHtml,
         variaveis,
+        // Mapeamento aplicado — auditoria e re-import (1.2, item 4).
+        import_metadata: buildImportMetadata({
+          filename: fileName,
+          importedAt: new Date().toISOString(),
+          rows,
+        }),
       });
       if (variaveis.length === 0) {
         toast({
@@ -245,8 +287,8 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
             Importar modelo de .docx — Passo {step} de 4
           </DialogTitle>
           <DialogDescription>
-            {step === 1 && "Envie um arquivo .docx para extrairmos o conteúdo e detectarmos placeholders."}
-            {step === 2 && "Revise o mapeamento dos placeholders genéricos detectados."}
+            {step === 1 && "Envie um arquivo .docx para extrairmos o conteúdo e detectarmos os campos."}
+            {step === 2 && "Revise o destino de TODOS os campos detectados ({{chave}}, [rótulo] e lacunas ______)."}
             {step === 3 && "Verificação de dados pessoais (PII) no conteúdo importado."}
             {step === 4 && "Preview final e nomeação do modelo."}
           </DialogDescription>
@@ -286,10 +328,14 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
                     <AlertTitle>Arquivo processado</AlertTitle>
                     <AlertDescription>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                        <span>Placeholders já mapeados: <strong>{parseResult.knownPlaceholders.length}</strong></span>
-                        <span>Labels ambíguos: <strong>{parseResult.ambiguousLabels.length}</strong></span>
+                        <span>Campos detectados: <strong>{rows.length}</strong></span>
+                        <span>
+                          Chaves {"{{ }}"}: <strong>{detectionStats.curly}</strong> · Rótulos [ ]:{" "}
+                          <strong>{detectionStats.bracket}</strong> · Lacunas ____:{" "}
+                          <strong>{detectionStats.underscore}</strong>
+                        </span>
+                        <span>Com sugestão automática: <strong>{summary.mapped}</strong></span>
                         <span>Marcadores PII detectados: <strong>{parseResult.piiMatches.length}</strong></span>
-                        <span>Tamanho do texto: <strong>{parseResult.text.length} chars</strong></span>
                       </div>
                     </AlertDescription>
                   </Alert>
@@ -313,58 +359,84 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
             </div>
           )}
 
-          {/* ===================== Step 2 — Mapeamento ===================== */}
+          {/* ===================== Step 2 — Tela de mapeamento ===================== */}
           {step === 2 && parseResult && (
             <div className="space-y-3">
-              {resolved.length === 0 ? (
+              {rows.length === 0 ? (
                 <Alert>
                   <Check className="h-4 w-4" />
                   <AlertTitle>Nada a mapear</AlertTitle>
-                  <AlertDescription>Nenhum label ambíguo foi encontrado no documento.</AlertDescription>
+                  <AlertDescription>Nenhum campo foi detectado no documento.</AlertDescription>
                 </Alert>
               ) : (
-                <ScrollArea className="h-[380px] pr-3">
+                <ScrollArea className="h-[340px] pr-3">
                   <div className="space-y-3">
-                    {resolved.map((r, idx) => {
-                      const decision = mapping[idx] ?? { targetKey: r.suggestedKey };
+                    {rows.map((row, idx) => {
+                      const { detection } = row;
                       return (
-                        <div key={idx} className="rounded-lg border border-border p-3">
+                        <div
+                          key={`${detection.raw}-${detection.occurrenceIndex}-${idx}`}
+                          className="rounded-lg border border-border p-3"
+                        >
                           <div className="mb-2 flex items-center gap-2">
-                            <code className="rounded bg-muted px-2 py-0.5 text-xs">{r.raw}</code>
-                            <Badge
-                              variant={r.confidence === "high" ? "default" : "secondary"}
-                              className="text-[10px]"
-                            >
-                              {r.confidence === "high" ? "Alta confiança" : "Baixa confiança"}
+                            <Badge variant="outline" className="shrink-0 font-mono text-[10px]">
+                              {SYNTAX_LABELS[detection.syntax]}
                             </Badge>
-                            <span className="ml-auto text-[10px] text-muted-foreground">
-                              ocorrência #{r.occurrenceIndex + 1}
+                            <code className="max-w-[280px] truncate rounded bg-muted px-2 py-0.5 text-xs">
+                              {detection.raw}
+                            </code>
+                            <Badge variant={CONFIDENCE_VARIANTS[detection.confidence]} className="text-[10px]">
+                              {CONFIDENCE_LABELS[detection.confidence]}
+                            </Badge>
+                            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                              ocorrência #{detection.occurrenceIndex + 1}
                             </span>
                           </div>
                           <p className="mb-2 text-xs text-muted-foreground italic">
-                            …{r.context}…
+                            …{detection.context}…
                           </p>
                           <div className="flex items-center gap-2">
-                            <Label className="text-xs whitespace-nowrap">Mapear para:</Label>
+                            <Label className="text-xs whitespace-nowrap">Destino:</Label>
+                            {/* Sempre controlado: "" (linha em revisão) exibe o placeholder. */}
                             <Select
-                              value={decision.targetKey || "__ignore__"}
-                              onValueChange={(v) =>
-                                setMapping((m) => ({
-                                  ...m,
-                                  [idx]: { targetKey: v === "__ignore__" ? "" : v },
-                                }))
+                              value={
+                                row.action === "map"
+                                  ? row.targetKey
+                                  : row.action === "ignore"
+                                    ? "__ignore__"
+                                    : ""
                               }
+                              onValueChange={(v) => setRowDecision(idx, v)}
                             >
                               <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
+                                <SelectValue placeholder="Selecionar destino…" />
                               </SelectTrigger>
                               <SelectContent>
+                                {detection.candidates.length > 0 && (
+                                  <SelectGroup>
+                                    <SelectLabel className="text-[10px]">Sugestões</SelectLabel>
+                                    {detection.candidates.map((k) => (
+                                      <SelectItem key={k} value={k}>
+                                        {`{{${k}}}`}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                )}
                                 <SelectItem value="__ignore__">— Ignorar (manter original) —</SelectItem>
-                                {r.suggestedKeys.map((k) => (
-                                  <SelectItem key={k} value={k}>
-                                    {`{{${k}}}`}
-                                  </SelectItem>
-                                ))}
+                                {CATALOG_GROUPS.map((group) => {
+                                  const keys = group.keys.filter((k) => !detection.candidates.includes(k));
+                                  if (keys.length === 0) return null;
+                                  return (
+                                    <SelectGroup key={group.category}>
+                                      <SelectLabel className="text-[10px]">{group.category}</SelectLabel>
+                                      {keys.map((k) => (
+                                        <SelectItem key={k} value={k}>
+                                          {`{{${k}}}`}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  );
+                                })}
                               </SelectContent>
                             </Select>
                           </div>
@@ -374,6 +446,55 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
                   </div>
                 </ScrollArea>
               )}
+
+              {rows.length > 0 && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">
+                    <strong className="text-foreground">{summary.mapped}</strong> mapeados ·{" "}
+                    <strong className={summary.toReview > 0 ? "text-warning" : "text-foreground"}>
+                      {summary.toReview}
+                    </strong>{" "}
+                    a revisar · <strong className="text-foreground">{summary.ignored}</strong> ignorados
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={summary.toReview === 0}
+                    onClick={() => setBulkIgnoreOpen(true)}
+                  >
+                    <Ban className="mr-1 h-3 w-3" />
+                    Ignorar todos os restantes ({summary.toReview})
+                  </Button>
+                </div>
+              )}
+
+              <AlertDialog open={bulkIgnoreOpen} onOpenChange={setBulkIgnoreOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Ignorar {summary.toReview} {summary.toReview === 1 ? "campo restante" : "campos restantes"}?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Os campos ignorados permanecerão como texto original no modelo e não serão
+                      preenchidos automaticamente ao gerar contratos. Esta ação afeta apenas os{" "}
+                      {summary.toReview} {summary.toReview === 1 ? "campo pendente" : "campos pendentes"} de
+                      revisão — os já mapeados não mudam.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Voltar e revisar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        setRows((prev) => ignoreAllPending(prev));
+                        setBulkIgnoreOpen(false);
+                      }}
+                    >
+                      Ignorar {summary.toReview === 1 ? "campo" : "campos"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
 
@@ -495,16 +616,15 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
                   <AlertDescription>
                     <p className="text-xs">
                       Este modelo não terá campos preenchíveis: ao gerar um contrato, nada será
-                      substituído automaticamente. Hoje o importador reconhece apenas dois formatos de
-                      campo:
+                      substituído automaticamente. O importador reconhece três formatos de campo:
                     </p>
                     <ul className="mt-2 list-disc pl-5 text-xs space-y-1">
                       <li><code className="rounded bg-muted px-1">{"{{campo}}"}</code> — chave moderna em snake_case.</li>
-                      <li><code className="rounded bg-muted px-1">[CAMPO DO MAPA]</code> — rótulo legado em caixa alta reconhecido pelo sistema.</li>
+                      <li><code className="rounded bg-muted px-1">[RÓTULO DO CAMPO]</code> — rótulo entre colchetes (com sugestão automática).</li>
+                      <li><code className="rounded bg-muted px-1">______</code> — lacuna de underscores (3 ou mais).</li>
                     </ul>
                     <p className="mt-2 text-xs">
-                      Lacunas com underscore (<code className="rounded bg-muted px-1">______</code>) ainda
-                      não são detectadas. Revise o documento ou continue por sua conta e risco.
+                      Nenhum campo foi mapeado neste documento. Revise o passo 2 ou continue por sua conta e risco.
                     </p>
                     <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 p-2">
                       <Checkbox
@@ -538,12 +658,15 @@ export default function ImportDocxDialog({ open, onOpenChange }: Props) {
               onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3 | 4)}
               disabled={
                 (step === 1 && !parseResult) ||
+                (step === 2 && !mappingResolved) ||
                 (step === 3 && hasPII && !piiAcknowledged)
               }
               title={
-                step === 3 && hasPII && !piiAcknowledged
-                  ? "Marque a confirmação para prosseguir"
-                  : undefined
+                step === 2 && !mappingResolved
+                  ? `Resolva os ${summary.toReview} campos pendentes de revisão (ou use "Ignorar todos os restantes")`
+                  : step === 3 && hasPII && !piiAcknowledged
+                    ? "Marque a confirmação para prosseguir"
+                    : undefined
               }
             >
               Próximo <ChevronRight className="ml-1 h-4 w-4" />
