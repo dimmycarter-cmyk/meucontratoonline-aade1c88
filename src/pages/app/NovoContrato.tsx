@@ -1005,19 +1005,6 @@ const NovoContratoWizard = () => {
         { company: empresa ?? null, appendClauses: selectedClauses }
       );
 
-      // Aviso de placeholders não resolvidos — detectados no texto PRÉ-replace
-      // pelo pipeline (2.1): dispara também onde o check pós-replace legado
-      // ficava incorretamente mudo. Não bloqueia o salvamento — o contrato é
-      // gravado como rascunho mesmo com pendências.
-      const unresolved = rendered.unresolved;
-      if (unresolved.length > 0) {
-        toast({
-          title: "Salvo como rascunho",
-          description: `${unresolved.length} campo(s) ainda sem dados: ${unresolved.slice(0, 3).join(", ")}${unresolved.length > 3 ? "..." : ""}. Você pode completar depois.`,
-          variant: "default",
-        });
-      }
-
       let fullContent = rendered.html;
       // Fallback: se o CORPO do render veio vazio mas há dados, gerar resumo
       // (as cláusulas selecionadas continuam anexadas, como no fluxo legado).
@@ -1063,6 +1050,22 @@ const NovoContratoWizard = () => {
       if (!contractId) {
         toast({ title: "Erro", description: "Não foi possível salvar o contrato.", variant: "destructive" });
         return;
+      }
+
+      // Aviso de placeholders não resolvidos — detectados no texto PRÉ-replace
+      // pelo pipeline (2.1). Emitido DEPOIS do await create/update de propósito:
+      // use-toast tem TOAST_LIMIT = 1 (fila de tamanho único), então o toast de
+      // sucesso do useContracts (onSuccess da mutation, que roda ANTES do await
+      // resolver) substituiria este se a ordem fosse a inversa. Sendo o último,
+      // ele vence o slot — e o título já comunica que o save aconteceu. Não
+      // bloqueia nada — o contrato foi gravado como rascunho com pendências.
+      const unresolved = rendered.unresolved;
+      if (unresolved.length > 0) {
+        toast({
+          title: "Salvo como rascunho",
+          description: `${unresolved.length} campo(s) ainda sem dados: ${unresolved.slice(0, 3).join(", ")}${unresolved.length > 3 ? "..." : ""}. Você pode completar depois.`,
+          variant: "default",
+        });
       }
 
       // Save participants (relacional) — UPSERT reconciliado para BOTH AI e manual.
