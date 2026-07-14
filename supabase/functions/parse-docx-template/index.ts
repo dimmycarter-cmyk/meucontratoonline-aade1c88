@@ -9,6 +9,11 @@
 import { z } from "https://esm.sh/zod@3.23.8";
 // @ts-ignore — mammoth roda em Deno via esm.sh
 import mammoth from "https://esm.sh/mammoth@1.8.0?target=deno";
+// Catálogo unificado (Fase 1/E1) — fonte única compartilhada com o client.
+// Plano A da premissa eszip: import relativo fora da pasta da função, com
+// extensão .ts (módulo dependency-free). Se o bundler recusar no deploy,
+// plano B documentado no header do import-catalog.ts (cópia gerada + guard).
+import { buildLegacyBracketMap } from "../../../src/lib/import-catalog.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,34 +23,14 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// Tipos / dicionários (espelho mínimo de src/lib/placeholder.ts)
+// Classificação de labels — catálogo unificado (1.2, item 2)
 // ============================================================================
 
-// Subset do LEGACY_BRACKET_MAP — labels qualificados conhecidos.
-// Usamos apenas para CHECAR se um label é ambíguo ou já mapeado.
-// Não precisa estar completo: qualquer label fora desta lista vira "desconhecido"
-// e pode ser tratado como ambíguo no client.
-const KNOWN_QUALIFIED_LABELS = new Set([
-  "NOME COMPLETO DO(A) COMPRADOR(A)", "NOME DO COMPRADOR", "COMPRADOR",
-  "CPF DO(A) COMPRADOR(A)", "CPF DO COMPRADOR",
-  "RG DO(A) COMPRADOR(A)", "RG DO COMPRADOR",
-  "NOME COMPLETO DO(A) VENDEDOR(A)", "NOME DO VENDEDOR", "VENDEDOR",
-  "CPF DO(A) VENDEDOR(A)", "CPF DO VENDEDOR",
-  "RG DO(A) VENDEDOR(A)", "RG DO VENDEDOR",
-  "NOME DO(A) PROCURADOR(A)", "OAB DO(A) PROCURADOR(A)", "OAB DO PROCURADOR",
-  "DESCRIÇÃO DO IMÓVEL", "MATRÍCULA DO IMÓVEL",
-  "VALOR TOTAL", "FORMA DE PAGAMENTO",
-  "NOME DA IMOBILIÁRIA", "CNPJ DA IMOBILIÁRIA",
-  // Genéricos AMBÍGUOS — listados aqui também para serem reportados como ambíguos
-  // explicitamente, em vez de "desconhecidos".
-]);
-
-// Labels genéricos (sem qualificação de papel) que disparam ambiguidade.
-const GENERIC_AMBIGUOUS = new Set([
-  "CPF", "RG", "NOME", "NOME COMPLETO", "ENDEREÇO", "ENDEREÇO COMPLETO",
-  "NACIONALIDADE", "ESTADO CIVIL", "PROFISSÃO", "E-MAIL", "EMAIL",
-  "TELEFONE", "ÓRGÃO EMISSOR", "ÓRGÃO EXPEDIDOR", "RG/ÓRGÃO EMISSOR",
-]);
+// 171 grafias → chave canônica, a MESMA fonte do client. Aqui serve apenas
+// para as estatísticas do Step 1 (knownPlaceholders): a classificação fina
+// (fuzzy, contexto de papel, underscores) roda no client com
+// detectTemplateFields (src/lib/import-detection.ts) sobre html+text brutos.
+const LEGACY_BRACKET_MAP: Record<string, string> = buildLegacyBracketMap();
 
 // PII patterns — espelho de src/lib/pii-detector.ts (versão server)
 const PII_PATTERNS: Array<{ kind: string; regex: RegExp; hint: string }> = [
@@ -136,9 +121,11 @@ Deno.serve(async (req: Request) => {
       const raw = `[${m[1]}]`;
       const labelUpper = m[1].trim().toUpperCase();
 
-      // Filtra falsos positivos: numerais, refs legais
+      // Filtra falsos positivos: numerais, refs legais.
+      // "§" fora do grupo com \b (não é word char — paridade com o fix de
+      // isNonFieldBracket/getUnresolvedPlaceholders, 1.2 item 7).
       if (/^\d+([.,]\d+)?$/.test(m[1].trim())) continue;
-      if (/^(art\.?|lei|inc(iso)?|§|par[áa]grafo)\b/i.test(m[1].trim())) continue;
+      if (/^(art\.?|lei|inc(iso)?|par[áa]grafo)\b|^§/i.test(m[1].trim())) continue;
 
       const startCtx = Math.max(0, m.index - 80);
       const endCtx = Math.min(text.length, m.index + m[0].length + 30);
@@ -150,12 +137,11 @@ Deno.serve(async (req: Request) => {
       const entry = { raw, occurrenceIndex: prevCount, context };
       detectedLabels.push(entry);
 
-      if (GENERIC_AMBIGUOUS.has(labelUpper)) {
-        ambiguousLabels.push(entry);
-      } else if (KNOWN_QUALIFIED_LABELS.has(labelUpper)) {
+      if (LEGACY_BRACKET_MAP[labelUpper]) {
+        // Grafia exata do catálogo — estatística de "já reconhecidos".
         knownPlaceholders.add(raw);
       } else {
-        // Desconhecido — também devolve como ambíguo para UI decidir
+        // Todo o resto vai bruto para o client decidir (fuzzy/contexto/UI).
         ambiguousLabels.push(entry);
       }
     }

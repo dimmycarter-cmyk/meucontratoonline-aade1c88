@@ -18,6 +18,8 @@ export interface ContractTemplate {
   is_global: boolean;
   created_at: string;
   updated_at: string;
+  /** Mapeamento aplicado no import .docx (1.2) — auditoria e re-import. */
+  import_metadata?: unknown;
 }
 
 export const useTemplates = () => {

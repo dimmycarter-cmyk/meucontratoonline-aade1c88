@@ -335,7 +335,9 @@ export function getUnresolvedPlaceholders(
   const bracketMatches = text.matchAll(/\[([^\]]+)\]/g);
   for (const m of bracketMatches) {
     const label = m[1].trim();
-    if (/^(art\.?|lei|inc(iso)?|§|par[áa]grafo)\b/i.test(label)) continue;
+    // "§" fora do grupo com \b: não é word char, então "\b" nunca casa após ele
+    // (mesmo fix do isNonFieldBracket em import-detection.ts — 1.2, item 7).
+    if (/^(art\.?|lei|inc(iso)?|par[áa]grafo)\b|^§/i.test(label)) continue;
     if (/^\d+([.,]\d+)?$/.test(label)) continue;
     const key = LEGACY_BRACKET_MAP[label.toUpperCase()];
     if (!key || !vars[key] || vars[key].trim() === "") {

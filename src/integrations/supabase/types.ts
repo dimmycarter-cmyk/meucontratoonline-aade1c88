@@ -498,6 +498,7 @@ export type Database = {
           created_at: string
           descricao: string | null
           id: string
+          import_metadata: Json | null
           is_global: boolean
           nome: string
           status: string
@@ -511,6 +512,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          import_metadata?: Json | null
           is_global?: boolean
           nome: string
           status?: string
@@ -524,6 +526,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          import_metadata?: Json | null
           is_global?: boolean
           nome?: string
           status?: string
@@ -1074,6 +1077,16 @@ export type Database = {
           }
       generate_internal_code: { Args: { _tenant_id: string }; Returns: string }
       get_admin_metrics: { Args: never; Returns: Json }
+      get_invitation_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          tenant_id: string
+        }[]
+      }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
