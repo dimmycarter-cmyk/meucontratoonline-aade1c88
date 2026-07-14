@@ -35,11 +35,10 @@ import { useContracts } from "@/hooks/useContracts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
-import { replacePlaceholders, getUnresolvedPlaceholders, preprocessTemplate, expandEachBlocks } from "@/lib/placeholder";
-import { enrichDados } from "@/lib/contract-enrichment";
-import { composeEnderecoCanonico } from "@/lib/contract-formatters";
-import { autoFillDadosFromParticipants, buildParticipantsByRole } from "@/lib/auto-fill-dados";
-import { enrichParticipantsWithAgreementL1, buildAgreementVarsL2 } from "@/lib/agreement";
+import { preprocessTemplate, getUnresolvedPlaceholders } from "@/lib/placeholder";
+import { renderContract, appendClausesHtml, buildSummaryHtml } from "@/lib/render-contract";
+import { buildMergedDados } from "@/lib/contract-merge";
+import { autoFillDadosFromParticipants } from "@/lib/auto-fill-dados";
 import { normalizeGenero } from "@/lib/genero";
 import { logAction } from "@/lib/audit";
 import {
@@ -679,23 +678,13 @@ const NovoContratoWizard = () => {
   }, [comprador, vendedor, empresa, manualParticipants, dadosDirty]);
 
   // Build final content
-  // Aplica enrichDados antes de preprocessTemplate/replacePlaceholders para que
-  // empresa_* (banco/pix/cnpj/endereço canônico), data_contrato_extenso,
-  // valor_*_extenso, aliases e formatadores universais (CPF/CNPJ/CEP)
-  // sejam resolvidos uniformemente — princípio "preview = save".
+  // Pipeline único (Fase 2 / 2.1): renderContract encapsula enrich → each →
+  // preprocess → replace — princípio "preview = save" garantido por construção.
   const buildFinalContent = useCallback(() => {
-    const raw = selectedTemplate?.conteudo || "";
-    const enrichedDados = enrichDados(dados, { company: empresa ?? null });
-    // {{#each <papel>}} lê o ARRAY de participantes direto (fonte única) e
-    // roda ANTES de preprocessTemplate/replacePlaceholders — depois só restam
-    // placeholders planos/compartilhados.
-    // 2.C - enriquece participantes com tokens de concordancia PT-BR
-    const byRole = buildParticipantsByRole(manualParticipants);
-    const byRoleWithAgreement = enrichParticipantsWithAgreementL1(byRole);
-    const dadosWithAgreement = { ...enrichedDados, ...buildAgreementVarsL2(byRole) };
-    const expanded = expandEachBlocks(raw, byRoleWithAgreement);
-    const processed = preprocessTemplate(expanded, dadosWithAgreement);
-    setConteudoFinal(replacePlaceholders(processed, dadosWithAgreement));
+    const { html } = renderContract(selectedTemplate?.conteudo || "", dados, manualParticipants, {
+      company: empresa ?? null,
+    });
+    setConteudoFinal(html);
   }, [selectedTemplate, dados, empresa, manualParticipants]);
 
   // === Wrappers para dirty flags do Épico 5 (Bug A — TipTap) ===
@@ -978,95 +967,22 @@ const NovoContratoWizard = () => {
 
   const handleSave = async () => {
     try {
-      // === STEP 1: Build complete dados by re-running autoFill logic inline ===
-      const freshDados: Record<string, string> = { ...dados };
-
-      // Fill from manualParticipants (manual flow)
-      if (flowMode === "manual") {
-        // Mesma função indexada do autoFillDados, CRUA (enrich:false) — corrige
-        // vendedor2_* no salvar sem congelar empresa_*/derivados em contracts.dados.
-        // Respeita dadosDirty (paridade Bug B / Épico 5): chaves editadas à mão já
-        // estão em freshDados (={...dados}) e são puladas por pickAutoFillFields.
-        const autoFilled =
-          manualParticipants.length > 0
-            ? autoFillDadosFromParticipants(manualParticipants, { enrich: false })
-            : {};
-        Object.assign(freshDados, pickAutoFillFields(autoFilled, dadosDirty));
-      }
-
-      // Fill from selected contacts (legacy/backward compat)
-      if (comprador) {
-        if (comprador.nome) freshDados.comprador_nome = comprador.nome;
-        if (comprador.cpf) freshDados.comprador_cpf = comprador.cpf;
-        if (comprador.rg) freshDados.comprador_rg = comprador.rg;
-        if (comprador.orgao_expedidor) freshDados.comprador_orgao_expedidor = comprador.orgao_expedidor;
-        if (comprador.profissao) freshDados.comprador_profissao = comprador.profissao;
-        if (comprador.nacionalidade) freshDados.comprador_nacionalidade = comprador.nacionalidade;
-        if (comprador.estado_civil) freshDados.comprador_estado_civil = comprador.estado_civil;
-        if (comprador.email) freshDados.comprador_email = comprador.email;
-        if (comprador.whatsapp) freshDados.comprador_whatsapp = comprador.whatsapp;
-        if (comprador.genero) freshDados.comprador_genero = comprador.genero;
-        const endC = composeEnderecoCanonico({
-          rua: comprador.rua, numero: comprador.numero, complemento: comprador.complemento,
-          bairro: comprador.bairro, cidade: comprador.cidade, estado: comprador.estado, cep: comprador.cep,
-        });
-        if (endC) freshDados.comprador_endereco = endC;
-      }
-      if (vendedor) {
-        if (vendedor.nome) freshDados.vendedor_nome = vendedor.nome;
-        if (vendedor.cpf) freshDados.vendedor_cpf = vendedor.cpf;
-        if (vendedor.rg) freshDados.vendedor_rg = vendedor.rg;
-        if (vendedor.orgao_expedidor) freshDados.vendedor_orgao_expedidor = vendedor.orgao_expedidor;
-        if (vendedor.profissao) freshDados.vendedor_profissao = vendedor.profissao;
-        if (vendedor.nacionalidade) freshDados.vendedor_nacionalidade = vendedor.nacionalidade;
-        if (vendedor.estado_civil) freshDados.vendedor_estado_civil = vendedor.estado_civil;
-        if (vendedor.email) freshDados.vendedor_email = vendedor.email;
-        if (vendedor.whatsapp) freshDados.vendedor_whatsapp = vendedor.whatsapp;
-        if (vendedor.genero) freshDados.vendedor_genero = vendedor.genero;
-        const endV = composeEnderecoCanonico({
-          rua: vendedor.rua, numero: vendedor.numero, complemento: vendedor.complemento,
-          bairro: vendedor.bairro, cidade: vendedor.cidade, estado: vendedor.estado, cep: vendedor.cep,
-        });
-        if (endV) freshDados.vendedor_endereco = endV;
-      }
-      if (empresa) {
-        if (empresa.nome_fantasia) freshDados.empresa_nome = empresa.nome_fantasia;
-        if (empresa.cnpj) freshDados.empresa_cnpj = empresa.cnpj;
-        // Necessário canonicalizar AQUI mesmo (mesmo com enrichDados rodando depois):
-        // injectCompany usa setIfEmpty, então se l.836 deixasse a versão crua, o
-        // composeEnderecoCanonico interno do injectCompany seria silenciosamente
-        // bypassed para o endereço da empresa.
-        const endE = composeEnderecoCanonico({
-          rua: empresa.rua, numero: empresa.numero, complemento: empresa.complemento,
-          bairro: empresa.bairro, cidade: empresa.cidade, estado: empresa.estado, cep: empresa.cep,
-        });
-        if (endE) freshDados.empresa_endereco = endE;
-      }
-
-      // === STEP 2: Merge with AI extracted data ===
-      const latestAiDados = mapToDados();
-      const mergedDados = { ...latestAiDados, ...freshDados };
-
-      // Add fallback names from participants (AI flow)
-      if (flowMode === "ai" && participants.length > 0) {
-        for (const p of participants) {
-          const nameKey = `${p.role}_nome`;
-          if (!mergedDados[nameKey] && p.full_name) {
-            mergedDados[nameKey] = p.full_name;
-          }
-          const pData = extractedData.find((ed) => ed.participantId === p.id);
-          if (pData?.full_name && !mergedDados[nameKey]) {
-            mergedDados[nameKey] = pData.full_name;
-          }
-        }
-      }
-      // Add fallback names for manual flow
-      if (flowMode === "manual") {
-        const firstComprador = manualParticipants.find((p) => p.role === "comprador");
-        const firstVendedor = manualParticipants.find((p) => p.role === "vendedor");
-        if (!mergedDados.comprador_nome && firstComprador) mergedDados.comprador_nome = firstComprador.nome;
-        if (!mergedDados.vendedor_nome && firstVendedor) mergedDados.vendedor_nome = firstVendedor.nome;
-      }
+      // === STEPs 1 e 2 (Fase 2 / 2.1): merge campo-a-campo + precedência
+      // AI vs manual movidos para @/lib/contract-merge (puro, testado) —
+      // semânticas preservadas (autofill cru dirty-aware, contatos legados
+      // com sobrescrita incondicional, endereços canonicalizados aqui).
+      const mergedDados = buildMergedDados({
+        dados,
+        dadosDirty,
+        flowMode,
+        manualParticipants,
+        comprador,
+        vendedor,
+        empresa,
+        aiDados: mapToDados(),
+        participants,
+        extractedData,
+      });
 
       // Warn if dados is essentially empty
       const filledKeys = Object.entries(mergedDados).filter(([_, v]) => v && String(v).trim());
@@ -1074,64 +990,26 @@ const NovoContratoWizard = () => {
         toast({ title: "Atenção", description: "O contrato será salvo com poucos dados preenchidos.", variant: "default" });
       }
 
-      // (replaceVars removido — agora usa replacePlaceholders de @/lib/placeholder)
-
-      // Build HTML summary fallback from dados when no template content exists
-      const buildSummaryHtml = (d: Record<string, string>): string => {
-        const sections: { title: string; prefix: string }[] = [
-          { title: "COMPRADOR", prefix: "comprador_" },
-          { title: "VENDEDOR", prefix: "vendedor_" },
-          { title: "IMÓVEL", prefix: "imovel_" },
-          { title: "VALORES", prefix: "valor_" },
-          { title: "EMPRESA", prefix: "empresa_" },
-        ];
-        let html = "<h2>RESUMO DO CONTRATO</h2>\n";
-        for (const sec of sections) {
-          const fields = Object.entries(d).filter(([k, v]) => k.startsWith(sec.prefix) && v && String(v).trim());
-          if (fields.length === 0) continue;
-          html += `<h3>${sec.title}</h3>\n<ul>\n`;
-          for (const [key, value] of fields) {
-            const label = key.replace(sec.prefix, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-            html += `<li><strong>${label}:</strong> ${value}</li>\n`;
-          }
-          html += "</ul>\n";
-        }
-        return html;
-      };
-
-      // Always recalculate conteudo_final with latest data
-      // Aplica enrichDados antes de substituir: garante data_contrato_extenso,
-      // valor_*_extenso, injeção de empresa_* (banco/pix/cnpj/endereço canônico),
-      // aliases e formatadores universais (CPF/CNPJ/CEP) — pipeline canônico.
-      // mergedDados (cru) continua sendo o que vai para contracts.dados; apenas
-      // a renderização do conteudo_final usa a versão enriquecida.
-      const enrichedMergedDados = enrichDados(mergedDados, { company: empresa ?? null });
-
-      let fullContent = "";
+      // Render: pipeline único (Fase 2 / 2.1). Fonte: conteudoFinal (editor,
+      // possivelmente editado à mão) quando existe; senão o template base.
+      // Re-rodar {{#each}} sobre o conteúdo do editor é no-op (blocos já
+      // expandidos por buildFinalContent). mergedDados (cru) continua sendo o
+      // que vai para contracts.dados; o render usa a versão enriquecida
+      // produzida internamente por renderContract.
       const templateBase = selectedTemplate?.conteudo || "";
       const editorContent = conteudoFinal || "";
-      // Expande {{#each}} a partir do array de participantes. No caminho do
-      // editor (conteudoFinal) os blocos já foram expandidos por
-      // buildFinalContent — re-rodar é no-op (não restam tags {{#each}}).
-      const byRole = buildParticipantsByRole(manualParticipants);
-      // 2.C - enriquece participantes com tokens de concordancia PT-BR
-      const byRoleWithAgreement = enrichParticipantsWithAgreementL1(byRole);
-      const dadosWithAgreement = { ...enrichedMergedDados, ...buildAgreementVarsL2(byRole) };
+      const rendered = renderContract(
+        editorContent || templateBase,
+        mergedDados,
+        manualParticipants,
+        { company: empresa ?? null, appendClauses: selectedClauses }
+      );
 
-      if (editorContent) {
-        const expanded = expandEachBlocks(editorContent, byRoleWithAgreement);
-        const processed = preprocessTemplate(expanded, dadosWithAgreement);
-        fullContent = replacePlaceholders(processed, dadosWithAgreement);
-      } else if (templateBase) {
-        const expanded = expandEachBlocks(templateBase, byRoleWithAgreement);
-        const processed = preprocessTemplate(expanded, dadosWithAgreement);
-        fullContent = replacePlaceholders(processed, dadosWithAgreement);
-      }
-
-      // Aviso de placeholders não resolvidos (já roda sobre conteúdo pré-processado).
-      // Não bloqueia o salvamento — o contrato é gravado como rascunho mesmo com pendências.
-      // Usa enrichedMergedDados para evitar falsos positivos em campos derivados.
-      const unresolved = getUnresolvedPlaceholders(fullContent, enrichedMergedDados);
+      // Aviso de placeholders não resolvidos — detectados no texto PRÉ-replace
+      // pelo pipeline (2.1): dispara também onde o check pós-replace legado
+      // ficava incorretamente mudo. Não bloqueia o salvamento — o contrato é
+      // gravado como rascunho mesmo com pendências.
+      const unresolved = rendered.unresolved;
       if (unresolved.length > 0) {
         toast({
           title: "Salvo como rascunho",
@@ -1140,9 +1018,11 @@ const NovoContratoWizard = () => {
         });
       }
 
-      // Fallback: se conteúdo vazio mas há dados, gerar resumo
-      if (!fullContent.trim() && filledKeys.length > 0) {
-        fullContent = buildSummaryHtml(mergedDados);
+      let fullContent = rendered.html;
+      // Fallback: se o CORPO do render veio vazio mas há dados, gerar resumo
+      // (as cláusulas selecionadas continuam anexadas, como no fluxo legado).
+      if (!rendered.body.trim() && filledKeys.length > 0) {
+        fullContent = appendClausesHtml(buildSummaryHtml(mergedDados), selectedClauses);
       }
 
       // Debug log
@@ -1153,13 +1033,6 @@ const NovoContratoWizard = () => {
         extractedDataCount: extractedData.length,
         filledKeysCount: filledKeys.length,
       });
-
-      if (selectedClauses.length > 0) {
-        fullContent += "\n\n<h2>CLÁUSULAS</h2>\n";
-        selectedClauses.forEach((c, i) => {
-          fullContent += `\n<h3>CLÁUSULA ${i + 1}ª — ${c.titulo.toUpperCase()}</h3>\n${c.conteudo}\n`;
-        });
-      }
 
       const contractName = nomeContrato || `Contrato - ${mergedDados.comprador_nome || comprador?.nome || compradorNome || participants.find((p) => p.role === "comprador")?.full_name || manualParticipants.find((p) => p.role === "comprador")?.nome || "Novo"}`;
       // UPSERT: numa retomada (contratoIdParam) ATUALIZA a linha; senão INSERE.

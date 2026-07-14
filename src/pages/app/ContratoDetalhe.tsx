@@ -14,7 +14,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import ContractDataDisplay from "@/components/contract/ContractDataDisplay";
 import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
-import { getUnresolvedPlaceholders, preprocessTemplate } from "@/lib/placeholder";
+import { renderContract } from "@/lib/render-contract";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { logAction } from "@/lib/audit";
@@ -167,13 +167,19 @@ const ContratoDetalhe = () => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
   };
 
-  // Lote D: live unresolved placeholders no contrato salvo
+  // Lote D: live unresolved placeholders no contrato salvo.
+  // Pipeline único (Fase 2 / 2.1) — convergência intencional: o enrichment
+  // elimina falsos positivos em campos derivados/aliases (data_contrato_extenso,
+  // valor_*_extenso, imobiliaria_*), e {{#each}} órfão em conteúdo editado
+  // expande-para-vazio em vez de flaggar os tokens internos. participants: []
+  // porque conteudo_final salvo já vem com os blocos expandidos (reconstrução
+  // a partir de contract_participants fica para a 2.2+).
   const liveUnresolved = useMemo(() => {
     const text = editing ? editContent : (contract?.conteudo_final ?? "");
     const dados = (contract?.dados ?? {}) as Record<string, string>;
     if (!text) return [];
-    const processed = preprocessTemplate(text, dados);
-    return parseUnresolvedStrings(getUnresolvedPlaceholders(processed, dados));
+    const { unresolved } = renderContract(text, dados, []);
+    return parseUnresolvedStrings(unresolved);
   }, [editing, editContent, contract?.conteudo_final, contract?.dados]);
 
   const handlePrintClick = () => {
