@@ -7,7 +7,12 @@
  * (ex: empresa_* ↔ imobiliaria_*) são resolvidos pelo enrichDados.
  */
 
-import { applyFallback, getFallbackStrategy, type FallbackStrategy } from "./placeholder-fallback";
+import {
+  applyFallback,
+  getFallbackStrategy,
+  type BlankLineFormat,
+  type FallbackStrategy,
+} from "./placeholder-fallback";
 import { cleanOrphanPunctuation, suppressEmptyFieldScaffold } from "./text-cleanup";
 import {
   buildLegacyBracketMap,
@@ -105,7 +110,8 @@ export function stripConditionalBlocks(
  * {{campo}} (nome, cpf, rg, profissao, estado_civil, endereco, banco,
  * agencia, conta, pix, …). A substituição é POR ITEM: cada {{campo}} cujo
  * nome existe no registro do participante é trocado pelo valor daquele
- * participante (mesmo vazio, para a limpeza de pontuação órfã agir).
+ * participante — e, quando vazio, pelo fallback da mesma tabela do passe
+ * externo (2.2a: `cpf` vazio vira lacuna, `email` vazio some).
  * Placeholders que NÃO são campos do participante (ex.: {{valor_total}})
  * são deixados intactos para o passe externo (`replacePlaceholders`).
  *
@@ -123,6 +129,12 @@ export interface EachOptions {
   separator?: string;
   /** Separador antes do último item. Default " e ". Ex.: "; e " (estilo serial jurídico). */
   lastSeparator?: string;
+  /**
+   * Formato do `blank_line` emitido para campo vazio DO PARTICIPANTE.
+   * Default `"text"` — o mesmo default de `replacePlaceholders`, para que o
+   * engine cru mantenha o contrato pré-2.2a. `renderContract` passa `"html"`.
+   */
+  blankLineFormat?: BlankLineFormat;
 }
 
 export function expandEachBlocks(
@@ -157,7 +169,9 @@ export function expandEachBlocks(
     const innerStart = lastOpen.idx + lastOpen.len;
     const inner = curr.slice(innerStart, closeIdx);
     const items = participantsByRole[lastOpen.role] ?? [];
-    const rendered = items.map((item) => renderEachItem(inner, item));
+    const rendered = items.map((item) =>
+      renderEachItem(inner, item, options.blankLineFormat ?? "text")
+    );
     const joined = joinWithConjunction(rendered, sep, lastSep);
     curr = curr.slice(0, lastOpen.idx) + joined + curr.slice(closeIdx + closeStr.length);
   }
@@ -166,18 +180,38 @@ export function expandEachBlocks(
 
 /**
  * Renderiza o bloco interno de um {{#each}} para UM participante.
- * Só substitui {{campo}} cujo nome é propriedade própria de `item`
- * (campos vazios viram ""); demais placeholders ficam intactos para o
- * passe externo. Limpa pontuação órfã deixada por campos omitidos.
+ *
+ * Duas classes de token, tratadas de forma DELIBERADAMENTE distinta:
+ *
+ *  1. `{{campo}}` que É propriedade própria de `item` → resolve. Com valor,
+ *     vira o valor; VAZIO, passa pela mesma `getFallbackStrategy` do passe
+ *     externo (2.2a, Item 4). É o que faz a lacuna alcançar a qualificação
+ *     das partes — 100% intra-each nos templates reais [0] e [2].
+ *
+ *  2. `{{campo}}` DESCONHECIDO ao item → sobrevive CRU (`return full`).
+ *     Não é campo faltante, é erro de template (ou placeholder compartilhado
+ *     como {{valor_total}}, resolvido no passe externo). Aplicar lacuna aqui
+ *     esconderia erro real atrás de um traço bonito — e o token cru é
+ *     justamente o que `getUnresolvedPlaceholders` precisa ver.
+ *
+ * Depois, limpa o scaffold dos campos que ficaram com estratégia `omit`.
  */
-function renderEachItem(inner: string, item: Record<string, string>): string {
+function renderEachItem(
+  inner: string,
+  item: Record<string, string>,
+  blankLineFormat: BlankLineFormat = "text"
+): string {
   const out = inner.replace(/\{\{\s*([\w]+)\s*\}\}/g, (full, key) => {
-    if (Object.prototype.hasOwnProperty.call(item, key)) return item[key] ?? "";
-    return full;
+    if (Object.prototype.hasOwnProperty.call(item, key)) {
+      const value = item[key];
+      if (value !== undefined && value !== null && value !== "") return value;
+      return applyFallback(getFallbackStrategy(key), full, blankLineFormat);
+    }
+    return full; // token desconhecido — erro de template, sobrevive cru
   });
-  // Suprime sub-cláusulas de qualificação cujo campo (RG/órgão, CPF, e-mail)
-  // ficou vazio ANTES do cleanup de pontuação — o scaffold inteiro sai, não só
-  // a vírgula. Ordem: suprime → normaliza pontuação remanescente.
+  // Suprime sub-cláusulas de qualificação cujo campo com estratégia `omit`
+  // ficou vazio ANTES do cleanup de pontuação — o scaffold inteiro sai, não
+  // só a vírgula. Ordem: suprime → normaliza pontuação remanescente.
   return cleanOrphanPunctuation(suppressEmptyFieldScaffold(out));
 }
 
@@ -256,11 +290,18 @@ export interface ReplaceOptions {
   /**
    * Estratégia aplicada quando o placeholder não tem dado correspondente.
    * Default: `"auto"` — consulta `getFallbackStrategy(key)` para decidir
-   * (`blank_line` para RG/órgão, `omit` para datas de nascimento, etc.).
-   * Use `"keep_literal"` para preservar o `{{key}}` no resultado (debug
-   * ou preview que sinaliza pendências ao usuário).
+   * (`blank_line` para nome/CPF/RG/valores, `omit` para datas de nascimento,
+   * títulos derivados, etc.). Use `"keep_literal"` para preservar o `{{key}}`
+   * no resultado (debug ou preview que sinaliza pendências ao usuário).
    */
   fallback?: "auto" | FallbackStrategy;
+  /**
+   * Formato do `blank_line`. Default `"text"` (`__________` cru) — preserva o
+   * contrato de todo chamador anterior à 2.2a. `renderContract` passa
+   * `"html"` para emitir `<span class="lacuna">`, realçável em tela e
+   * contável por `countLacunas`.
+   */
+  blankLineFormat?: BlankLineFormat;
 }
 
 export function replacePlaceholders(
@@ -270,10 +311,11 @@ export function replacePlaceholders(
 ): string {
   if (!text) return text;
   const fallbackMode = options.fallback ?? "auto";
+  const blankLineFormat = options.blankLineFormat ?? "text";
   const resolveFallback = (key: string, rawMatch: string): string => {
     const strategy: FallbackStrategy =
       fallbackMode === "auto" ? getFallbackStrategy(key) : fallbackMode;
-    return applyFallback(strategy, rawMatch);
+    return applyFallback(strategy, rawMatch, blankLineFormat);
   };
 
   let result = text;
