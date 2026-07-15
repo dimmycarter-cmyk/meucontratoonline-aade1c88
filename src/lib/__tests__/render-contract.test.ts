@@ -10,6 +10,7 @@ import {
   renderContract,
   appendClausesHtml,
   buildSummaryHtml,
+  countLacunas,
 } from "../render-contract";
 import { emptyParticipant, type ManualParticipantData } from "@/components/contract/manual-participant";
 
@@ -71,15 +72,61 @@ describe("renderContract — sequência canônica", () => {
 });
 
 describe("renderContract — unresolved pré-replace", () => {
-  it("detecta placeholder sem dado ANTES do replace (que o omitiria)", () => {
+  it("detecta placeholder sem dado ANTES do replace (que o consumiria)", () => {
     const r = renderContract(
       "<p>{{comprador_nome}}, CPF {{comprador_cpf}}</p>",
       { comprador_nome: "Ana Prado" },
       []
     );
     expect(r.unresolved).toContain("{{comprador_cpf}}");
-    // no html o token já foi consumido pelo fallback (omit)
+    // No html o token já foi consumido pelo fallback. `comprador_cpf` é
+    // essencial (A2) → blank_line, NÃO omit: sai lacuna, não string vazia.
     expect(r.html).not.toContain("{{comprador_cpf}}");
+    expect(r.html).toContain('<span class="lacuna">__________</span>');
+  });
+
+  it("campo PLANO essencial vazio deixa lacuna E conta em unresolved", () => {
+    const r = renderContract("<p>Valor: {{valor_total}}</p>", {}, []);
+    expect(countLacunas(r.html)).toBe(1);
+    expect(r.unresolved).toContain("{{valor_total}}");
+  });
+
+  it("ASSIMETRIA: campo INTRA-EACH vazio deixa lacuna mas NÃO conta em unresolved", () => {
+    // Por construção, não bug: expandEachBlocks roda ANTES de
+    // getUnresolvedPlaceholders, então o token intra-each já não existe quando
+    // a detecção varre o texto. countLacunas é quem cobre — ver doc de
+    // render-contract.ts. A 2.2b soma unresolved + countLacunas.
+    const r = renderContract(
+      "{{#each vendedores}}{{nome}} — CPF {{cpf}}{{/each}}",
+      {},
+      [{ ...emptyParticipant("vendedor"), nome: "Ana Prado" }]
+    );
+    expect(countLacunas(r.html)).toBe(1); // o CPF vazio da Ana
+    expect(r.html).toContain("Ana Prado");
+    expect(r.unresolved).toEqual([]); // <- a assimetria, cristalizada
+  });
+
+  it("participante SEM nome é pulado — não gera lacuna fantasma", () => {
+    // buildParticipantsByRole ignora quem não tem nome (auto-fill-dados.ts).
+    // Sem isso, um slot vazio no wizard viraria um bloco de qualificação
+    // inteiro de lacunas no contrato.
+    const r = renderContract(
+      "{{#each vendedores}}{{nome}} — CPF {{cpf}}{{/each}}",
+      {},
+      [{ ...emptyParticipant("vendedor"), nome: "" }]
+    );
+    expect(r.html).toBe("");
+    expect(countLacunas(r.html)).toBe(0);
+  });
+
+  it("token dentro de {{#if}} desativado é removido, sem deixar lacuna", () => {
+    const r = renderContract(
+      "{{#if procurador_oab}}<p>OAB {{procurador_oab}}</p>{{/if}}<p>fim</p>",
+      {},
+      []
+    );
+    expect(r.html).toBe("<p>fim</p>");
+    expect(countLacunas(r.html)).toBe(0);
   });
 
   it("não flagga derivados que o enrichment resolve (falso positivo eliminado)", () => {

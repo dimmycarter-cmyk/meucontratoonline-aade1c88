@@ -83,7 +83,12 @@ function baseGlobals(): Record<string, string> {
   };
 }
 
-/** Roda o pipeline completo de geração. */
+/**
+ * Roda o pipeline completo de geração.
+ * `blankLineFormat: "html"` espelha o que `renderContract` faz em produção
+ * (2.2a) — sem isso o teste renderizaria underscores crus e deixaria de provar
+ * o formato que a UI consome.
+ */
 function render(
   template: string,
   participants: ManualParticipantData[],
@@ -93,10 +98,16 @@ function render(
   const enriched = enrichParticipantsWithAgreementL1(byRole);
   const allVars = { ...globals, ...buildAgreementVarsL2(byRole) };
 
-  const step1 = expandEachBlocks(template, enriched);
+  const step1 = expandEachBlocks(template, enriched, { blankLineFormat: "html" });
   const step2 = preprocessTemplate(step1, allVars);
-  return replacePlaceholders(step2, allVars);
+  return replacePlaceholders(step2, allVars, { blankLineFormat: "html" });
 }
+
+/** Lacuna emitida por `blank_line` no formato html. */
+const LACUNA = '<span class="lacuna">__________</span>';
+
+/** Contagem exata de um padrão — N derivado da fixture à mão, nunca do motor. */
+const countMatches = (s: string, re: RegExp): number => (s.match(re) || []).length;
 
 describe("template [0] V2 — render ponta-a-ponta", () => {
   const TPL = loadTemplate0();
@@ -285,10 +296,11 @@ describe("template [0] V2 — render ponta-a-ponta", () => {
     expect(out).not.toContain("intermediadora2");
   });
 
-  it("multi-participante: vendedor completo mantém RG/CPF/e-mail; vazio sai limpo (4.D)", () => {
+  it("multi-participante: completo mantém RG/CPF/e-mail; vazio ganha LACUNA por item (2.2a)", () => {
     // O regression que {{#if}} global causaria: aqui um item tem dados e o
-    // outro não. A supressão é POR-ITEM, então o completo NÃO pode perder a
-    // vírgula nem o "-" do CPF, e o vazio NÃO pode deixar scaffold pendurado.
+    // outro não. O fallback é POR-ITEM, então o completo NÃO pode perder a
+    // vírgula nem o "-" do CPF, e o vazio TEM de exibir a lacuna (antes da
+    // 2.2a o scaffold sumia inteiro e a ausência ficava invisível).
     const out = render(
       TPL,
       [
@@ -326,17 +338,31 @@ describe("template [0] V2 — render ponta-a-ponta", () => {
       }
     );
 
-    // Completo: CPF formatado + vírgula + o "-" interno do CPF preservados.
+    // Completo (João): CPF formatado + vírgula + o "-" interno do CPF preservados.
     expect(out).toContain("inscrito no CPF sob o nº <strong>111.111.111-11</strong>,");
     // Completo: hífen RG–órgão preservado.
     expect(out).toContain("<strong>MG-1</strong> - <strong>SSP/MG</strong>");
     // Completo: e-mail preservado.
     expect(out).toContain("endereço eletrônico: <strong>joao@x.com</strong>");
 
-    // Vazio: nenhum scaffold de campo vazio sobrou.
-    expect(out).not.toContain("CPF sob o nº <strong></strong>");
+    // Vazio (Carlos) — PRESENÇA da lacuna. Antes da 2.2a estas três cláusulas
+    // sumiam e o contrato saía sem sinal algum de que faltavam RG/órgão/CPF.
+    expect(out).toContain(
+      `Carteira de Identidade nº <strong>${LACUNA}</strong> - <strong>${LACUNA}</strong>`
+    );
+    expect(out).toContain(`inscrito no CPF sob o nº <strong>${LACUNA}</strong>`);
+
+    // N à mão: só Carlos está sem RG/órgão/CPF (João tem tudo) → 1 de cada.
+    expect(countMatches(out, /Carteira de Identidade nº <strong><span class="lacuna">/g)).toBe(1);
+    expect(countMatches(out, /CPF sob o nº <strong><span class="lacuna">/g)).toBe(1);
+
+    // R3 VIVA: e-mail não é essencial (A2) → Carlos perde o scaffold inteiro,
+    // João mantém o seu. Ausência é a asserção correta — campo não-essencial.
     expect(out).not.toContain("endereço eletrônico: <strong></strong>");
-    expect(out).not.toMatch(/Carteira de Identidade nº <strong>\s*<\/strong>/);
+    expect(countMatches(out, /endereço eletrônico:/g)).toBe(1); // só o de João
+
+    // Endereços: ambos preenchidos → nenhuma lacuna de endereço.
+    expect(countMatches(out, /domiciliad[oa] em <span class="lacuna">/g)).toBe(0);
   });
 
   it("não duplica prefixo monetário (BUG 2: nunca \"R$ R$\")", () => {

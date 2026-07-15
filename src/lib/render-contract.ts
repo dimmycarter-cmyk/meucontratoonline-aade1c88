@@ -15,6 +15,21 @@
  * replace todo placeholder vira valor ou fallback (omit/blank_line) e a
  * detecção ficaria cega. Usar os dados enriquecidos aqui elimina os
  * falsos positivos em derivados (data_contrato_extenso, aliases, empresa_*).
+ *
+ * ⚠ ASSIMETRIA DELIBERADA de `unresolved` (2.2a) — POR CONSTRUÇÃO, NÃO BUG:
+ *
+ *   - campo PLANO vazio ({{valor_total}}) → sobrevive a expandEachBlocks e a
+ *     preprocessTemplate, chega cru em getUnresolvedPlaceholders → CONTA;
+ *   - campo INTRA-EACH vazio ({{cpf}} de um vendedor) → já foi resolvido lá
+ *     dentro por renderEachItem (linha `expandEachBlocks` abaixo, que roda
+ *     ANTES) → o token não existe mais → NÃO CONTA.
+ *
+ * Consertar isso exigiria detectar pendência antes do each, duplicando a
+ * tabela de fallback. Em vez disso, a lacuna é a evidência: quem precisa da
+ * contagem TOTAL de campos em branco deve somar
+ * `unresolved.length + countLacunas(html)`. É o que o confirm de impressão
+ * da 2.2b consome — só tokens não bastam, e é justamente o caso central
+ * (qualificação das partes é 100% intra-each nos templates reais [0] e [2]).
  */
 import type { ManualParticipantData } from "@/components/contract/manual-participant";
 import {
@@ -24,12 +39,20 @@ import {
   getUnresolvedPlaceholders,
   type EachOptions,
 } from "./placeholder";
+import { countLacunas } from "./placeholder-fallback";
 import { enrichDados, type CompanyData } from "./contract-enrichment";
 import { buildParticipantsByRole } from "./auto-fill-dados";
 import {
   enrichParticipantsWithAgreementL1,
   buildAgreementVarsL2,
 } from "./agreement";
+
+/**
+ * Re-export: quem consome `renderContract` precisa da contagem de lacunas
+ * para fechar a conta de campos em branco (ver ASSIMETRIA no topo). Evita que
+ * a UI importe de dois módulos para responder a uma pergunta só.
+ */
+export { countLacunas };
 
 /** Subconjunto de cláusula necessário para anexação ao HTML final. */
 export interface RenderClause {
@@ -68,10 +91,16 @@ export function renderContract(
   const byRoleWithAgreement = enrichParticipantsWithAgreementL1(byRole);
   const dadosCompletos = { ...enriched, ...buildAgreementVarsL2(byRole) };
 
-  const expanded = expandEachBlocks(template ?? "", byRoleWithAgreement, opts.eachOptions);
+  // blankLineFormat "html" nos DOIS passes: os 3 consumidores de produto
+  // (preview e save do wizard, Detalhe) renderizam HTML. O default "text" do
+  // engine cru fica intacto para chamadores diretos e testes de unidade.
+  const expanded = expandEachBlocks(template ?? "", byRoleWithAgreement, {
+    ...opts.eachOptions,
+    blankLineFormat: "html",
+  });
   const processed = preprocessTemplate(expanded, dadosCompletos);
   const unresolved = getUnresolvedPlaceholders(processed, dadosCompletos);
-  const body = replacePlaceholders(processed, dadosCompletos);
+  const body = replacePlaceholders(processed, dadosCompletos, { blankLineFormat: "html" });
 
   const html = opts.appendClauses?.length
     ? appendClausesHtml(body, opts.appendClauses)

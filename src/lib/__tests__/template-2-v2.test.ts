@@ -3,9 +3,19 @@
  * de endereço GRANULAR → COMPOSTO ({{c_domiciliado}} em {{endereco}}) nos 3 blocos
  * {{#each}} (vendedores, anuentes, compradores). ([1]/[3]/[4] = backlog #8.)
  *
- * Prova: endereço composto (cheio/parcial), supressão R4 do tail "domiciliado em"
- * quando o endereço é todo-vazio, supressão 4.D (RG/CPF/email) ainda válida no [2],
- * e o caráter PER-ITEM (um cheio + um vazio no mesmo render).
+ * Prova: endereço composto (cheio/parcial) e o caráter PER-ITEM (um cheio + um
+ * vazio no mesmo render).
+ *
+ * ⚠ ATUALIZADO NA 2.2a. Este arquivo e template-0-v2 são os ÚNICOS testes que
+ * exercitam `renderEachItem` pelo caminho REAL com campo vazio — os unitários de
+ * suppress-empty-scaffold chamam a função direto e não provam nada sobre
+ * produção. Por isso (c)/(d)/(e) foram REESCRITOS, não deletados: deletá-los
+ * deixaria o Item 4 (fallback intra-each, o coração da 2.2a) sem cobertura pelo
+ * caminho real — trocar a mentira pelo silêncio.
+ *
+ * R4 ("domiciliado em" pendurado) e 4.D (RG/CPF) foram APOSENTADAS: esses campos
+ * agora deixam LACUNA. Os asserts afirmam PRESENÇA do span — asserção negativa
+ * foi exatamente o que deixou o (d) antigo passar verde pelo motivo errado.
  *
  * Lê o conteudo REAL (pós-migração) do payload e renderiza pelo pipeline de produção.
  */
@@ -33,7 +43,12 @@ function mk(
   return { ...emptyParticipant(role), nome, ...extra };
 }
 
-/** Pipeline completo de geração (idêntico a NovoContrato/template-0-v2). */
+/**
+ * Pipeline completo de geração (idêntico a NovoContrato/template-0-v2).
+ * `blankLineFormat: "html"` nos dois passes espelha o que `renderContract` faz
+ * em produção (2.2a) — sem isso, o teste renderizaria underscores crus e
+ * deixaria de provar o formato que a UI consome.
+ */
 function render(
   template: string,
   participants: ManualParticipantData[],
@@ -42,10 +57,16 @@ function render(
   const byRole = buildParticipantsByRole(participants);
   const enriched = enrichParticipantsWithAgreementL1(byRole);
   const allVars = { ...globals, ...buildAgreementVarsL2(byRole) };
-  const step1 = expandEachBlocks(template, enriched);
+  const step1 = expandEachBlocks(template, enriched, { blankLineFormat: "html" });
   const step2 = preprocessTemplate(step1, allVars);
-  return replacePlaceholders(step2, allVars);
+  return replacePlaceholders(step2, allVars, { blankLineFormat: "html" });
 }
+
+/** Lacuna emitida por `blank_line` no formato html. */
+const LACUNA = '<span class="lacuna">__________</span>';
+
+/** Contagem exata de um padrão — N derivado da fixture à mão, nunca do motor. */
+const countMatches = (s: string, re: RegExp): number => (s.match(re) || []).length;
 
 /** Endereço completo reutilizável. */
 const FULL_ADDR = {
@@ -87,32 +108,54 @@ describe("template [2] V2 — endereço migrado granular→composto", () => {
     expect(out).not.toContain("na {{endereco_rua}}");
   });
 
-  it("(c) endereço todo-vazio: sem 'domiciliado em' pendurado (R4)", () => {
-    // RG/CPF/email PREENCHIDOS, ninguém com endereço → isola o R4 (vendedor + comprador).
+  it("(c) endereço todo-vazio: 'domiciliado em' PERMANECE com lacuna (R4 aposentada)", () => {
+    // RG/CPF/email PREENCHIDOS, ninguém com endereço → isola o endereço.
+    // Antes da 2.2a a R4 removia o tail inteiro e o endereço sumia em silêncio.
+    // Agora o tail fica e a ausência é VISÍVEL — endereço é essencial (A2).
     const out = render(TPL, [
       mk("vendedor", "João Silva", { genero: "M", cpf: "11111111111", rg: "MG-1", orgao_expedidor: "SSP/MG", profissao: "engenheiro", email: "joao@x.com" }),
       mk("comprador", "Maria Souza", { genero: "F", cpf: "22222222222", rg: "MG-2", orgao_expedidor: "SSP/MG", email: "maria@x.com" }),
     ]);
 
-    expect(out).not.toMatch(/domiciliad[oa] em/); // cobre masculino e feminino
-    // O fecho cola direto no e-mail: "…joao@x.com</strong>, doravante…"
-    expect(out).toContain("<strong>joao@x.com</strong>, doravante");
+    // PRESENÇA: os dois participantes mantêm o tail, cada um com sua lacuna.
+    expect(out).toContain(`domiciliado em ${LACUNA}`);   // João (M)
+    expect(out).toContain(`domiciliada em ${LACUNA}`);   // Maria (F)
+    // N=2 à mão: 1 vendedor + 1 comprador, ambos sem endereço. O bloco
+    // {{#each anuentes}} rende vazio (sem anuente na fixture).
+    expect(countMatches(out, /domiciliad[oa] em <span class="lacuna">/g)).toBe(2);
+    // E-mail preenchido segue intacto.
+    expect(out).toContain("<strong>joao@x.com</strong>");
   });
 
-  it("(d) RG/CPF/email vazios continuam suprimidos no [2] (4.D)", () => {
+  it("(d) RG/CPF vazios viram LACUNA no [2] (2.2a); e-mail vazio segue suprimido (R3)", () => {
     const out = render(TPL, [
       mk("vendedor", "João Silva", { genero: "M", profissao: "corretor", estado_civil: "solteiro", ...FULL_ADDR }),
       mk("comprador", "Maria Souza", { genero: "F", cpf: "22222222222" }),
     ]);
 
-    expect(out).not.toMatch(/Carteira de Identidade nº <strong>\s*<\/strong>/);
-    expect(out).not.toContain("CPF sob o nº <strong></strong>");
-    expect(out).not.toContain("endereço eletrônico: <strong></strong>");
-    // Endereço cheio do vendedor segue presente (composto)
+    // PRESENÇA — João sem RG nem órgão: a cláusula NÃO some mais, ganha 2 lacunas.
+    expect(out).toContain(
+      `Carteira de Identidade nº <strong>${LACUNA}</strong> - <strong>${LACUNA}</strong>`
+    );
+    // PRESENÇA — João sem CPF: a sub-cláusula NÃO some mais.
+    expect(out).toContain(`inscrito no CPF sob o nº <strong>${LACUNA}</strong>`);
+
+    // N à mão: João e Maria estão ambos sem RG/órgão → 2 pares.
+    expect(countMatches(out, /Carteira de Identidade nº <strong><span class="lacuna">/g)).toBe(2);
+    // Só João está sem CPF (Maria tem) → 1 lacuna de CPF.
+    expect(countMatches(out, /CPF sob o nº <strong><span class="lacuna">/g)).toBe(1);
+    // Maria tem CPF → valor real, sem lacuna. Prova que o preenchido não regride.
+    expect(out).toContain("<strong>222.222.222-22</strong>");
+
+    // R3 VIVA: e-mail não é essencial (A2) → segue `omit` → scaffold inteiro sai.
+    // Ausência é a asserção CORRETA aqui — o campo não é essencial.
+    expect(out).not.toContain("endereço eletrônico");
+
+    // Endereço cheio do vendedor segue presente (composto), sem lacuna.
     expect(out).toContain("domiciliado em Rua das Flores, nº 10, Bairro Centro, Belo Horizonte/MG, CEP 30130-000");
   });
 
-  it("(e) per-item: 2 vendedores, um cheio + um vazio → só o cheio tem 'domiciliado em'", () => {
+  it("(e) per-item: 2 vendedores, um cheio + um vazio → o vazio ganha lacuna, o cheio não", () => {
     const out = render(TPL, [
       mk("vendedor", "João Silva", { genero: "M", cpf: "11111111111", rg: "MG-1", orgao_expedidor: "SSP/MG", email: "joao@x.com", ...FULL_ADDR }),
       mk("vendedor", "Carlos Vazio", { genero: "M", cpf: "55555555555", rg: "MG-9", orgao_expedidor: "SSP/MG", email: "carlos@x.com" }),
@@ -121,9 +164,13 @@ describe("template [2] V2 — endereço migrado granular→composto", () => {
 
     // Cheio mantém o endereço composto…
     expect(out).toContain("domiciliado em Rua das Flores, nº 10, Bairro Centro, Belo Horizonte/MG, CEP 30130-000");
-    // …e o vazio NÃO deixa tail: exatamente 1 ocorrência de "domiciliado em" no doc.
-    expect((out.match(/domiciliad[oa] em/g) || []).length).toBe(1);
-    // O vazio ainda aparece (mantém RG/CPF/email), só perdeu o endereço.
+    // …e o vazio agora PRESERVA o tail com lacuna, per-item.
+    expect(out).toContain(`domiciliado em ${LACUNA}`);
+    // N=2 à mão: Carlos (vendedor sem endereço) + Maria (compradora sem endereço).
+    expect(countMatches(out, /domiciliad[oa] em <span class="lacuna">/g)).toBe(2);
+    // N=3 à mão: 3 tails no total (João cheio + Carlos lacuna + Maria lacuna).
+    expect(countMatches(out, /domiciliad[oa] em/g)).toBe(3);
+    // O vazio segue aparecendo com seus campos preenchidos.
     expect(out).toContain("<strong>carlos@x.com</strong>");
   });
 });

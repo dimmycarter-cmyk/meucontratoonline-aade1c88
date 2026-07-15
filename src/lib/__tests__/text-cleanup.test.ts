@@ -80,6 +80,45 @@ describe("cleanOrphanPunctuation", () => {
     expect(out).not.toMatch(/,\s*\./);
   });
 
+  describe("lacuna (2.2a) — a limpeza NÃO pode comer nem quebrar a linha", () => {
+    const LACUNA = '<span class="lacuna">__________</span>';
+
+    it("não come a lacuna encostada em vírgula", () => {
+      const input = `<p>João, portador do RG nº ${LACUNA}, inscrito no CPF.</p>`;
+      const out = cleanOrphanPunctuation(input);
+      expect(out).toContain(LACUNA);
+      expect(out).toBe(input);
+    });
+
+    it("não come a lacuna encostada em tag de fechamento", () => {
+      const input = `<p>Valor: ${LACUNA}</p>`;
+      expect(cleanOrphanPunctuation(input)).toBe(input);
+    });
+
+    it("não come lacunas consecutivas separadas por hífen (RG - órgão)", () => {
+      const input = `nº <strong>${LACUNA}</strong> - <strong>${LACUNA}</strong>, inscrito`;
+      const out = cleanOrphanPunctuation(input);
+      expect(out).toBe(input);
+      expect((out.match(/lacuna/g) || []).length).toBe(2);
+    });
+
+    it("lacuna após preposição NÃO aciona a regra α (não há vírgula órfã)", () => {
+      // A regra α remove "de , no banco" → "de no banco". Com lacuna há
+      // conteúdo entre a preposição e a vírgula, então ela não dispara.
+      const input = `domiciliado em ${LACUNA}, Bairro Centro`;
+      expect(cleanOrphanPunctuation(input)).toBe(input);
+    });
+
+    it("ainda limpa vírgula órfã ao redor de uma lacuna (omit vizinho)", () => {
+      // profissao (omit) vazia ao lado de rg (lacuna): a vírgula dupla sai, a
+      // lacuna fica.
+      const input = `João, , portador do RG ${LACUNA}`;
+      const out = cleanOrphanPunctuation(input);
+      expect(out).toBe(`João, portador do RG ${LACUNA}`);
+      expect(out).toContain(LACUNA);
+    });
+  });
+
   it("retorna string vazia para input vazio/null sem crash", () => {
     expect(cleanOrphanPunctuation("")).toBe("");
     expect(cleanOrphanPunctuation(null as unknown as string)).toBe(null);

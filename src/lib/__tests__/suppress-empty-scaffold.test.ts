@@ -1,67 +1,34 @@
 /**
- * Frente 4.D — supressão de scaffold de qualificação com campo vazio
- * (RG/órgão, CPF, e-mail). Itens de endereço (4/5) estão FORA — resolvidos
- * pela migração granular→composto.
+ * Supressão de scaffold de campo com estratégia `omit` — e-mail é o único
+ * ocupante HOJE (R3).
+ *
+ * ⚠ ESCOPO REDUZIDO NA 2.2a. R1a/R1b/R2/R4 (RG, órgão, CPF, endereço) foram
+ * APOSENTADAS: esses campos migraram para `blank_line`, e a âncora de vazio
+ * (`<strong>\s*</strong>`) nunca mais casa neles — a lacuna
+ * (`<strong><span class="lacuna">…</span></strong>`) não é whitespace. As
+ * regras ficaram inalcançáveis POR CONSTRUÇÃO, não "raramente acionadas".
+ *
+ * Os testes delas saíram no MESMO commit que o código. Motivo: eles chamavam
+ * `suppressEmptyFieldScaffold` DIRETO, com `<strong></strong>` escrito à mão —
+ * continuariam VERDES para sempre, exercitando um caminho que produção não
+ * alcança. Regra morta com teste vivo é pior que a dívida original. Os NEG
+ * (#2/#6/#13, "campo preenchido → intacto") caíram junto: sem R1a/R2, não
+ * existe regra que pudesse tocar RG ou CPF — provariam nada.
+ *
+ * A cobertura do caminho REAL (renderEachItem com campo vazio) vive em
+ * template-0-v2.test.ts e template-2-v2.test.ts, que passam pelo pipeline
+ * inteiro. Estes aqui são unitários da função.
  *
  * Todos os asserts checam a STRING EXATA pós-supressão (sem espaço duplo, sem
- * espaço antes de vírgula) — a própria suppressEmptyFieldScaffold normaliza o
- * whitespace, não dependemos do cleanOrphanPunctuation downstream.
- *
- * Coração da frente: campo PREENCHIDO (`<strong>887...</strong>`) nunca casa a
- * âncora de vazio → vírgula e "-" legítimos permanecem (caso Antonio, #6).
+ * espaço antes de vírgula) — a própria função normaliza o whitespace, não
+ * dependemos do cleanOrphanPunctuation downstream.
  */
 import { describe, it, expect } from "vitest";
 import { suppressEmptyFieldScaffold } from "../text-cleanup";
 
-describe("suppressEmptyFieldScaffold — itens 1-3 (RG/CPF/email)", () => {
-  it("#1 RG+órgão ambos vazios → cláusula inteira some", () => {
-    const input =
-      "engenheiro, portador da Carteira de Identidade nº <strong></strong> - <strong></strong>, inscrito no CPF sob o nº <strong>111.111.111-11</strong>, domiciliado";
-    expect(suppressEmptyFieldScaffold(input)).toBe(
-      "engenheiro, inscrito no CPF sob o nº <strong>111.111.111-11</strong>, domiciliado"
-    );
-  });
+const LACUNA = '<span class="lacuna">__________</span>';
 
-  it("#2 RG+órgão ambos preenchidos → intacto (NEG)", () => {
-    const input =
-      "engenheiro, portador da Carteira de Identidade nº <strong>MG-1</strong> - <strong>SSP/MG</strong>, inscrito no CPF sob o nº <strong>111.111.111-11</strong>, domiciliado";
-    expect(suppressEmptyFieldScaffold(input)).toBe(input);
-  });
-
-  it("#3 PARCIAL: RG preenchido + órgão vazio → cai só o hífen pendurado", () => {
-    const input =
-      "portador da Carteira de Identidade nº <strong>MG-1</strong> - <strong></strong>, inscrito";
-    expect(suppressEmptyFieldScaffold(input)).toBe(
-      "portador da Carteira de Identidade nº <strong>MG-1</strong>, inscrito"
-    );
-  });
-
-  it("#4 PARCIAL inverso: RG vazio + órgão preenchido → cláusula inteira some (assimetria)", () => {
-    // Órgão NÃO pode virar "número": RG vazio derruba tudo, mesmo com órgão presente.
-    const input =
-      "engenheiro, portador da Carteira de Identidade nº <strong></strong> - <strong>SSP/MG</strong>, inscrito no CPF sob o nº <strong>111.111.111-11</strong>, domiciliado";
-    expect(suppressEmptyFieldScaffold(input)).toBe(
-      "engenheiro, inscrito no CPF sob o nº <strong>111.111.111-11</strong>, domiciliado"
-    );
-  });
-
-  it("#5 CPF vazio → sub-cláusula some", () => {
-    const input =
-      "<strong>SSP/MG</strong>, inscrito no CPF sob o nº <strong></strong>, endereço eletrônico: <strong>joao@x.com</strong>, domiciliado";
-    expect(suppressEmptyFieldScaffold(input)).toBe(
-      "<strong>SSP/MG</strong>, endereço eletrônico: <strong>joao@x.com</strong>, domiciliado"
-    );
-  });
-
-  it("#6 CPF preenchido — ANTONIO (NEG crítico): vírgula E o '-' do CPF ficam", () => {
-    const input =
-      "inscrito no CPF sob o nº <strong>887.616.656-49</strong>, endereço";
-    const out = suppressEmptyFieldScaffold(input);
-    expect(out).toBe(input);
-    // CPF (com o "-" interno) + </strong> + vírgula seguem intactos.
-    expect(out).toContain("887.616.656-49</strong>,");
-  });
-
+describe("suppressEmptyFieldScaffold — R3 (e-mail)", () => {
   it("#7 e-mail vazio → sub-cláusula some", () => {
     const input =
       "<strong>111.111.111-11</strong>, endereço eletrônico: <strong></strong>, domiciliado";
@@ -76,22 +43,35 @@ describe("suppressEmptyFieldScaffold — itens 1-3 (RG/CPF/email)", () => {
     expect(suppressEmptyFieldScaffold(input)).toBe(input);
   });
 
-  it("#9 os 3 vazios juntos → só sobra o fecho", () => {
+  it("#9 e-mail vazio no meio da qualificação real → só o e-mail sai", () => {
+    // Reescrito na 2.2a: RG/CPF agora chegam aqui como LACUNA (blank_line), não
+    // como <strong> vazio. A função não os toca — e não deve.
     const input =
-      "engenheiro, portador da Carteira de Identidade nº <strong></strong> - <strong></strong>, inscrito no CPF sob o nº <strong></strong>, endereço eletrônico: <strong></strong>, domiciliado na";
-    expect(suppressEmptyFieldScaffold(input)).toBe("engenheiro, domiciliado na");
+      `engenheiro, portador da Carteira de Identidade nº <strong>${LACUNA}</strong> - <strong>${LACUNA}</strong>, ` +
+      `inscrito no CPF sob o nº <strong>${LACUNA}</strong>, endereço eletrônico: <strong></strong>, domiciliado na`;
+    expect(suppressEmptyFieldScaffold(input)).toBe(
+      `engenheiro, portador da Carteira de Identidade nº <strong>${LACUNA}</strong> - <strong>${LACUNA}</strong>, ` +
+        `inscrito no CPF sob o nº <strong>${LACUNA}</strong>, domiciliado na`
+    );
+  });
+
+  it("#9b a lacuna SOBREVIVE à supressão — nada de <strong> vazio é confundido com lacuna", () => {
+    const input = `inscrito no CPF sob o nº <strong>${LACUNA}</strong>, domiciliado`;
+    const out = suppressEmptyFieldScaffold(input);
+    expect(out).toBe(input);
+    expect(out).toContain(LACUNA);
   });
 
   it("#10 idempotência: aplicar 2x == 1x", () => {
     const input =
-      "engenheiro, portador da Carteira de Identidade nº <strong></strong> - <strong></strong>, inscrito no CPF sob o nº <strong></strong>, endereço eletrônico: <strong></strong>, domiciliado na";
+      `casado, inscrito no CPF sob o nº <strong>${LACUNA}</strong>, endereço eletrônico: <strong></strong>, domiciliado na`;
     const once = suppressEmptyFieldScaffold(input);
     expect(suppressEmptyFieldScaffold(once)).toBe(once);
   });
 
   it("#11 seguro com {{#if}} ainda presente (passagem ① per-item)", () => {
     const input =
-      "casado, inscrito no CPF sob o nº <strong></strong>, endereço eletrônico: <strong></strong>, domiciliado na {{endereco_rua}}{{#if endereco_complemento}}, {{endereco_complemento}}{{/if}}, Bairro";
+      "casado, endereço eletrônico: <strong></strong>, domiciliado na {{endereco_rua}}{{#if endereco_complemento}}, {{endereco_complemento}}{{/if}}, Bairro";
     const out = suppressEmptyFieldScaffold(input);
     expect(out).toBe(
       "casado, domiciliado na {{endereco_rua}}{{#if endereco_complemento}}, {{endereco_complemento}}{{/if}}, Bairro"
@@ -99,18 +79,12 @@ describe("suppressEmptyFieldScaffold — itens 1-3 (RG/CPF/email)", () => {
     expect(out).toContain("{{#if endereco_complemento}}");
   });
 
-  it("#12 FEMININO: portadora/inscrita com RG/CPF/email vazios → sub-cláusulas somem", () => {
+  it("#12 FEMININO: e-mail vazio sai; a lacuna de CPF permanece", () => {
     const input =
-      "advogada, portadora da Carteira de Identidade nº <strong></strong> - <strong></strong>, inscrita no CPF sob o nº <strong></strong>, endereço eletrônico: <strong></strong>, domiciliada na";
-    expect(suppressEmptyFieldScaffold(input)).toBe("advogada, domiciliada na");
-  });
-
-  it("#13 FEMININO Antonia — CPF preenchido → intacto (NEG)", () => {
-    const input =
-      "inscrita no CPF sob o nº <strong>987.654.321-00</strong>, endereço";
-    const out = suppressEmptyFieldScaffold(input);
-    expect(out).toBe(input);
-    expect(out).toContain("987.654.321-00</strong>,");
+      `advogada, inscrita no CPF sob o nº <strong>${LACUNA}</strong>, endereço eletrônico: <strong></strong>, domiciliada na`;
+    expect(suppressEmptyFieldScaffold(input)).toBe(
+      `advogada, inscrita no CPF sob o nº <strong>${LACUNA}</strong>, domiciliada na`
+    );
   });
 
   it("string vazia / falsy → passa intacto", () => {
