@@ -360,7 +360,7 @@ describe("template [0] V2 — render ponta-a-ponta", () => {
 
     // Flip 2.2b: e-mail é pedido ao usuário → LACUNA (antes, R3 suprimia o
     // scaffold inteiro do Carlos). O <strong> nunca fica vazio — é o que
-    // tornou a R3 inalcançável no pipeline (destino da regra: Commit 3).
+    // tornou a R3 inalcançável no pipeline (removida no 3b).
     expect(out).not.toContain("endereço eletrônico: <strong></strong>");
     expect(out).toContain(`endereço eletrônico: <strong>${LACUNA}</strong>`); // Carlos
     expect(countMatches(out, /endereço eletrônico:/g)).toBe(2); // João + Carlos

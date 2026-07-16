@@ -13,7 +13,7 @@ import {
   type BlankLineFormat,
   type FallbackStrategy,
 } from "./placeholder-fallback";
-import { cleanOrphanPunctuation, suppressEmptyFieldScaffold } from "./text-cleanup";
+import { cleanOrphanPunctuation } from "./text-cleanup";
 import {
   buildLegacyBracketMap,
   GENERIC_FIELD_SUFFIXES,
@@ -212,7 +212,9 @@ export function expandEachBlocks(
  *     esconderia erro real atrás de um traço bonito — e o token cru é
  *     justamente o que `getUnresolvedPlaceholders` precisa ver.
  *
- * Depois, limpa o scaffold dos campos que ficaram com estratégia `omit`.
+ * Ao final, apenas limpeza de pontuação órfã — a supressão de scaffold (R3)
+ * saiu na 2.2b/3b: com default blank_line + gate de whitespace, nenhum campo
+ * rende `<strong>` vazio e a regra ficou inalcançável por construção.
  */
 function renderEachItem(
   inner: string,
@@ -227,10 +229,7 @@ function renderEachItem(
     }
     return full; // token desconhecido — erro de template, sobrevive cru
   });
-  // Suprime sub-cláusulas de qualificação cujo campo com estratégia `omit`
-  // ficou vazio ANTES do cleanup de pontuação — o scaffold inteiro sai, não
-  // só a vírgula. Ordem: suprime → normaliza pontuação remanescente.
-  return cleanOrphanPunctuation(suppressEmptyFieldScaffold(out));
+  return cleanOrphanPunctuation(out);
 }
 
 /**

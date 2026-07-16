@@ -134,7 +134,7 @@ describe("placeholder fallback — estratégia tabular", () => {
       expect(getFallbackStrategy("campo_arbitrario_nao_mapeado")).toBe("blank_line");
       expect(getFallbackStrategy("xyz")).toBe("blank_line");
       // Qualificação do participante: pedida ao usuário → lacuna. (O scaffold
-      // de e-mail R3 tornou-se inalcançável no pipeline — destino no Commit 3.)
+      // de e-mail R3 tornou-se inalcançável no pipeline — removida no 3b.)
       expect(getFallbackStrategy("email")).toBe("blank_line");
       expect(getFallbackStrategy("profissao")).toBe("blank_line");
       expect(getFallbackStrategy("estado_civil")).toBe("blank_line");

@@ -148,7 +148,7 @@ describe("template [2] V2 — endereço migrado granular→composto", () => {
     expect(out).toContain("<strong>222.222.222-22</strong>");
 
     // Flip 2.2b: e-mail é pedido ao usuário → LACUNA (a A2 que o classificava
-    // como "não essencial" foi aposentada; R3 ficou inalcançável — Commit 3).
+    // como "não essencial" foi aposentada; R3 removida no 3b).
     // PRESENÇA com contagem exata: João e Maria estão ambos sem e-mail → 2.
     expect(countMatches(out, /endereço eletrônico: <strong><span class="lacuna">/g)).toBe(2);
     expect(out).not.toContain("endereço eletrônico: <strong></strong>");
