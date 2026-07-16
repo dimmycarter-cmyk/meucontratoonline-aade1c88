@@ -127,7 +127,7 @@ describe("template [2] V2 — endereço migrado granular→composto", () => {
     expect(out).toContain("<strong>joao@x.com</strong>");
   });
 
-  it("(d) RG/CPF vazios viram LACUNA no [2] (2.2a); e-mail vazio segue suprimido (R3)", () => {
+  it("(d) RG/CPF vazios viram LACUNA no [2] (2.2a); e-mail vazio vira LACUNA (2.2b)", () => {
     const out = render(TPL, [
       mk("vendedor", "João Silva", { genero: "M", profissao: "corretor", estado_civil: "solteiro", ...FULL_ADDR }),
       mk("comprador", "Maria Souza", { genero: "F", cpf: "22222222222" }),
@@ -147,9 +147,11 @@ describe("template [2] V2 — endereço migrado granular→composto", () => {
     // Maria tem CPF → valor real, sem lacuna. Prova que o preenchido não regride.
     expect(out).toContain("<strong>222.222.222-22</strong>");
 
-    // R3 VIVA: e-mail não é essencial (A2) → segue `omit` → scaffold inteiro sai.
-    // Ausência é a asserção CORRETA aqui — o campo não é essencial.
-    expect(out).not.toContain("endereço eletrônico");
+    // Flip 2.2b: e-mail é pedido ao usuário → LACUNA (a A2 que o classificava
+    // como "não essencial" foi aposentada; R3 ficou inalcançável — Commit 3).
+    // PRESENÇA com contagem exata: João e Maria estão ambos sem e-mail → 2.
+    expect(countMatches(out, /endereço eletrônico: <strong><span class="lacuna">/g)).toBe(2);
+    expect(out).not.toContain("endereço eletrônico: <strong></strong>");
 
     // Endereço cheio do vendedor segue presente (composto), sem lacuna.
     expect(out).toContain("domiciliado em Rua das Flores, nº 10, Bairro Centro, Belo Horizonte/MG, CEP 30130-000");

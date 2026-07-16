@@ -197,14 +197,25 @@ describe("cleanOrphanPunctuation", () => {
 });
 
 describe("cleanOrphanPunctuation — integração com replacePlaceholders", () => {
-  it("limpa vírgulas órfãs no resultado de replacePlaceholders (default fallback omit)", async () => {
+  it("limpa vírgulas órfãs quando o fallback omite (via override — o default 2.2b é lacuna)", async () => {
+    // Flip 2.2b: no default (blank_line), os 3 campos vazios NÃO somem mais —
+    // viram lacunas com a pontuação preservada. A integração do cleanup com o
+    // omit continua coberta via override explícito, que é a única rota de omit
+    // em massa que restou.
     const { replacePlaceholders } = await import("../placeholder");
     const html =
       "{{vendedor_nome}}, {{vendedor_nacionalidade}}, " +
       "{{vendedor_estado_civil}}, {{vendedor_profissao}}, portador(a)...";
-    const out = replacePlaceholders(html, { vendedor_nome: "João da Silva" });
-    // Os 3 campos vazios viram "" via omit; cleanup colapsa as vírgulas.
-    expect(out).toBe("João da Silva, portador(a)...");
+    const outDefault = replacePlaceholders(html, { vendedor_nome: "João da Silva" });
+    expect(outDefault).toBe(
+      "João da Silva, __________, __________, __________, portador(a)..."
+    );
+    const outOmit = replacePlaceholders(
+      html,
+      { vendedor_nome: "João da Silva" },
+      { fallback: "omit" }
+    );
+    expect(outOmit).toBe("João da Silva, portador(a)...");
   });
 
   it("não interfere quando todos os placeholders são preenchidos", async () => {

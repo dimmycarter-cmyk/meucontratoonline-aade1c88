@@ -134,16 +134,25 @@ const unwrap = (html: string): string =>
 
 describe("paridade renderContract × preview legado (byte a byte)", () => {
   it.each([
-    // N derivado à mão, inspecionando o render real:
-    //  [0] = 7 → Mayara sem rg (1) + sem orgao_expedidor (1) + valor_corretagem
-    //            + vendedor_nome e comprador_nome planos (2) + testemunha1_nome
-    //            e testemunha1_cpf (2). As intermediadoras NÃO entram: com
-    //            EMPRESA, o enrichment as preenche por alias.
-    //  [2] = 13 → Mayara rg+orgao (2) + 7 valor_* (sinal/saldo por vendedor,
-    //             multa diária, corretagem total) + 2 nomes de assinatura
-    //             + testemunha1_nome e testemunha1_cpf (2).
-    { idx: 0 as const, nome: "Compra e Venda à Vista", lacunas: 7 },
-    { idx: 2 as const, nome: "2 Vendedores e Anuente", lacunas: 13 },
+    // N derivado à mão, inspecionando o render real (composição atualizada no
+    // Commit 2 da 2.2b — default invertido para blank_line):
+    //  [0] = 20 → os 7 da 2.2a (Mayara rg+orgao, valor_corretagem,
+    //             vendedor_nome/comprador_nome planos, testemunha1 nome+cpf)
+    //             + 13 do flip: e-mail da Mayara (1), imovel_tipo (1), os 7 de
+    //             imóvel revertidos da ajuste-12 (áreas ×3, vagas, cartório,
+    //             inscrição municipal, índice cadastral), prazo_posse_dias,
+    //             multa_atraso_diaria, multa_rescisao,
+    //             intermediadora1_valor_sinal (o alias de EMPRESA preenche
+    //             nome/cnpj/banco, mas não o valor do repasse).
+    //  [2] = 28 → os 13 da 2.2a (Mayara rg+orgao, 7 valor_*, 2 nomes de
+    //             assinatura, testemunha1 nome+cpf)
+    //             + 15 do flip: e-mail da Mayara (1), dados bancários planos do
+    //             vendedor (banco/agencia/conta ×2 cada + pix = 7),
+    //             imovel_cartorio/cidade/inscricao_municipal (3),
+    //             prazo_escritura_dias, intermediadora1_valor_sinal,
+    //             testemunha1_creci, testemunha1_email (4).
+    { idx: 0 as const, nome: "Compra e Venda à Vista", lacunas: 20 },
+    { idx: 2 as const, nome: "2 Vendedores e Anuente", lacunas: 28 },
   ])("template [$idx] $nome", ({ idx, nome, lacunas }) => {
     const template = loadTemplate(idx, nome);
 
@@ -162,22 +171,24 @@ describe("paridade renderContract × preview legado (byte a byte)", () => {
     const expected = legacyPreviewRender(template, DADOS, [], null);
     const actual = renderContract(template, DADOS, [], {}).html;
 
-    // N=11 à mão: empresa_nome ×2 (qualificação + assinatura), empresa_cnpj,
-    // empresa_endereco, intermediadora1_nome, intermediadora1_cnpj (sem EMPRESA
-    // não há alias que os preencha), valor_corretagem, 2 nomes de assinatura,
-    // testemunha1_nome, testemunha1_cpf.
-    expect(countLacunas(actual)).toBe(11);
+    // N=29 à mão: os 11 da 2.2a (empresa_nome ×3 — o alias intermediadora1_nome
+    // resolve para empresa_nome vazio —, empresa_cnpj ×2 — idem para o cnpj —,
+    // empresa_endereco, valor_corretagem, 2 nomes de assinatura, testemunha1
+    // nome+cpf) + 18 do flip: empresa_creci ×2, empresa_cidade/estado/cep/
+    // email/whatsapp (5), imovel_tipo, os 7 de imóvel revertidos,
+    // prazo_posse_dias, multa_atraso_diaria, multa_rescisao.
+    expect(countLacunas(actual)).toBe(29);
     expect(unwrap(actual)).toBe(expected);
   });
 });
 
 describe("paridade CAMINHO FELIZ — fallback não é invocada", () => {
   /**
-   * Todos os campos ESSENCIAIS preenchidos. Só eles importam: `omit` produz ""
-   * nos DOIS formatos, então divergência text↔html só pode nascer onde
-   * `blank_line` dispara. Zero lacuna ⇒ formato irrelevante ⇒ byte-idêntico
-   * SEM unwrap. É a paridade de verdade: prova que a 2.2a não mexeu em nada no
-   * contrato completo — só sinaliza o que falta.
+   * TODOS os campos que o template consome preenchidos. Com o default
+   * invertido (2.2b), "essencial" deixou de ser um subconjunto: qualquer campo
+   * vazio dispara `blank_line`. Zero lacuna ⇒ formato irrelevante ⇒
+   * byte-idêntico SEM unwrap. É a paridade de verdade: prova que a inversão
+   * não mexeu em nada no contrato completo — só sinaliza o que falta.
    */
   const DADOS_COMPLETOS: Record<string, string> = {
     ...DADOS,
@@ -186,14 +197,33 @@ describe("paridade CAMINHO FELIZ — fallback não é invocada", () => {
     comprador_nome: "Maria Souza",
     testemunha1_nome: "Tânia Lima",
     testemunha1_cpf: "33333333333",
+    // Flip 2.2b: os 13 campos que deixaram de ser omissíveis entram
+    // preenchidos para reconquistar o zero-lacuna (a lista espelha a
+    // composição do N=20 do teste de paridade acima, menos o e-mail da
+    // Mayara, que é per-participante).
+    imovel_tipo: "Residencial",
+    imovel_area_privativa: "70m²",
+    imovel_area_total: "90m²",
+    imovel_area_acessoria: "5m²",
+    imovel_vagas: "1",
+    imovel_cartorio: "1º RI de BH",
+    imovel_inscricao_municipal: "INSC-1",
+    imovel_indice_cadastral: "IDX-1",
+    prazo_posse_dias: "30",
+    multa_atraso_diaria: "200",
+    multa_rescisao: "10%",
+    intermediadora1_valor_sinal: "5000",
   };
 
-  /** Mayara ganha rg + órgão — os 2 únicos essenciais vazios entre os participantes. */
+  /** Mayara ganha rg + órgão + e-mail — os únicos campos vazios entre os
+   *  participantes que o [0] consome intra-each. */
   const PARTICIPANTS_COMPLETOS: ManualParticipantData[] = PARTICIPANTS.map((p) =>
-    p.nome === "Mayara Dias" ? { ...p, rg: "MG-4", orgao_expedidor: "SSP/MG" } : p
+    p.nome === "Mayara Dias"
+      ? { ...p, rg: "MG-4", orgao_expedidor: "SSP/MG", email: "mayara@x.com" }
+      : p
   );
 
-  it("template [0] com todos os essenciais: zero lacuna e byte-idêntico sem unwrap", () => {
+  it("template [0] com todos os campos consumidos: zero lacuna e byte-idêntico sem unwrap", () => {
     const template = loadTemplate(0, "Compra e Venda à Vista");
 
     const expected = legacyPreviewRender(template, DADOS_COMPLETOS, PARTICIPANTS_COMPLETOS, EMPRESA);
