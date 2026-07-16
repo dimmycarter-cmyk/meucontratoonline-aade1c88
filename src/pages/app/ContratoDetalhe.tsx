@@ -14,7 +14,8 @@ import RichTextEditor from "@/components/RichTextEditor";
 import ContractPrintView from "@/components/ContractPrintView";
 import ContractDataDisplay from "@/components/contract/ContractDataDisplay";
 import UnresolvedPlaceholdersDialog, { parseUnresolvedStrings } from "@/components/contract/UnresolvedPlaceholdersDialog";
-import { renderContract } from "@/lib/render-contract";
+import { renderContract, countLacunas } from "@/lib/render-contract";
+import { reconstructParticipantsFromPlano } from "@/lib/auto-fill-dados";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { logAction } from "@/lib/audit";
@@ -167,23 +168,28 @@ const ContratoDetalhe = () => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
   };
 
-  // Lote D: live unresolved placeholders no contrato salvo.
-  // Pipeline único (Fase 2 / 2.1) — convergência intencional: o enrichment
-  // elimina falsos positivos em campos derivados/aliases (data_contrato_extenso,
-  // valor_*_extenso, imobiliaria_*), e {{#each}} órfão em conteúdo editado
-  // expande-para-vazio em vez de flaggar os tokens internos. participants: []
-  // porque conteudo_final salvo já vem com os blocos expandidos (reconstrução
-  // a partir de contract_participants fica para a 2.2+).
-  const liveUnresolved = useMemo(() => {
+  // Lote D (2.1) + Bloco D (2.2b): pendências vivas no contrato salvo.
+  // Pipeline único — o enrichment elimina falsos positivos em derivados/aliases.
+  // D5: participants reconstruídos do `dados` plano (reconstructParticipantsFromPlano)
+  // em vez de [] — sem isso, conteúdo que ainda carrega {{#each}} (rascunho ou
+  // edição manual) expandia para VAZIO: o 3º caminho divergente que a 2.1
+  // achava ter matado. Para conteudo_final já expandido, byRole é inerte.
+  // D4: a contagem total de campos em branco é unresolved + countLacunas(html)
+  // (assimetria deliberada da 2.2a: intra-each vira span, não token).
+  const livePendencias = useMemo(() => {
     const text = editing ? editContent : (contract?.conteudo_final ?? "");
     const dados = (contract?.dados ?? {}) as Record<string, string>;
-    if (!text) return [];
-    const { unresolved } = renderContract(text, dados, []);
-    return parseUnresolvedStrings(unresolved);
+    if (!text) return { unresolved: [], lacunas: 0 };
+    const participants = reconstructParticipantsFromPlano(dados);
+    const { unresolved, html } = renderContract(text, dados, participants);
+    return { unresolved: parseUnresolvedStrings(unresolved), lacunas: countLacunas(html) };
   }, [editing, editContent, contract?.conteudo_final, contract?.dados]);
+  const liveUnresolved = livePendencias.unresolved;
+  const liveLacunas = livePendencias.lacunas;
+  const totalPendencias = liveUnresolved.length + liveLacunas;
 
   const handlePrintClick = () => {
-    if (liveUnresolved.length > 0) {
+    if (totalPendencias > 0) {
       setUnresolvedDialogOpen(true);
       return;
     }
@@ -334,15 +340,16 @@ const ContratoDetalhe = () => {
 
         {/* Content */}
         <div className="lg:col-span-2 space-y-4">
-          {liveUnresolved.length > 0 && (
+          {totalPendencias > 0 && (
             <Alert className="border-warning/50 bg-warning/10">
               <AlertTriangle className="h-4 w-4 text-warning" />
               <AlertTitle className="text-warning">
-                {liveUnresolved.length} campo{liveUnresolved.length > 1 ? "s" : ""} sem dados
+                {totalPendencias} campo{totalPendencias > 1 ? "s" : ""} em branco
               </AlertTitle>
               <AlertDescription className="flex items-center justify-between gap-3">
                 <span className="text-sm">
-                  Há placeholders não resolvidos no contrato. A impressão/exportação está bloqueada.
+                  Campos em branco saem impressos como linha para preenchimento à
+                  mão (__________). Ao imprimir, você poderá revisar a lista e confirmar.
                 </span>
                 <Button size="sm" variant="outline" onClick={() => setUnresolvedDialogOpen(true)}>
                   Ver pendências
@@ -367,12 +374,19 @@ const ContratoDetalhe = () => {
         <ContractPrintView ref={printRef} conteudo={contract.conteudo_final} nome={contract.nome} clausulas={[]} />
       </div>
 
-      {/* Hard block para Imprimir/Exportar PDF */}
+      {/* Confirm de impressão (D4, 2.2b) — lista campos e deixa o corretor decidir */}
       <UnresolvedPlaceholdersDialog
         open={unresolvedDialogOpen}
         onOpenChange={setUnresolvedDialogOpen}
         unresolved={liveUnresolved}
+        lacunaCount={liveLacunas}
         onGoBack={() => setUnresolvedDialogOpen(false)}
+        onConfirm={() => {
+          setUnresolvedDialogOpen(false);
+          // O dialog precisa fechar (e o DOM assentar) antes do print — senão
+          // o overlay entra na página impressa em alguns browsers.
+          setTimeout(() => window.print(), 150);
+        }}
       />
     </div>
   );

@@ -28,6 +28,14 @@ const ContractPrintView = forwardRef<HTMLDivElement, ContractPrintViewProps>(
             .print-contract h1 { font-size: 16pt; text-align: center; margin-bottom: 24pt; font-weight: bold; text-transform: uppercase; }
             .print-contract h2 { font-size: 13pt; font-weight: bold; margin-top: 18pt; margin-bottom: 6pt; }
             .print-contract p { text-align: justify; margin-bottom: 6pt; }
+            /* D3 (2.2b): no papel a lacuna é linha para preencher à mão, não
+               destaque colorido — remove o realce de tela, MANTÉM o underscore. */
+            .print-contract .lacuna {
+              background: none !important;
+              border-radius: 0;
+              padding: 0;
+              color: #000;
+            }
             @page { size: A4; margin: 20mm 25mm; }
           }
         `}</style>
