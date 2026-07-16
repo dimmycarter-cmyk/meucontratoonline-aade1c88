@@ -358,7 +358,15 @@ export interface TemplateFieldDetection {
   occurrenceIndex: number;
 }
 
-/** Falsos positivos de bracket: citações legais, numerais e datas literais. */
+/**
+ * Falsos positivos de bracket: citações legais, numerais e datas literais.
+ *
+ * CÓPIA DECLARADA de `isLegalReference` (placeholder.ts, fonte única do
+ * filtro no pipeline de render — 2.2b B1), com extras próprios do motor de
+ * IMPORT: nº sem âncora (linha do "n 123 do cartório") e datas literais.
+ * Unificação consumindo a fonte única é frente própria (backlog 2.2b) —
+ * muda semântica observável do import e flipa testes da 1.1.
+ */
 function isNonFieldBracket(inner: string): boolean {
   if (/^\d+([.,]\d+)?$/.test(inner)) return true;
   // "§" fica fora do grupo com \b: não é word char, então "\b" nunca casa após ele.

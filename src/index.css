@@ -111,6 +111,21 @@
   }
 }
 
+@layer components {
+  /* Lacuna (2.2b, D2): campo em branco realçado no documento renderizado.
+     Realce DISCRETO — é peça jurídica, não formulário web: fundo suave no
+     token --warning, sem borda, sem animação. Span preenchido pelo corretor
+     mantém a classe mas deixa de contar como pendência (countLacunas).
+     Na impressão o realce sai e o underscore fica (ContractPrintView, D3). */
+  .lacuna {
+    background-color: hsl(var(--warning) / 0.15);
+    border-radius: 2px;
+    padding: 0 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+}
+
 @layer utilities {
   .text-gradient {
     @apply bg-clip-text text-transparent;

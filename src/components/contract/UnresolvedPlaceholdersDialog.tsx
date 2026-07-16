@@ -1,4 +1,4 @@
-import { AlertTriangle, User, Home, DollarSign, Building2, FileText, Calendar, Users } from "lucide-react";
+import { AlertTriangle, User, Home, DollarSign, Building2, FileText, Calendar, Users, Printer } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,10 @@ interface CategoryGroup {
   icon: React.ComponentType<{ className?: string }>;
   items: Array<{ raw: string; label: string; key: string }>;
 }
+
+/** Itens exibidos por grupo antes do "e mais X" — pós-inversão (2.2b) a lista
+ *  pode passar de 50; despejar tudo é ruído tão inútil quanto o número seco. */
+const MAX_ITEMS_PER_GROUP = 5;
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Comprador: User,
@@ -61,17 +65,35 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   unresolved: UnresolvedItem[];
   onGoBack: () => void;
+  /**
+   * Lacunas ANÔNIMAS: spans `.lacuna` de campos intra-{{#each}} (qualificação
+   * de participantes), já resolvidos pelo render — não têm token nomeável sem
+   * API nova no motor (assimetria deliberada da 2.2a). Entram na contagem
+   * total e ganham uma linha própria, não itens nominais.
+   */
+  lacunaCount?: number;
+  /**
+   * Quando presente, o dialog é um CONFIRM (2.2b, D4): "Imprimir mesmo assim"
+   * chama onConfirm. Sem ele, degrada para o hard block antigo (só "Voltar").
+   */
+  onConfirm?: () => void;
 }
 
 /**
- * Hard block exclusivo para Exportar PDF / Imprimir.
- * O modo "soft" foi removido na Leva 3 (Salvar nunca bloqueia).
+ * Confirm de impressão/exportação (2.2b, D4 — substitui o hard block).
+ *
+ * Pós-inversão a contagem é GRANDE (template real vazio ≈ 57): "57 campos em
+ * branco — continuar?" é ruído que mata o aviso também onde ele está certo.
+ * Por isso o dialog LISTA os campos por família ("Faltou o CPF do comprador"
+ * é acionável; "57" não é), truncando cada grupo em MAX_ITEMS_PER_GROUP.
  */
 export default function UnresolvedPlaceholdersDialog({
   open,
   onOpenChange,
   unresolved,
   onGoBack,
+  lacunaCount = 0,
+  onConfirm,
 }: Props) {
   const groups = new Map<string, CategoryGroup>();
   for (const item of unresolved) {
@@ -87,7 +109,7 @@ export default function UnresolvedPlaceholdersDialog({
   }
 
   const groupsArray = Array.from(groups.values()).sort((a, b) => a.category.localeCompare(b.category));
-  const total = unresolved.length;
+  const total = unresolved.length + lacunaCount;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,11 +117,12 @@ export default function UnresolvedPlaceholdersDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-warning" />
-            Não é possível exportar
+            {total} campo{total === 1 ? "" : "s"} em branco no contrato
           </DialogTitle>
           <DialogDescription>
-            Existem <strong>{total}</strong> placeholder{total > 1 ? "s" : ""} sem dados no contrato.
-            Preencha-os antes de exportar o PDF para evitar contratos com campos órfãos.
+            Os campos abaixo sairão como linha para preenchimento à mão
+            (__________). Complete-os no sistema ou confirme a impressão assim
+            mesmo.
           </DialogDescription>
         </DialogHeader>
 
@@ -107,6 +130,8 @@ export default function UnresolvedPlaceholdersDialog({
           <div className="space-y-4">
             {groupsArray.map((group) => {
               const Icon = group.icon;
+              const visible = group.items.slice(0, MAX_ITEMS_PER_GROUP);
+              const hidden = group.items.length - visible.length;
               return (
                 <div key={group.category} className="rounded-lg border border-border p-3">
                   <div className="mb-2 flex items-center gap-2">
@@ -117,7 +142,7 @@ export default function UnresolvedPlaceholdersDialog({
                     </Badge>
                   </div>
                   <ul className="space-y-1.5 pl-6">
-                    {group.items.map((it, idx) => (
+                    {visible.map((it, idx) => (
                       <li key={`${it.raw}-${idx}`} className="text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">{it.label}</span>
                         <span className="ml-2 font-mono text-[11px] text-muted-foreground/70">
@@ -125,17 +150,46 @@ export default function UnresolvedPlaceholdersDialog({
                         </span>
                       </li>
                     ))}
+                    {hidden > 0 && (
+                      <li className="text-xs italic text-muted-foreground">
+                        e mais {hidden} campo{hidden === 1 ? "" : "s"} de {group.category.toLowerCase()}
+                      </li>
+                    )}
                   </ul>
                 </div>
               );
             })}
+
+            {lacunaCount > 0 && (
+              <div className="rounded-lg border border-border p-3">
+                <div className="mb-1 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  <h4 className="text-sm font-semibold text-foreground">Qualificação dos participantes</h4>
+                  <Badge variant="secondary" className="text-xs">
+                    {lacunaCount}
+                  </Badge>
+                </div>
+                <p className="pl-6 text-xs text-muted-foreground">
+                  {lacunaCount} lacuna{lacunaCount === 1 ? "" : "s"} realçada
+                  {lacunaCount === 1 ? "" : "s"} em amarelo no texto do contrato
+                  (RG, CPF, endereço e afins dos participantes) — localize-as
+                  pelo destaque no documento.
+                </p>
+              </div>
+            )}
           </div>
         </ScrollArea>
 
         <DialogFooter>
-          <Button onClick={onGoBack} className="gap-2">
+          <Button variant={onConfirm ? "outline" : "default"} onClick={onGoBack} className="gap-2">
             Voltar para corrigir
           </Button>
+          {onConfirm && (
+            <Button onClick={onConfirm} className="gap-2">
+              <Printer className="h-4 w-4" />
+              Imprimir mesmo assim
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

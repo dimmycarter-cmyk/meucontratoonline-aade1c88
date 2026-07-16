@@ -104,12 +104,15 @@ describe("expandEachBlocks — campos por participante", () => {
     );
   });
 
-  it("campo vazio do participante limpa pontuação órfã no meio", () => {
+  it("campo vazio do participante deixa LACUNA entre as vírgulas (flip 2.2b)", () => {
+    // Antes do Commit 2 da 2.2b, profissão vazia era omit e o cleanup colapsava
+    // "Alice, , CPF" → "Alice, CPF" — a ausência ficava invisível. Profissão é
+    // campo pedido ao usuário → lacuna; a pontuação ao redor é PRESERVADA.
     const tpl = "{{#each vendedores}}{{nome}}, {{profissao}}, CPF {{cpf}}{{/each}}";
     const byRole = buildParticipantsByRole([
       mk("vendedor", "Alice", { cpf: "11111111111" }), // profissao vazia
     ]);
-    expect(expandEachBlocks(tpl, byRole)).toBe("Alice, CPF 111.111.111-11");
+    expect(expandEachBlocks(tpl, byRole)).toBe("Alice, __________, CPF 111.111.111-11");
   });
 
   it("placeholders compartilhados (não-participante) ficam intactos para o passe externo", () => {

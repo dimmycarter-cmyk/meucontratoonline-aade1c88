@@ -53,11 +53,22 @@ export type AgreementLevel1 = {
   domiciliado: string;    // domiciliado / domiciliada
 };
 
-export type AgreementLevel2 = {
-  titulo: string;       // PROMITENTE VENDEDOR / VENDEDORA / VENDEDORES / VENDEDORAS
-  artigo: string;       // o / a / os / as
-  denominado: string;   // denominado / -a / -os / -as
-};
+/**
+ * Sufixos dos tokens N2 que `buildAgreementVarsL2` emite (`<papel>_<sufixo>`).
+ *
+ * FONTE ÚNICA POR CONSTRUÇÃO (2.2b, Commit 1.5): o tipo `AgreementLevel2`
+ * deriva deste array e o loop de emissão o consome — token novo NÃO COMPILA
+ * sem entrar aqui. Consumidores externos derivam suas listas desta constante
+ * em vez de duplicar sufixos à mão (a doença E1 dos 3 dicionários da Fase 1).
+ *
+ * Motivo de cada token (JSDoc preservado do tipo literal pré-refactor):
+ *  - titulo:     PROMITENTE VENDEDOR / VENDEDORA / VENDEDORES / VENDEDORAS
+ *  - artigo:     o / a / os / as
+ *  - denominado: denominado / -a / -os / -as
+ */
+export const AGREEMENT_TOKEN_SUFFIXES = ["titulo", "artigo", "denominado"] as const;
+
+export type AgreementLevel2 = Record<(typeof AGREEMENT_TOKEN_SUFFIXES)[number], string>;
 
 type RoleConfig = {
   singularM: string;
@@ -268,9 +279,11 @@ export function buildAgreementVarsL2(
       genero: normalizeGenero(item.genero),
     }));
     const tokens = resolveLevel2(normalized, role);
-    vars[`${role}_titulo`]     = tokens.titulo;
-    vars[`${role}_artigo`]     = tokens.artigo;
-    vars[`${role}_denominado`] = tokens.denominado;
+    // Emissão consome a fonte única — sufixo novo em AGREEMENT_TOKEN_SUFFIXES
+    // é emitido aqui automaticamente (e exigido em `tokens` pelo tipo).
+    for (const suffix of AGREEMENT_TOKEN_SUFFIXES) {
+      vars[`${role}_${suffix}`] = tokens[suffix];
+    }
   }
   return vars;
 }

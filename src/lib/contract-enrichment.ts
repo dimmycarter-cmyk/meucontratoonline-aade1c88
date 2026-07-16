@@ -18,7 +18,6 @@ import {
   decomposeData,
   isValidCep,
 } from "./contract-formatters";
-import { LEGACY_BRACKET_MAP } from "./placeholder";
 
 /**
  * Aliases bidirecionais entre placeholders.
@@ -202,55 +201,9 @@ export function enrichDados(
   return out;
 }
 
-export interface UnresolvedPlaceholder {
-  raw: string;
-  type: "curly" | "bracket";
-  key: string;
-}
-
-/**
- * Detecta placeholders ainda não resolvidos no HTML/texto:
- *  - `{{key}}` quando `dados[key]` está ausente/vazio
- *  - `[LABEL]` quando o label não está mapeado em LEGACY_BRACKET_MAP
- *    ou quando o mapeamento aponta para uma chave vazia em `dados`.
- *
- * Ignora `[...]` que são apenas referências a artigos/leis (heurística:
- * contém "art.", dígitos isolados, "Lei nº").
- */
-export function validateUnresolvedPlaceholders(
-  text: string,
-  dados: Record<string, string>
-): UnresolvedPlaceholder[] {
-  if (!text) return [];
-  const out: UnresolvedPlaceholder[] = [];
-  const seen = new Set<string>();
-
-  const curly = text.matchAll(/\{\{\s*([\w]+)\s*\}\}/g);
-  for (const m of curly) {
-    const key = m[1];
-    if (dados[key] && dados[key].trim() !== "") continue;
-    const raw = `{{${key}}}`;
-    if (seen.has(raw)) continue;
-    seen.add(raw);
-    out.push({ raw, type: "curly", key });
-  }
-
-  const bracket = text.matchAll(/\[([^\]]+)\]/g);
-  for (const m of bracket) {
-    const label = m[1].trim();
-    // Heurística: ignorar referências legais
-    if (/^(art\.?|lei|inc(iso)?|§|par[áa]grafo)\b/i.test(label)) continue;
-    if (/^\d+([.,]\d+)?$/.test(label)) continue;
-
-    const normalized = label.toUpperCase();
-    const canonical = LEGACY_BRACKET_MAP[normalized];
-    if (canonical && dados[canonical] && dados[canonical].trim() !== "") continue;
-
-    const raw = `[${label}]`;
-    if (seen.has(raw)) continue;
-    seen.add(raw);
-    out.push({ raw, type: "bracket", key: canonical || label });
-  }
-
-  return out;
-}
+// validateUnresolvedPlaceholders + interface UnresolvedPlaceholder DELETADAS
+// na 2.2b (Bloco B): código morto — 0 imports, 0 testes (grep literal na
+// sessão; precedente NavLink.tsx). Era a 3ª cópia do filtro de citação legal,
+// com o bug antigo do "§" dentro do grupo com \b. A detecção de pendência
+// vive em getUnresolvedPlaceholders (placeholder.ts), que consome a fonte
+// única isLegalReference.

@@ -181,8 +181,10 @@ describe("template [0] V2 — render ponta-a-ponta", () => {
     // Título de grupo (N2) — vendedor singular M, comprador singular F
     expect(out).toContain("<strong>PROMITENTE VENDEDOR:</strong>");
     expect(out).toContain("<strong>PROMISSARIA COMPRADORA:</strong>");
-    // Concordância N1 individual
-    expect(out).toContain("brasileiro, engenheiro, portador da Carteira");
+    // Concordância N1 individual. João está SEM estado_civil: desde a inversão
+    // 2.2b o campo não some mais — fica a lacuna entre nacionalidade e
+    // profissão (flip (a); antes o omit + cleanup colapsava as vírgulas).
+    expect(out).toContain(`brasileiro, ${LACUNA}, engenheiro, portador da Carteira`);
     expect(out).toContain("inscrito no CPF sob o nº <strong>111.111.111-11</strong>");
     // Endereço COMPOSTO (não granular)
     expect(out).toContain("em Rua das Flores, nº 10, Bairro Centro, Belo Horizonte/MG, CEP 30130-000");
@@ -296,7 +298,7 @@ describe("template [0] V2 — render ponta-a-ponta", () => {
     expect(out).not.toContain("intermediadora2");
   });
 
-  it("multi-participante: completo mantém RG/CPF/e-mail; vazio ganha LACUNA por item (2.2a)", () => {
+  it("multi-participante: completo mantém RG/CPF/e-mail; vazio ganha LACUNA por item (2.2a + e-mail na 2.2b)", () => {
     // O regression que {{#if}} global causaria: aqui um item tem dados e o
     // outro não. O fallback é POR-ITEM, então o completo NÃO pode perder a
     // vírgula nem o "-" do CPF, e o vazio TEM de exibir a lacuna (antes da
@@ -356,10 +358,12 @@ describe("template [0] V2 — render ponta-a-ponta", () => {
     expect(countMatches(out, /Carteira de Identidade nº <strong><span class="lacuna">/g)).toBe(1);
     expect(countMatches(out, /CPF sob o nº <strong><span class="lacuna">/g)).toBe(1);
 
-    // R3 VIVA: e-mail não é essencial (A2) → Carlos perde o scaffold inteiro,
-    // João mantém o seu. Ausência é a asserção correta — campo não-essencial.
+    // Flip 2.2b: e-mail é pedido ao usuário → LACUNA (antes, R3 suprimia o
+    // scaffold inteiro do Carlos). O <strong> nunca fica vazio — é o que
+    // tornou a R3 inalcançável no pipeline (removida no 3b).
     expect(out).not.toContain("endereço eletrônico: <strong></strong>");
-    expect(countMatches(out, /endereço eletrônico:/g)).toBe(1); // só o de João
+    expect(out).toContain(`endereço eletrônico: <strong>${LACUNA}</strong>`); // Carlos
+    expect(countMatches(out, /endereço eletrônico:/g)).toBe(2); // João + Carlos
 
     // Endereços: ambos preenchidos → nenhuma lacuna de endereço.
     expect(countMatches(out, /domiciliad[oa] em <span class="lacuna">/g)).toBe(0);

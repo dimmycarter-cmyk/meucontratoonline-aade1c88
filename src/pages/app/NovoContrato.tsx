@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useWizardAutosave } from "@/hooks/useWizardAutosave";
 import { selectHydration, autosaveEnabled, buildContractDraftWrite } from "@/lib/wizard-draft";
 import {
@@ -17,6 +17,7 @@ import {
   FileText, ChevronRight, ChevronLeft, CheckCircle2, Search, User, Building2,
   ClipboardList, Database, BookOpen, Edit3, Check, Printer, Upload, X, File, Sparkles, Users, Plus,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,13 +31,14 @@ import { useTemplates, ContractTemplate } from "@/hooks/useTemplates";
 import { useContacts, Contact } from "@/hooks/useContacts";
 import { useCompanies, Company } from "@/hooks/useCompanies";
 import { resolveDefaultCompanyId } from "@/lib/resolve-default-company";
+import { missingCompanyFields } from "@/components/contract/company-completeness";
 import { useClauses, Clause } from "@/hooks/useClauses";
 import { useContracts } from "@/hooks/useContracts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TEMPLATE_VARIABLES, getVariablesByCategory } from "@/lib/template-variables";
 import { preprocessTemplate, getUnresolvedPlaceholders } from "@/lib/placeholder";
-import { renderContract, appendClausesHtml, buildSummaryHtml } from "@/lib/render-contract";
+import { renderContract, appendClausesHtml, buildSummaryHtml, countLacunas } from "@/lib/render-contract";
 import { buildMergedDados } from "@/lib/contract-merge";
 import { autoFillDadosFromParticipants } from "@/lib/auto-fill-dados";
 import { normalizeGenero } from "@/lib/genero";
@@ -1217,7 +1219,7 @@ const NovoContratoWizard = () => {
   };
 
   const handlePrintClick = () => {
-    if (liveUnresolved.length > 0) {
+    if (totalPendencias > 0) {
       setUnresolvedDialogOpen(true);
       return;
     }
@@ -1273,6 +1275,18 @@ const NovoContratoWizard = () => {
     return parseUnresolvedStrings(getUnresolvedPlaceholders(processed, dados));
   }, [conteudoFinal, dados]);
 
+  // Bloco D (2.2b): lacunas já renderizadas no conteúdo (spans intra-each,
+  // anônimos por construção — assimetria deliberada da 2.2a). A contagem
+  // total de campos em branco é unresolved + lacunas; o D1 (LacunaMark)
+  // garante que os spans sobrevivem à edição no TipTap e que span preenchido
+  // pelo corretor deixa de contar.
+  const liveLacunas = useMemo(() => countLacunas(conteudoFinal), [conteudoFinal]);
+  const totalPendencias = liveUnresolved.length + liveLacunas;
+
+  // D6: cadastro da empresa incompleto = lacunas de empresa_* anunciadas na
+  // CAUSA (link para configurações), não só no sintoma (confirm de impressão).
+  const companyMissing = useMemo(() => missingCompanyFields(empresa), [empresa]);
+
 
   return (
     <div className="p-6 lg:p-8">
@@ -1305,6 +1319,29 @@ const NovoContratoWizard = () => {
           </div>
         ))}
       </div>
+
+      {/* D6 (2.2b): cadastro da empresa incompleto → cada campo vazio vira
+          lacuna de empresa_* no contrato. NÃO-BLOQUEANTE: aponta a causa e o
+          caminho (configurações); o sintoma continua visível no confirm. */}
+      {empresa && companyMissing.length > 0 && (
+        <Alert className="mb-6 border-warning/50 bg-warning/10">
+          <Building2 className="h-4 w-4 text-warning" />
+          <AlertTitle className="text-warning">
+            Cadastro da empresa incompleto — {companyMissing.length} campo
+            {companyMissing.length > 1 ? "s" : ""} vira{companyMissing.length > 1 ? "m" : ""} lacuna no contrato
+          </AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm">
+              Faltam {companyMissing.slice(0, 3).map((f) => f.label).join(", ")}
+              {companyMissing.length > 3 ? ` e mais ${companyMissing.length - 3}` : ""} no
+              cadastro de {empresa.nome_fantasia}. Cada um sai como __________ no documento.
+            </span>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/app/configuracoes">Completar cadastro</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* ==================== STEP 1: SELECTION (Template + Mode) ==================== */}
       {currentStep?.id === "selection" && (
@@ -1592,6 +1629,7 @@ const NovoContratoWizard = () => {
           conteudoFinal={conteudoFinal}
           onConteudoChange={handleConteudoChange}
           liveUnresolved={liveUnresolved}
+          lacunaCount={liveLacunas}
           onShowPendencias={() => setUnresolvedDialogOpen(true)}
           selectedClauses={selectedClauses}
           selectedTemplateName={selectedTemplate?.nome}
@@ -1688,12 +1726,19 @@ const NovoContratoWizard = () => {
         clausulas={selectedClauses.map((c) => ({ titulo: c.titulo, conteudo: c.conteudo }))}
       />
 
-      {/* Hard block para Exportar PDF */}
+      {/* Confirm de impressão (D4, 2.2b) — lista campos e deixa o corretor decidir */}
       <UnresolvedPlaceholdersDialog
         open={unresolvedDialogOpen}
         onOpenChange={setUnresolvedDialogOpen}
         unresolved={liveUnresolved}
+        lacunaCount={liveLacunas}
         onGoBack={() => setUnresolvedDialogOpen(false)}
+        onConfirm={() => {
+          setUnresolvedDialogOpen(false);
+          // O dialog precisa fechar (e o DOM assentar) antes do print — senão
+          // o overlay entra na página impressa em alguns browsers.
+          setTimeout(() => handlePrint(), 150);
+        }}
       />
 
       {/* Modal de Salvar Rascunho ao sair com formulário sujo */}

@@ -84,60 +84,11 @@ export function cleanOrphanPunctuation(text: string): string {
   return curr;
 }
 
-// ============================================================================
-// suppressEmptyFieldScaffold — supressão de sub-cláusula de qualificação vazia
-// ============================================================================
-
-/**
- * Remove o SCAFFOLD inteiro (rótulo + separadores + vírgula final) deixado
- * quando um campo com estratégia `omit` renderiza vazio no bloco de
- * qualificação — e o e-mail é o único ocupante HOJE.
- *
- * ⚠ O nome é deliberadamente genérico: a função limpa scaffold de campos com
- * estratégia `omit`, não "scaffold de e-mail". Um nome e-mail-específico
- * congelaria o dado de 2026-07 dentro do identificador — foi assim que
- * nasceram os 3 dicionários dessincronizados que a Fase 1 teve de consolidar.
- * Campo novo que entre em `omit` e ganhe rótulo no template é regra nova aqui,
- * sem renomear nada.
- *
- * R1a/R1b/R2/R4 APOSENTADAS na 2.2a — RG/órgão/CPF/endereço migraram para
- * `blank_line`. Elas ancoravam em `<strong>` VAZIO; com a lacuna
- * (`<strong><span class="lacuna">__________</span></strong>`) o `\s*` da
- * âncora não casa `<span`, e as regras se tornaram inalcançáveis por
- * construção — não "raramente acionadas", impossíveis. Removidas junto com os
- * testes que as cobriam: regra morta com teste vivo é pior que a dívida
- * original (14/14 verde sobre caminho que produção não alcança).
- *
- * Diferente de `cleanOrphanPunctuation` (que só tira pontuação solta), aqui
- * derrubamos a sub-cláusula completa — senão sobra "endereço eletrônico: ,"
- * (rótulo pendurado), que limpeza de vírgula sozinha não resolve.
- *
- * ÂNCORA EM `<strong>…</strong>` VAZIO: campo omitido vira `<strong></strong>`;
- * campo preenchido tem conteúdo dentro do `<strong>` e NUNCA casa — a
- * pontuação legítima é SEMPRE preservada.
- *
- * Chamada por-item em `renderEachItem` (placeholder.ts), onde os campos do
- * participante e os tokens de concordância (`c_portador`/`c_inscrito`) já
- * estão resolvidos para texto. Função pura e idempotente; normaliza o próprio
- * whitespace (não depende da ordem com `cleanOrphanPunctuation`).
- */
-export function suppressEmptyFieldScaffold(text: string): string {
-  if (!text) return text;
-
-  // Campo com estratégia `omit` (entre as tags, só whitespace).
-  const EMPTY = "<strong[^>]*>\\s*<\\/strong>";
-
-  let out = text;
-
-  // R3 — e-mail VAZIO ⇒ suprime "endereço eletrônico: <email>,".
-  out = out.replace(
-    new RegExp(`endere[çc]o eletr[ôo]nico:\\s*${EMPTY}\\s*,`, "gi"),
-    ""
-  );
-
-  // Normaliza o gap (espaço duplo) que a supressão deixa. Self-contained: não
-  // dependemos do cleanOrphanPunctuation downstream para a correção da função.
-  out = out.replace(/[ \t]{2,}/g, " ");
-
-  return out;
-}
+// R3 (e-mail) REMOVIDA na 2.2b (Commit 3b) — era a última regra
+// template-dependente deste arquivo. Com o default invertido (Commit 2),
+// e-mail vazio vira lacuna (`<span class="lacuna">`), e com o gate de
+// whitespace (Commit 3a, `hasValue`) nenhum campo rende `<strong>` vazio ou
+// whitespace-only — a âncora da R3 tornou-se inalcançável POR CONSTRUÇÃO
+// (prova: probe C2, caso R3 byte-idêntico ao caso base). Mesmo padrão da
+// aposentadoria de R1a/R1b/R2/R4 na 2.2a: código e testes saíram juntos.
+// Este arquivo agora contém apenas limpeza de pontuação, agnóstica a template.

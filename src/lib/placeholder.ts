@@ -13,7 +13,7 @@ import {
   type BlankLineFormat,
   type FallbackStrategy,
 } from "./placeholder-fallback";
-import { cleanOrphanPunctuation, suppressEmptyFieldScaffold } from "./text-cleanup";
+import { cleanOrphanPunctuation } from "./text-cleanup";
 import {
   buildLegacyBracketMap,
   GENERIC_FIELD_SUFFIXES,
@@ -34,6 +34,24 @@ import {
  * e no novo motor import-detection.ts.
  */
 export const LEGACY_BRACKET_MAP: Record<string, string> = buildLegacyBracketMap();
+
+/**
+ * Fonte ÚNICA da semântica vazio-vs-cheio do motor E do detector (2.2b, 3a).
+ *
+ * Valor whitespace-only (" ") é VAZIO. Sem isto, `rg=" "` não virava valor
+ * legível nem lacuna — silêncio que a Regra de Ouro do Commit 2 proíbe — e o
+ * detector (`getUnresolvedPlaceholders`, que sempre trimou) divergia do motor
+ * sobre o MESMO campo: acusava pendência num placeholder que o replace
+ * tratava como preenchido (a doença E1, de novo).
+ *
+ * ESCOPO: decide apenas o CHECK vazio-vs-cheio. O VALOR emitido permanece
+ * cru (" João " sai como veio): normalizar padding do valor emitido é
+ * pergunta separada (backlog 2.2b) — blast radius diferente, campo que hoje
+ * funciona.
+ */
+function hasValue(v: unknown): boolean {
+  return v !== undefined && v !== null && String(v).trim() !== "";
+}
 
 /**
  * Remove blocos condicionais {{#if FLAG}}…{{/if}} cuja FLAG não esteja
@@ -194,7 +212,9 @@ export function expandEachBlocks(
  *     esconderia erro real atrás de um traço bonito — e o token cru é
  *     justamente o que `getUnresolvedPlaceholders` precisa ver.
  *
- * Depois, limpa o scaffold dos campos que ficaram com estratégia `omit`.
+ * Ao final, apenas limpeza de pontuação órfã — a supressão de scaffold (R3)
+ * saiu na 2.2b/3b: com default blank_line + gate de whitespace, nenhum campo
+ * rende `<strong>` vazio e a regra ficou inalcançável por construção.
  */
 function renderEachItem(
   inner: string,
@@ -204,15 +224,12 @@ function renderEachItem(
   const out = inner.replace(/\{\{\s*([\w]+)\s*\}\}/g, (full, key) => {
     if (Object.prototype.hasOwnProperty.call(item, key)) {
       const value = item[key];
-      if (value !== undefined && value !== null && value !== "") return value;
+      if (hasValue(value)) return value;
       return applyFallback(getFallbackStrategy(key), full, blankLineFormat);
     }
     return full; // token desconhecido — erro de template, sobrevive cru
   });
-  // Suprime sub-cláusulas de qualificação cujo campo com estratégia `omit`
-  // ficou vazio ANTES do cleanup de pontuação — o scaffold inteiro sai, não
-  // só a vírgula. Ordem: suprime → normaliza pontuação remanescente.
-  return cleanOrphanPunctuation(suppressEmptyFieldScaffold(out));
+  return cleanOrphanPunctuation(out);
 }
 
 /**
@@ -290,8 +307,8 @@ export interface ReplaceOptions {
   /**
    * Estratégia aplicada quando o placeholder não tem dado correspondente.
    * Default: `"auto"` — consulta `getFallbackStrategy(key)` para decidir
-   * (`blank_line` para nome/CPF/RG/valores, `omit` para datas de nascimento,
-   * títulos derivados, etc.). Use `"keep_literal"` para preservar o `{{key}}`
+   * (`blank_line` por default desde a inversão 2.2b; `omit` apenas para os
+   * tokens system-derived). Use `"keep_literal"` para preservar o `{{key}}`
    * no resultado (debug ou preview que sinaliza pendências ao usuário).
    */
   fallback?: "auto" | FallbackStrategy;
@@ -302,6 +319,39 @@ export interface ReplaceOptions {
    * contável por `countLacunas`.
    */
   blankLineFormat?: BlankLineFormat;
+}
+
+/**
+ * Bracket que é CITAÇÃO LEGAL, não campo: [Lei 8.245], [art. 5º], [§ 2º],
+ * [inciso II], [parágrafo único], [nº 123] e numerais puros ([123], [1.5]).
+ *
+ * Fonte ÚNICA do filtro no pipeline de RENDER (2.2b, Bloco B) — consumida por
+ * `getUnresolvedPlaceholders` (não reporta como pendência) e pelo passo 2 de
+ * `replacePlaceholders` (permanece CRUA no documento: antes da 2.2b o default
+ * `omit` APAGAVA a citação em silêncio; com o default `blank_line` ela viraria
+ * lacuna indevida — os dois destinos são defeito).
+ *
+ * Cópias DECLARADAS fora deste arquivo (quem alterar o padrão aqui, altera lá
+ * no mesmo commit):
+ *  - `parse-docx-template/index.ts` (edge function): paridade manual — Deno
+ *    não importa de src/lib.
+ *  - `isNonFieldBracket` (import-detection.ts): motor de IMPORT, filtros
+ *    deliberadamente mais agressivos (nº sem âncora, datas literais).
+ *    Unificação é frente própria (backlog 2.2b) — muda semântica do import.
+ *
+ * "§" fora do grupo com \b: não é word char, então o \b nunca casa após ele
+ * (fix da 1.2, item 7). Nenhum dos 171 labels do LEGACY_BRACKET_MAP casa
+ * estes padrões (sonda 2.2b) — o filtro nunca esconde campo real.
+ */
+export function isLegalReference(label: string): boolean {
+  const l = label.trim();
+  if (/^(art\.?|lei|inc(iso)?|par[áa]grafo)\b|^§/i.test(l)) return true;
+  // Numeral puro: [123], [1.5] — referência de item/artigo, não campo.
+  if (/^\d+([.,]\d+)?$/.test(l)) return true;
+  // [nº 123] / [no 123] — âncora $ exige só dígitos após o nº, para nunca
+  // esconder label real tipo "Nº DA MATRÍCULA" (palavras após o Nº).
+  if (/^n[ºo°]\.?\s*\d+$/i.test(l)) return true;
+  return false;
 }
 
 export function replacePlaceholders(
@@ -322,19 +372,23 @@ export function replacePlaceholders(
 
   // 1. Substituir {{key}} e {{ key }}
   result = result.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_match, key) => {
-    if (vars[key] !== undefined && vars[key] !== "") return vars[key];
+    if (hasValue(vars[key])) return vars[key];
     return resolveFallback(key, _match);
   });
 
   // 2. Substituir [LABEL LEGADO]
   result = result.replace(/\[([^\]]+)\]/g, (_match, label) => {
+    // Citação legal não é campo: permanece CRUA — nunca é consumida pelo
+    // fallback (guard-antes, mesma ordem do filtro em getUnresolvedPlaceholders;
+    // sonda 2.2b: nenhum label mapeado casa o filtro).
+    if (isLegalReference(label)) return _match;
     const normalized = label.trim().toUpperCase();
     const canonicalKey = LEGACY_BRACKET_MAP[normalized];
-    if (canonicalKey && vars[canonicalKey] !== undefined && vars[canonicalKey] !== "") {
+    if (canonicalKey && hasValue(vars[canonicalKey])) {
       return vars[canonicalKey];
     }
     const directKey = label.trim().toLowerCase().replace(/[\s/()]+/g, "_");
-    if (vars[directKey] !== undefined && vars[directKey] !== "") {
+    if (hasValue(vars[directKey])) {
       return vars[directKey];
     }
     // Sem dado: aplica fallback usando a chave canônica (se houver)
@@ -370,19 +424,18 @@ export function getUnresolvedPlaceholders(
   const unresolved: string[] = [];
   const curlyMatches = text.matchAll(/\{\{\s*([\w]+)\s*\}\}/g);
   for (const m of curlyMatches) {
-    if (!vars[m[1]] || vars[m[1]].trim() === "") {
+    if (!hasValue(vars[m[1]])) {
       unresolved.push(`{{${m[1]}}}`);
     }
   }
   const bracketMatches = text.matchAll(/\[([^\]]+)\]/g);
   for (const m of bracketMatches) {
     const label = m[1].trim();
-    // "§" fora do grupo com \b: não é word char, então "\b" nunca casa após ele
-    // (mesmo fix do isNonFieldBracket em import-detection.ts — 1.2, item 7).
-    if (/^(art\.?|lei|inc(iso)?|par[áa]grafo)\b|^§/i.test(label)) continue;
-    if (/^\d+([.,]\d+)?$/.test(label)) continue;
+    // Fonte única do filtro de citação legal (2.2b, B1) — mesma chamada do
+    // passo 2 do replacePlaceholders: detector e motor nunca divergem.
+    if (isLegalReference(label)) continue;
     const key = LEGACY_BRACKET_MAP[label.toUpperCase()];
-    if (!key || !vars[key] || vars[key].trim() === "") {
+    if (!key || !hasValue(vars[key])) {
       unresolved.push(`[${label}]`);
     }
   }

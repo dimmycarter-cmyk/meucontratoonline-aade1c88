@@ -10,6 +10,7 @@ import Color from "@tiptap/extension-color";
 import Superscript from "@tiptap/extension-superscript";
 import Subscript from "@tiptap/extension-subscript";
 import { FontSize } from "@/lib/tiptap-font-size";
+import { LacunaMark } from "@/components/editor/lacuna-mark";
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   List, ListOrdered, Heading1, Heading2, Heading3,
@@ -79,6 +80,10 @@ const RichTextEditor = ({ content, onChange, placeholder = "Comece a escrever o 
       FontSize,
       Superscript,
       Subscript,
+      // D1 (2.2b): sem este mark, o reparse do TipTap derruba <span class="lacuna">
+      // ao editar contrato salvo — a lacuna vira texto órfão, invisível para
+      // countLacunas e para o realce.
+      LacunaMark,
       Placeholder.configure({ placeholder }),
     ],
     content,

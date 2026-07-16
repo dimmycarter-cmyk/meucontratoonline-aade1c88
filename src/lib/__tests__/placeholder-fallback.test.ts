@@ -1,23 +1,38 @@
 /**
- * Tabela de fallback (2.2a) — três buckets nomeados.
+ * Tabela de fallback (2.2b, Commit 2) — default INVERTIDO para blank_line.
  *
- * REGRA DA SESSÃO: teste sobre campo essencial vazio NUNCA asserta AUSÊNCIA.
- * Asserção negativa foi o que deixou o `(d)` de template-2-v2 passar liso
- * (o `<strong>` deixou de estar vazio por causa da lacuna, e o teste comemorou
- * pelo motivo errado). Todo teste de lacuna asserta PRESENÇA do span.
+ * REGRA DE OURO (decisão de produto, 2.2b): nenhum campo pode sumir do
+ * documento sem estar numa lista explícita e justificada. omit é exceção
+ * fechada (SYSTEM_DERIVED_FIELDS, derivada de AGREEMENT_TOKEN_SUFFIXES) —
+ * todo o resto é lacuna.
+ *
+ * REGRA DA SESSÃO (2.2a, mantida): teste sobre campo vazio que vira lacuna
+ * NUNCA asserta AUSÊNCIA. Asserção negativa foi o que deixou o `(d)` de
+ * template-2-v2 passar liso (o `<strong>` deixou de estar vazio por causa da
+ * lacuna, e o teste comemorou pelo motivo errado). Todo teste de lacuna
+ * asserta PRESENÇA do span, com contagem exata hardcoded.
  */
 import { describe, it, expect } from "vitest";
 import { replacePlaceholders, getUnresolvedPlaceholders } from "../placeholder";
-import { applyFallback, countLacunas, getFallbackStrategy } from "../placeholder-fallback";
+import {
+  applyFallback,
+  countLacunas,
+  getFallbackStrategy,
+  PLACEHOLDER_FALLBACK_STRATEGY,
+  SYSTEM_DERIVED_FIELDS,
+} from "../placeholder-fallback";
+import { AGREEMENT_TOKEN_SUFFIXES } from "../agreement";
 
 const LACUNA = '<span class="lacuna">__________</span>';
 
 describe("placeholder fallback — estratégia tabular", () => {
-  describe("getFallbackStrategy — bucket BLANK_LINE_PATTERNS (essenciais)", () => {
-    it("RG vira blank_line em qualquer slot (2.2a reverte a ajuste-12)", () => {
+  describe("getFallbackStrategy — DEFAULT blank_line (essenciais seguem lacuna)", () => {
+    it("RG vira blank_line em qualquer slot (2.2a reverte a ajuste-12; 2.2b via default)", () => {
       // A ajuste-12 (Sprint 2) omitia RG vazio: "__________" parecia campo a
       // preencher. O diagnóstico estava certo — e virou REQUISITO: é campo a
       // preencher mesmo. O realce de tela (2.2b) resolve a objeção original.
+      // Desde o Commit 2 estes campos caem no DEFAULT (a tabela A2 foi
+      // aposentada) — as asserções são as mesmas, a rota é o default.
       expect(getFallbackStrategy("vendedor_rg")).toBe("blank_line");
       expect(getFallbackStrategy("comprador_rg")).toBe("blank_line");
       expect(getFallbackStrategy("vendedor2_rg")).toBe("blank_line");
@@ -63,41 +78,72 @@ describe("placeholder fallback — estratégia tabular", () => {
     });
   });
 
-  describe("getFallbackStrategy — PRECEDÊNCIA entre buckets", () => {
-    it("OMIT_EXCEPTIONS vence BLANK_LINE_PATTERNS: data_nascimento casa ^data_ e ainda assim é omit", () => {
-      // ⭐ Este teste prova a PRECEDÊNCIA, não só o resultado. `vendedor_data_nascimento`
-      // casa `^data_`? Não — casa `(^|_)data_nascimento$`. Mas `data_nascimento`
-      // BARE casa OS DOIS buckets; só a precedência estrutural decide.
-      expect(getFallbackStrategy("data_nascimento")).toBe("omit");
-      expect(getFallbackStrategy("vendedor_data_nascimento")).toBe("omit");
-      expect(getFallbackStrategy("comprador_nascimento")).toBe("omit");
+  describe("getFallbackStrategy — SYSTEM_DERIVED_FIELDS (exceção fechada ao default)", () => {
+    it("tokens N2 são omit — e a lista DERIVA de AGREEMENT_TOKEN_SUFFIXES, não de grafia local", () => {
+      // Consome a fonte única do 1.5: sufixo novo na constante tem de virar
+      // omit aqui SEM tocar neste teste nem na tabela.
+      for (const suffix of AGREEMENT_TOKEN_SUFFIXES) {
+        expect(getFallbackStrategy(`vendedores_${suffix}`)).toBe("omit");
+        expect(getFallbackStrategy(`anuentes_${suffix}`)).toBe("omit");
+      }
+      expect(SYSTEM_DERIVED_FIELDS).toHaveLength(AGREEMENT_TOKEN_SUFFIXES.length);
     });
 
-    it("OMIT_EXCEPTIONS vence: *_titulo é andaime interno, nunca lacuna", () => {
+    it("colateral deliberado do sufixo: *_titulo de andaime de template segue omit", () => {
       expect(getFallbackStrategy("clausula_titulo")).toBe("omit");
       expect(getFallbackStrategy("secao_titulo")).toBe("omit");
     });
 
-    it("override por chave EXATA vence os dois buckets de padrão", () => {
-      // imovel_area_total não casa nenhum padrão; os 7 overrides sobreviventes
-      // seguem omit e servem de contrato verificável contra troca de default.
-      expect(getFallbackStrategy("imovel_area_privativa")).toBe("omit");
-      expect(getFallbackStrategy("imovel_area_total")).toBe("omit");
-      expect(getFallbackStrategy("imovel_area_acessoria")).toBe("omit");
-      expect(getFallbackStrategy("imovel_vagas")).toBe("omit");
-      expect(getFallbackStrategy("imovel_cartorio")).toBe("omit");
-      expect(getFallbackStrategy("imovel_inscricao_municipal")).toBe("omit");
-      expect(getFallbackStrategy("imovel_indice_cadastral")).toBe("omit");
+    it("o padrão exige o underscore: 'titulo' BARE não é system-derived → lacuna", () => {
+      // Fail-loud: chave bare que o sistema NÃO injeta é campo de template —
+      // sumir em silêncio esconderia o erro.
+      expect(getFallbackStrategy("titulo")).toBe("blank_line");
+      expect(getFallbackStrategy("artigo")).toBe("blank_line");
+      expect(getFallbackStrategy("denominado")).toBe("blank_line");
+    });
+  });
+
+  describe("getFallbackStrategy — INVERSÃO do default (2.2b, Commit 2)", () => {
+    it("data_nascimento virou LACUNA: é campo pedido ao usuário (ManualParticipantCard), não derivado", () => {
+      // FLIP (a) da 2.2b: a exceção nomeada de data_nascimento saiu junto com
+      // o bucket de exceções da 2.2a. Template que queira ocultá-la usa {{#if}}.
+      expect(getFallbackStrategy("data_nascimento")).toBe("blank_line");
+      expect(getFallbackStrategy("vendedor_data_nascimento")).toBe("blank_line");
+      expect(getFallbackStrategy("comprador_nascimento")).toBe("blank_line");
     });
 
-    it("usa omit como default global", () => {
-      expect(getFallbackStrategy("campo_arbitrario_nao_mapeado")).toBe("omit");
-      expect(getFallbackStrategy("xyz")).toBe("omit");
-      // Não-essenciais do participante seguem omit — o scaffold de e-mail (R3)
-      // depende disso.
-      expect(getFallbackStrategy("email")).toBe("omit");
-      expect(getFallbackStrategy("profissao")).toBe("omit");
-      expect(getFallbackStrategy("estado_civil")).toBe("omit");
+    it("A5: os 7 overrides de imóvel (Sprint 2 / BUG 7) foram REVERTIDOS — viram lacuna", () => {
+      // São campos pedidos ao usuário; ausentes, ninguém pode decidir por ele
+      // que não importavam. Reversão formal registrada no commit da 2.2b.
+      expect(getFallbackStrategy("imovel_area_privativa")).toBe("blank_line");
+      expect(getFallbackStrategy("imovel_area_total")).toBe("blank_line");
+      expect(getFallbackStrategy("imovel_area_acessoria")).toBe("blank_line");
+      expect(getFallbackStrategy("imovel_vagas")).toBe("blank_line");
+      expect(getFallbackStrategy("imovel_cartorio")).toBe("blank_line");
+      expect(getFallbackStrategy("imovel_inscricao_municipal")).toBe("blank_line");
+      expect(getFallbackStrategy("imovel_indice_cadastral")).toBe("blank_line");
+    });
+
+    it("A7: o bucket de chave exata está VAZIO — entrada nova exige justificativa escrita", () => {
+      // Guard estrutural: se alguém ressuscitar um override sem atualizar este
+      // teste (e sem justificar no comentário da linha), quebra aqui.
+      expect(Object.keys(PLACEHOLDER_FALLBACK_STRATEGY)).toHaveLength(0);
+    });
+
+    it("usa blank_line como default global — inclusive campos que eram omit por omissão", () => {
+      expect(getFallbackStrategy("campo_arbitrario_nao_mapeado")).toBe("blank_line");
+      expect(getFallbackStrategy("xyz")).toBe("blank_line");
+      // Qualificação do participante: pedida ao usuário → lacuna. (O scaffold
+      // de e-mail R3 tornou-se inalcançável no pipeline — removida no 3b.)
+      expect(getFallbackStrategy("email")).toBe("blank_line");
+      expect(getFallbackStrategy("profissao")).toBe("blank_line");
+      expect(getFallbackStrategy("estado_civil")).toBe("blank_line");
+    });
+
+    it("A6: empresa_creci vira lacuna — simetria com empresa_cnpj (fecha o scaffold assimétrico)", () => {
+      // Pós-2.2a o cabeçalho saía "CNPJ: __________ — CRECI: " (assimétrico).
+      expect(getFallbackStrategy("empresa_creci")).toBe("blank_line");
+      expect(getFallbackStrategy("empresa_cnpj")).toBe("blank_line");
     });
   });
 
@@ -178,16 +224,16 @@ describe("placeholder fallback — estratégia tabular", () => {
     });
   });
 
-  describe("replacePlaceholders — auto (default), campo NÃO essencial", () => {
-    it("data de nascimento vazia SOME (cleanup colapsa espaço duplo)", () => {
+  describe("replacePlaceholders — auto (default), campo não derivado pelo sistema", () => {
+    it("data de nascimento vazia deixa LACUNA (flip 2.2b — campo pedido ao usuário)", () => {
       const out = replacePlaceholders("Data nasc: {{vendedor_data_nascimento}} fim", {}, {
         blankLineFormat: "html",
       });
-      expect(out).toBe("Data nasc: fim");
-      expect(countLacunas(out)).toBe(0);
+      expect(out).toBe(`Data nasc: ${LACUNA} fim`);
+      expect(countLacunas(out)).toBe(1);
     });
 
-    it("título derivado vazio SOME", () => {
+    it("título derivado vazio SOME (system-derived: única rota de omit restante)", () => {
       const out = replacePlaceholders("<h3>{{clausula_titulo}}</h3>", {}, {
         blankLineFormat: "html",
       });
@@ -195,8 +241,10 @@ describe("placeholder fallback — estratégia tabular", () => {
       expect(countLacunas(out)).toBe(0);
     });
 
-    it("campo arbitrário sem dado aplica omit (default)", () => {
-      expect(replacePlaceholders("início {{campo_qualquer}} fim", {})).toBe("início fim");
+    it("campo arbitrário sem dado deixa lacuna (default invertido, formato text)", () => {
+      expect(replacePlaceholders("início {{campo_qualquer}} fim", {})).toBe(
+        "início __________ fim"
+      );
     });
   });
 
@@ -231,7 +279,7 @@ describe("placeholder fallback — estratégia tabular", () => {
       expect(getUnresolvedPlaceholders(html, {})).toContain("{{vendedor_rg}}");
     });
 
-    it("continua reportando data de nascimento vazia mesmo com omit", () => {
+    it("continua reportando data de nascimento vazia — detecção independe da estratégia", () => {
       const html = "Data: {{vendedor_data_nascimento}}";
       replacePlaceholders(html, {});
       expect(getUnresolvedPlaceholders(html, {})).toContain("{{vendedor_data_nascimento}}");

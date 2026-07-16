@@ -14,6 +14,8 @@ interface WizardStepEditorProps {
   conteudoFinal: string;
   onConteudoChange: (html: string) => void;
   liveUnresolved: UnresolvedItem[];
+  /** Lacunas anônimas (spans intra-each) já renderizadas — soma no total (D4, 2.2b). */
+  lacunaCount?: number;
   onShowPendencias: () => void;
   selectedClauses: Clause[];
   selectedTemplateName?: string;
@@ -37,6 +39,7 @@ export default function WizardStepEditor({
   conteudoFinal,
   onConteudoChange,
   liveUnresolved,
+  lacunaCount = 0,
   onShowPendencias,
   selectedClauses,
   selectedTemplateName,
@@ -52,15 +55,17 @@ export default function WizardStepEditor({
       <h2 className="font-display text-lg font-semibold text-foreground">Editor do Contrato</h2>
       <p className="text-sm text-muted-foreground">Revise e ajuste o conteúdo final do contrato.</p>
 
-      {liveUnresolved.length > 0 && (
+      {liveUnresolved.length + lacunaCount > 0 && (
         <Alert className="border-warning/50 bg-warning/10">
           <AlertTriangle className="h-4 w-4 text-warning" />
           <AlertTitle className="text-warning">
-            {liveUnresolved.length} campo{liveUnresolved.length > 1 ? "s" : ""} sem dados
+            {liveUnresolved.length + lacunaCount} campo
+            {liveUnresolved.length + lacunaCount > 1 ? "s" : ""} em branco
           </AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-3">
             <span className="text-sm">
-              Existem placeholders não resolvidos no contrato. A exportação para PDF está bloqueada até que sejam corrigidos.
+              Campos em branco saem no PDF como linha para preenchimento à mão
+              (__________). Ao exportar, você poderá revisar a lista e confirmar.
             </span>
             <Button size="sm" variant="outline" onClick={onShowPendencias}>
               Ver pendências
