@@ -36,6 +36,24 @@ import {
 export const LEGACY_BRACKET_MAP: Record<string, string> = buildLegacyBracketMap();
 
 /**
+ * Fonte ÚNICA da semântica vazio-vs-cheio do motor E do detector (2.2b, 3a).
+ *
+ * Valor whitespace-only (" ") é VAZIO. Sem isto, `rg=" "` não virava valor
+ * legível nem lacuna — silêncio que a Regra de Ouro do Commit 2 proíbe — e o
+ * detector (`getUnresolvedPlaceholders`, que sempre trimou) divergia do motor
+ * sobre o MESMO campo: acusava pendência num placeholder que o replace
+ * tratava como preenchido (a doença E1, de novo).
+ *
+ * ESCOPO: decide apenas o CHECK vazio-vs-cheio. O VALOR emitido permanece
+ * cru (" João " sai como veio): normalizar padding do valor emitido é
+ * pergunta separada (backlog 2.2b) — blast radius diferente, campo que hoje
+ * funciona.
+ */
+function hasValue(v: unknown): boolean {
+  return v !== undefined && v !== null && String(v).trim() !== "";
+}
+
+/**
  * Remove blocos condicionais {{#if FLAG}}…{{/if}} cuja FLAG não esteja
  * truthy em `vars` (truthy = "true" case-insensitive).
  *
@@ -204,7 +222,7 @@ function renderEachItem(
   const out = inner.replace(/\{\{\s*([\w]+)\s*\}\}/g, (full, key) => {
     if (Object.prototype.hasOwnProperty.call(item, key)) {
       const value = item[key];
-      if (value !== undefined && value !== null && value !== "") return value;
+      if (hasValue(value)) return value;
       return applyFallback(getFallbackStrategy(key), full, blankLineFormat);
     }
     return full; // token desconhecido — erro de template, sobrevive cru
@@ -290,8 +308,8 @@ export interface ReplaceOptions {
   /**
    * Estratégia aplicada quando o placeholder não tem dado correspondente.
    * Default: `"auto"` — consulta `getFallbackStrategy(key)` para decidir
-   * (`blank_line` para nome/CPF/RG/valores, `omit` para datas de nascimento,
-   * títulos derivados, etc.). Use `"keep_literal"` para preservar o `{{key}}`
+   * (`blank_line` por default desde a inversão 2.2b; `omit` apenas para os
+   * tokens system-derived). Use `"keep_literal"` para preservar o `{{key}}`
    * no resultado (debug ou preview que sinaliza pendências ao usuário).
    */
   fallback?: "auto" | FallbackStrategy;
@@ -355,7 +373,7 @@ export function replacePlaceholders(
 
   // 1. Substituir {{key}} e {{ key }}
   result = result.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_match, key) => {
-    if (vars[key] !== undefined && vars[key] !== "") return vars[key];
+    if (hasValue(vars[key])) return vars[key];
     return resolveFallback(key, _match);
   });
 
@@ -367,11 +385,11 @@ export function replacePlaceholders(
     if (isLegalReference(label)) return _match;
     const normalized = label.trim().toUpperCase();
     const canonicalKey = LEGACY_BRACKET_MAP[normalized];
-    if (canonicalKey && vars[canonicalKey] !== undefined && vars[canonicalKey] !== "") {
+    if (canonicalKey && hasValue(vars[canonicalKey])) {
       return vars[canonicalKey];
     }
     const directKey = label.trim().toLowerCase().replace(/[\s/()]+/g, "_");
-    if (vars[directKey] !== undefined && vars[directKey] !== "") {
+    if (hasValue(vars[directKey])) {
       return vars[directKey];
     }
     // Sem dado: aplica fallback usando a chave canônica (se houver)
@@ -407,7 +425,7 @@ export function getUnresolvedPlaceholders(
   const unresolved: string[] = [];
   const curlyMatches = text.matchAll(/\{\{\s*([\w]+)\s*\}\}/g);
   for (const m of curlyMatches) {
-    if (!vars[m[1]] || vars[m[1]].trim() === "") {
+    if (!hasValue(vars[m[1]])) {
       unresolved.push(`{{${m[1]}}}`);
     }
   }
@@ -418,7 +436,7 @@ export function getUnresolvedPlaceholders(
     // passo 2 do replacePlaceholders: detector e motor nunca divergem.
     if (isLegalReference(label)) continue;
     const key = LEGACY_BRACKET_MAP[label.toUpperCase()];
-    if (!key || !vars[key] || vars[key].trim() === "") {
+    if (!key || !hasValue(vars[key])) {
       unresolved.push(`[${label}]`);
     }
   }
