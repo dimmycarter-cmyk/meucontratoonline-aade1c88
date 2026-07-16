@@ -304,6 +304,39 @@ export interface ReplaceOptions {
   blankLineFormat?: BlankLineFormat;
 }
 
+/**
+ * Bracket que é CITAÇÃO LEGAL, não campo: [Lei 8.245], [art. 5º], [§ 2º],
+ * [inciso II], [parágrafo único], [nº 123] e numerais puros ([123], [1.5]).
+ *
+ * Fonte ÚNICA do filtro no pipeline de RENDER (2.2b, Bloco B) — consumida por
+ * `getUnresolvedPlaceholders` (não reporta como pendência) e pelo passo 2 de
+ * `replacePlaceholders` (permanece CRUA no documento: antes da 2.2b o default
+ * `omit` APAGAVA a citação em silêncio; com o default `blank_line` ela viraria
+ * lacuna indevida — os dois destinos são defeito).
+ *
+ * Cópias DECLARADAS fora deste arquivo (quem alterar o padrão aqui, altera lá
+ * no mesmo commit):
+ *  - `parse-docx-template/index.ts` (edge function): paridade manual — Deno
+ *    não importa de src/lib.
+ *  - `isNonFieldBracket` (import-detection.ts): motor de IMPORT, filtros
+ *    deliberadamente mais agressivos (nº sem âncora, datas literais).
+ *    Unificação é frente própria (backlog 2.2b) — muda semântica do import.
+ *
+ * "§" fora do grupo com \b: não é word char, então o \b nunca casa após ele
+ * (fix da 1.2, item 7). Nenhum dos 171 labels do LEGACY_BRACKET_MAP casa
+ * estes padrões (sonda 2.2b) — o filtro nunca esconde campo real.
+ */
+export function isLegalReference(label: string): boolean {
+  const l = label.trim();
+  if (/^(art\.?|lei|inc(iso)?|par[áa]grafo)\b|^§/i.test(l)) return true;
+  // Numeral puro: [123], [1.5] — referência de item/artigo, não campo.
+  if (/^\d+([.,]\d+)?$/.test(l)) return true;
+  // [nº 123] / [no 123] — âncora $ exige só dígitos após o nº, para nunca
+  // esconder label real tipo "Nº DA MATRÍCULA" (palavras após o Nº).
+  if (/^n[ºo°]\.?\s*\d+$/i.test(l)) return true;
+  return false;
+}
+
 export function replacePlaceholders(
   text: string,
   vars: Record<string, string>,
@@ -328,6 +361,10 @@ export function replacePlaceholders(
 
   // 2. Substituir [LABEL LEGADO]
   result = result.replace(/\[([^\]]+)\]/g, (_match, label) => {
+    // Citação legal não é campo: permanece CRUA — nunca é consumida pelo
+    // fallback (guard-antes, mesma ordem do filtro em getUnresolvedPlaceholders;
+    // sonda 2.2b: nenhum label mapeado casa o filtro).
+    if (isLegalReference(label)) return _match;
     const normalized = label.trim().toUpperCase();
     const canonicalKey = LEGACY_BRACKET_MAP[normalized];
     if (canonicalKey && vars[canonicalKey] !== undefined && vars[canonicalKey] !== "") {
@@ -377,10 +414,9 @@ export function getUnresolvedPlaceholders(
   const bracketMatches = text.matchAll(/\[([^\]]+)\]/g);
   for (const m of bracketMatches) {
     const label = m[1].trim();
-    // "§" fora do grupo com \b: não é word char, então "\b" nunca casa após ele
-    // (mesmo fix do isNonFieldBracket em import-detection.ts — 1.2, item 7).
-    if (/^(art\.?|lei|inc(iso)?|par[áa]grafo)\b|^§/i.test(label)) continue;
-    if (/^\d+([.,]\d+)?$/.test(label)) continue;
+    // Fonte única do filtro de citação legal (2.2b, B1) — mesma chamada do
+    // passo 2 do replacePlaceholders: detector e motor nunca divergem.
+    if (isLegalReference(label)) continue;
     const key = LEGACY_BRACKET_MAP[label.toUpperCase()];
     if (!key || !vars[key] || vars[key].trim() === "") {
       unresolved.push(`[${label}]`);

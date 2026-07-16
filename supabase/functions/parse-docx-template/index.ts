@@ -121,11 +121,14 @@ Deno.serve(async (req: Request) => {
       const raw = `[${m[1]}]`;
       const labelUpper = m[1].trim().toUpperCase();
 
-      // Filtra falsos positivos: numerais, refs legais.
-      // "§" fora do grupo com \b (não é word char — paridade com o fix de
-      // isNonFieldBracket/getUnresolvedPlaceholders, 1.2 item 7).
+      // Filtra falsos positivos: numerais, refs legais, [nº 123].
+      // CÓPIA DECLARADA de isLegalReference (src/lib/placeholder.ts, fonte
+      // única do filtro no render — 2.2b B3): Deno não importa de src/lib.
+      // Quem alterar o padrão lá, altera aqui no mesmo commit.
+      // "§" fora do grupo com \b (não é word char — fix 1.2 item 7).
       if (/^\d+([.,]\d+)?$/.test(m[1].trim())) continue;
       if (/^(art\.?|lei|inc(iso)?|par[áa]grafo)\b|^§/i.test(m[1].trim())) continue;
+      if (/^n[ºo°]\.?\s*\d+$/i.test(m[1].trim())) continue;
 
       const startCtx = Math.max(0, m.index - 80);
       const endCtx = Math.min(text.length, m.index + m[0].length + 30);
